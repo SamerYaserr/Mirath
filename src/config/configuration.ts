@@ -21,6 +21,20 @@ const envSchema = z.object({
   NODE_ENV: z.enum(NodeEnv).default(NodeEnv.DEVELOPMENT),
 
   LOG_LEVEL: z.enum(LogLevel).default(LogLevel.INFO),
+
+  SMTP_HOST: z.string().min(1),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535),
+  SMTP_USER: z.string().min(1),
+  SMTP_PASS: z.string().min(1),
+
+  // Preprocess: if user provided "Name <email>" extract the email for validation
+  EMAIL_FROM: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const m = val.match(/<([^>]+)>$/);
+      return m ? m[1] : val;
+    }
+    return val;
+  }, z.string().email().optional()),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
