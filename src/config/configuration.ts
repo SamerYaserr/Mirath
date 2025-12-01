@@ -35,6 +35,10 @@ const envSchema = z.object({
     }
     return val;
   }, z.string().email().optional()),
+  POSTGRES_DB: z.string().min(1),
+  POSTGRES_USER: z.string().min(1),
+  POSTGRES_PASSWORD: z.string().min(1),
+  DATABASE_URL: z.string().url(),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

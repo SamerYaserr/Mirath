@@ -1,0 +1,35 @@
+version: '3.9'
+
+services:
+  backend:
+    container_name: mirath-backend
+    build:
+      context: .
+      target: development # use dev stage from Dockerfile
+    command: npm run start:dev # hot reload
+    ports:
+      - '3000:3000' # host:container
+    env_file:
+      - .env # will hold DATABASE_URL, etc.
+    volumes:
+      - .:/usr/src/app # mount source code for hot reload
+      - /usr/src/app/node_modules # keep node_modules inside container
+    depends_on:
+      - db
+    restart: always # required restart policy
+
+  db:
+    container_name: mirath-db
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - '5433:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data # data persistence
+    restart: always
+
+volumes:
+  db-data:
