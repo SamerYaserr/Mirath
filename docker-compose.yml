@@ -22,9 +22,9 @@ services:
     container_name: mirath-db
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: mirath
-      POSTGRES_USER: mirath_user
-      POSTGRES_PASSWORD: mirath_pass
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - '5433:5432'
     volumes:
