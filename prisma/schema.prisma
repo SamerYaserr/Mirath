@@ -40,6 +40,7 @@ model User {
   updatedAt        DateTime   @updatedAt
 
   otpVerifications OtpVerification[]
+  refreshTokens    RefreshToken[]
 
   @@unique([providerId])
   @@index([email])
@@ -61,5 +62,21 @@ model OtpVerification {
 
   @@index([userId])
   @@index([otpCode])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  sessionId String?  @db.Uuid
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionId])
   @@index([expiresAt])
 }
