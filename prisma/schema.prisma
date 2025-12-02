@@ -42,6 +42,7 @@ model User {
   otpVerifications OtpVerification[]
   refreshTokens    RefreshToken[]
   userInterests    UserInterest[]
+  userFields       UserField[]
 
   @@unique([providerId])
   @@index([email])
@@ -101,4 +102,25 @@ model UserInterest {
   @@id([userId, interestId])
   @@index([userId])
   @@index([interestId])
+}
+
+model FieldOfStudy {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
+
+  users UserField[]
+
+  @@index([name])
+}
+
+model UserField {
+  userId  String @db.Uuid
+  fieldId String @db.Uuid
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field FieldOfStudy @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@id([userId, fieldId])
+  @@index([userId])
+  @@index([fieldId])
 }
