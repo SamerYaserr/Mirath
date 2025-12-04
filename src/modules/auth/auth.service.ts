@@ -96,13 +96,17 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) throw new BadRequestException('Invalid request');
 
-    const otpRecord = await this.otpRepository.findValidOtp(
+    const otpRecord = await this.otpRepository.findPendingOtp(
       user.id,
-      dto.otp,
       OtpPurpose.REGISTER,
     );
 
     if (!otpRecord) throw new BadRequestException('Invalid or expired OTP');
+
+    const isMatch = await bcrypt.compare(dto.otp, otpRecord.otpCode);
+    if (!isMatch) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
 
     await this.otpRepository.markAsUsed(otpRecord.id);
     const updatedUser = await this.userRepository.updateStatus(

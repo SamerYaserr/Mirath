@@ -16,18 +16,19 @@ export class OtpRepository {
     return this.prisma.otpVerification.create({ data });
   }
 
-  async findValidOtp(
+  async findPendingOtp(
     userId: string,
-    otpCode: string,
     purpose: OtpPurpose,
   ): Promise<OtpVerification | null> {
     return this.prisma.otpVerification.findFirst({
       where: {
         userId,
-        otpCode,
         purpose,
         isUsed: false,
-        expiresAt: { gt: new Date() }, // Query filters expired OTPs automatically
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
