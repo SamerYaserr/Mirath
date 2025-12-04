@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
+import { ResendVerificationDto } from './dto/resendVerification.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -75,6 +76,20 @@ export class AuthController {
     this.setRefreshTokenCookie(res, refreshToken);
 
     return { accessToken };
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend Verification OTP',
+    description: 'Resends OTP. Limited to 5/hour.',
+  })
+  @ApiBody({ type: ResendVerificationDto })
+  @ApiResponse({ status: 200, description: 'New verification email sent.' })
+  async resendVerification(
+    @Body() resendVerificationDto: ResendVerificationDto,
+  ) {
+    return this.authService.resendVerification(resendVerificationDto);
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {

@@ -17,6 +17,7 @@ import { winstonLogger } from 'src/config/logger.config';
 import { TokenService } from './utils/token.service';
 import { RefreshTokenRepository } from './repositories/refreshToken.repository';
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
+import { ResendVerificationDto } from './dto/resendVerification.dto';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +34,6 @@ export class AuthService {
     if (signupDto.password !== signupDto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
-    console.log('Checking existing user for signup...');
 
     const existingUser = await this.userRepository.findByEmailOrUsername(
       signupDto.email,
@@ -92,8 +92,8 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(dto: VerifyEmailDto) {
-    const user = await this.userRepository.findByEmail(dto.email);
+  async verifyEmail(verifyEmailDto: VerifyEmailDto) {
+    const user = await this.userRepository.findByEmail(verifyEmailDto.email);
     if (!user) throw new BadRequestException('Invalid request');
 
     const otpRecord = await this.otpRepository.findPendingOtp(
@@ -103,7 +103,7 @@ export class AuthService {
 
     if (!otpRecord) throw new BadRequestException('Invalid or expired OTP');
 
-    const isMatch = await bcrypt.compare(dto.otp, otpRecord.otpCode);
+    const isMatch = await bcrypt.compare(verifyEmailDto.otp, otpRecord.otpCode);
     if (!isMatch) {
       throw new BadRequestException('Invalid or expired OTP');
     }
@@ -119,10 +119,43 @@ export class AuthService {
     return this.createSession(updatedUser.id, updatedUser.email);
   }
 
+  async resendVerification(resendVerificationDto: ResendVerificationDto) {
+    const user = await this.userRepository.findByEmail(
+      resendVerificationDto.email,
+    );
+    if (!user) throw new BadRequestException('User not found');
+    if (user.status === UserStatus.ACTIVE)
+      throw new BadRequestException('Account already verified');
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentOtps = await this.otpRepository.countRecentOtps(
+      user.id,
+      OtpPurpose.REGISTER,
+      oneHourAgo,
+    );
+
+    if (recentOtps >= 5) {
+      throw new BadRequestException(
+        'Too many resend attempts. Please try again later.',
+      );
+    }
+
+    await this.otpRepository.invalidatePendingOtps(
+      user.id,
+      OtpPurpose.REGISTER,
+    );
+
+    await this.generateAndSendOtp(user.id, user.email);
+
+    return { message: 'Verification code resent successfully' };
+  }
+
   // --- Helpers ---
 
   private async generateAndSendOtp(userId: string, email: string) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const hashedOtp = await bcrypt.hash(otp, 10);
 
     const expirationMinutes = this.configService.get<number>(
       'OTP_EXPIRATION_MINUTES',
@@ -132,7 +165,7 @@ export class AuthService {
 
     await this.otpRepository.create({
       userId,
-      otpCode: otp,
+      otpCode: hashedOtp,
       purpose: OtpPurpose.REGISTER,
       expiresAt,
     });

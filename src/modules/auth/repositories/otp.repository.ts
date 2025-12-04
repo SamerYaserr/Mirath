@@ -39,4 +39,32 @@ export class OtpRepository {
       data: { isUsed: true },
     });
   }
+
+  async countRecentOtps(
+    userId: string,
+    purpose: OtpPurpose,
+    since: Date,
+  ): Promise<number> {
+    return await this.prisma.otpVerification.count({
+      where: {
+        userId,
+        purpose,
+        createdAt: { gte: since },
+      },
+    });
+  }
+
+  async invalidatePendingOtps(
+    userId: string,
+    purpose: OtpPurpose,
+  ): Promise<void> {
+    await this.prisma.otpVerification.updateMany({
+      where: {
+        userId,
+        purpose,
+        isUsed: false,
+      },
+      data: { isUsed: true },
+    });
+  }
 }
