@@ -7,6 +7,8 @@ import { AppController } from './app.controller';
 import { configuration } from './config/configuration';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { HealthModule } from './modules/health/health.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { HealthModule } from './modules/health/health.module';
       load: [configuration],
     }),
     HealthModule,
+    AuthModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [

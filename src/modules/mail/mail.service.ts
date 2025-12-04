@@ -16,4 +16,16 @@ export class MailService {
       },
     });
   }
+
+  async sendOtpEmail(email: string, otp: string) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Verify your email address',
+      template: 'otp',
+      context: {
+        otp: otp,
+        year: new Date().getFullYear(),
+      },
+    });
+  }
 }
