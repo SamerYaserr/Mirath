@@ -1,4 +1,13 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Res,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
@@ -10,11 +19,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { VerifyEmailDto } from './dto/verifyEmail.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('signup')
   @ApiOperation({
@@ -41,5 +54,41 @@ export class AuthController {
   async signup(@Body() signupDto: SignupDto) {
     console.log('Received signup request:', signupDto);
     return this.authService.signup(signupDto);
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify email address',
+    description: 'Validates OTP, activates account, returns tokens.',
+  })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiResponse({ status: 200, description: 'Email successfully verified.' })
+  @ApiBadRequestResponse({ description: 'Invalid or Expired OTP.' })
+  async verifyEmail(
+    @Body() verifyEmailDto: VerifyEmailDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken } =
+      await this.authService.verifyEmail(verifyEmailDto);
+
+    this.setRefreshTokenCookie(res, refreshToken);
+
+    return { accessToken };
+  }
+
+  private setRefreshTokenCookie(res: Response, token: string) {
+    const refreshDays = this.configService.get<number>(
+      'JWT_REFRESH_EXPIRATION_DAYS',
+      7,
+    );
+
+    res.cookie('refreshToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: refreshDays * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
   }
 }

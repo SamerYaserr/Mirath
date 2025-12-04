@@ -14,14 +14,19 @@ import { UserRepository } from './repositories/user.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { MailService } from '../mail/mail.service';
 import { winstonLogger } from 'src/config/logger.config';
+import { TokenService } from './utils/token.service';
+import { RefreshTokenRepository } from './repositories/refreshToken.repository';
+import { VerifyEmailDto } from './dto/verifyEmail.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private userRepository: UserRepository,
     private otpRepository: OtpRepository,
+    private refreshTokenRepository: RefreshTokenRepository,
     private mailService: MailService,
     private configService: ConfigService,
+    private tokenService: TokenService,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -87,6 +92,29 @@ export class AuthService {
     };
   }
 
+  async verifyEmail(dto: VerifyEmailDto) {
+    const user = await this.userRepository.findByEmail(dto.email);
+    if (!user) throw new BadRequestException('Invalid request');
+
+    const otpRecord = await this.otpRepository.findValidOtp(
+      user.id,
+      dto.otp,
+      OtpPurpose.REGISTER,
+    );
+
+    if (!otpRecord) throw new BadRequestException('Invalid or expired OTP');
+
+    await this.otpRepository.markAsUsed(otpRecord.id);
+    const updatedUser = await this.userRepository.updateStatus(
+      user.id,
+      UserStatus.ACTIVE,
+    );
+
+    await this.mailService.sendWelcome(user);
+
+    return this.createSession(updatedUser.id, updatedUser.email);
+  }
+
   // --- Helpers ---
 
   private async generateAndSendOtp(userId: string, email: string) {
@@ -106,5 +134,23 @@ export class AuthService {
     });
 
     await this.mailService.sendOtpEmail(email, otp);
+  }
+
+  private async createSession(userId: string, email: string) {
+    const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
+
+    const refreshTokenRecord = await this.refreshTokenRepository.create(
+      userId,
+      refreshExpiresAt,
+    );
+
+    const { accessToken, refreshToken } =
+      await this.tokenService.generateAuthTokens(
+        userId,
+        email,
+        refreshTokenRecord.id,
+      );
+
+    return { accessToken, refreshToken };
   }
 }

@@ -8,10 +8,14 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
+import cookieParser from 'cookie-parser';
+
 import { winstonLogger } from './config/logger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(cookieParser());
 
   app.setGlobalPrefix('api');
 
