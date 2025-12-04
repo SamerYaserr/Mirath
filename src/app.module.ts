@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { configuration } from './config/configuration';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
       load: [configuration],
     }),
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [
