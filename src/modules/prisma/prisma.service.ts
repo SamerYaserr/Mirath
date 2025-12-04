@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 import { configuration } from '../../config/configuration';
 import { winstonLogger } from '../../config/logger.config';
@@ -13,9 +14,11 @@ export class PrismaService
   constructor() {
     const config = configuration();
 
-    const adapter = new PrismaPg({
-      url: config.DATABASE_URL,
+    const pool = new Pool({ 
+        connectionString: config.DATABASE_URL 
     });
+
+    const adapter = new PrismaPg(pool);
 
     super({
       adapter,
