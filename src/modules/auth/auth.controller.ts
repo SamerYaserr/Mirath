@@ -24,6 +24,7 @@ import {
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
+import { LoginDto } from './dto/login.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -126,6 +127,39 @@ export class AuthController {
       message: result.message,
       user: result.user,
       accessToken: result.accessToken,
+    };
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Login',
+    description: 'Authenticate user with email/username and password',
+  })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials',
+  })
+  @ApiForbiddenResponse({
+    description: 'Account not verified or suspended',
+  })
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(loginDto);
+    const { message, user, accessToken, refreshToken } = result;
+
+    this.setRefreshTokenCookie(res, refreshToken);
+
+    return {
+      message,
+      user,
+      accessToken,
     };
   }
 
