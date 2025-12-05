@@ -32,4 +32,15 @@ export class UserRepository {
       data: { status },
     });
   }
+
+  async updateGoogleProvider(
+    id: string,
+    providerId: string,
+    photoUrl: string,
+  ): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { providerId, photoUrl },
+    });
+  }
 }

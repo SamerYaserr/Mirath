@@ -15,12 +15,15 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
+import { GoogleAuthDto } from './dto/googleAuth.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -90,6 +93,40 @@ export class AuthController {
     @Body() resendVerificationDto: ResendVerificationDto,
   ) {
     return this.authService.resendVerification(resendVerificationDto);
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Google Authentication (Login & Signup)',
+    description: `
+      **Handles both Signup and Login:**
+      - If the user **exists**, it logs them in.
+      - If the user **does not exist**, it creates an account and logs them in.
+      **How to use:**
+      1. **Frontend:** Use the Google Identity Services SDK (or React/Flutter wrapper) to sign the user in.
+      2. **Frontend:** Receive the \`credential\` (this is the **ID Token**).
+      3. **Frontend:** Send a POST request to this endpoint with \`{ "idToken": "YOUR_ID_TOKEN" }\`.
+      4. **Backend:** Verifies the token, creates/logs in the user, and sets the HttpOnly Refresh Token cookie.
+    `,
+  })
+  @ApiBody({ type: GoogleAuthDto })
+  @ApiResponse({ status: 200, description: 'Authentication successful.' })
+  @ApiUnauthorizedResponse({ description: 'Invalid Google Token' })
+  @ApiForbiddenResponse({ description: 'Account suspended' })
+  async googleAuth(
+    @Body() googleAuthDto: GoogleAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.authenticateWithGoogle(googleAuthDto);
+
+    this.setRefreshTokenCookie(res, result.refreshToken);
+
+    return {
+      message: result.message,
+      user: result.user,
+      accessToken: result.accessToken,
+    };
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {

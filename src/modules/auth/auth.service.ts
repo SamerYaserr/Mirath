@@ -4,10 +4,12 @@ import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { OtpPurpose, UserStatus } from '@prisma/client';
+import { OtpPurpose, User, UserStatus } from '@prisma/client';
+import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
 import { SignupDto } from './dto/signup.dto';
 import { UserRepository } from './repositories/user.repository';
@@ -18,9 +20,12 @@ import { TokenService } from './utils/token.service';
 import { RefreshTokenRepository } from './repositories/refreshToken.repository';
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
+import { GoogleAuthDto } from './dto/googleAuth.dto';
 
 @Injectable()
 export class AuthService {
+  private googleClient: OAuth2Client;
+
   constructor(
     private userRepository: UserRepository,
     private otpRepository: OtpRepository,
@@ -28,7 +33,12 @@ export class AuthService {
     private mailService: MailService,
     private configService: ConfigService,
     private tokenService: TokenService,
-  ) {}
+  ) {
+    this.googleClient = new OAuth2Client(
+      this.configService.get('GOOGLE_CLIENT_ID'),
+      this.configService.get('GOOGLE_CLIENT_SECRET'),
+    );
+  }
 
   async signup(signupDto: SignupDto) {
     if (signupDto.password !== signupDto.confirmPassword) {
@@ -116,7 +126,7 @@ export class AuthService {
 
     await this.mailService.sendWelcome(user);
 
-    return this.createSession(updatedUser.id, updatedUser.email);
+    return this.createSession(updatedUser, 'Email verified successfully');
   }
 
   async resendVerification(resendVerificationDto: ResendVerificationDto) {
@@ -150,6 +160,102 @@ export class AuthService {
     return { message: 'Verification code resent successfully' };
   }
 
+  async authenticateWithGoogle(googleAuthDto: GoogleAuthDto) {
+    let ticket: LoginTicket | undefined;
+    try {
+      const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+      if (!googleClientId) {
+        throw new InternalServerErrorException(
+          'Google Client ID is not configured',
+        );
+      }
+
+      ticket = await this.googleClient.verifyIdToken({
+        idToken: googleAuthDto.idToken,
+        audience: googleClientId,
+      });
+    } catch (error) {
+      winstonLogger.error('Google ID Token verification failed', { error });
+      throw new UnauthorizedException('Invalid or expired Google token');
+    }
+
+    const payload = ticket.getPayload();
+
+    if (!payload) throw new UnauthorizedException('Invalid token payload');
+    if (!payload.sub)
+      throw new UnauthorizedException('Missing Google user ID (sub)');
+    if (!payload.email)
+      throw new UnauthorizedException('Email not provided by Google');
+    if (!payload.email_verified)
+      throw new UnauthorizedException('Google email not verified');
+
+    const email = payload.email.toLowerCase();
+    let user = await this.userRepository.findByEmail(email);
+
+    // Existing user
+    if (user) {
+      // Block suspended/banned/deactivated
+      if (
+        user.status === UserStatus.SUSPENDED ||
+        user.status === UserStatus.BANNED
+      ) {
+        throw new ForbiddenException(
+          'This account has been suspended. Please contact support.',
+        );
+      }
+      if (user.status === UserStatus.DEACTIVATED) {
+        throw new ForbiddenException(
+          'Your account is deactivated. Please request reactivation.',
+        );
+      }
+
+      // Auto-activate pending users
+      if (user.status === UserStatus.PENDING_VERIFICATION) {
+        user = await this.userRepository.updateStatus(
+          user.id,
+          UserStatus.ACTIVE,
+        );
+      }
+
+      if (!user.providerId || user.providerId !== payload.sub) {
+        if (user.providerId) {
+          winstonLogger.warn(
+            `User ${user.id} logging in with different Google account`,
+          );
+          throw new ConflictException(
+            'This email is already associated with a different Google account. Please use the correct Google account to log in.',
+          );
+        }
+        await this.userRepository.updateGoogleProvider(
+          user.id,
+          payload.sub,
+          payload.picture ?? '',
+        );
+      }
+
+      return this.createSession(user, 'Logged in successfully');
+    }
+
+    // Create New User
+    winstonLogger.info(`Creating new Google user: ${email}`);
+
+    const baseUsername =
+      email.split('@')[0]!.replace(/[^a-zA-Z0-9]/g, '') || 'user';
+    let username = `${baseUsername}_${Date.now().toString(36)}`;
+
+    user = await this.userRepository.create({
+      email,
+      username,
+      fullName: payload.name || payload.given_name || 'User',
+      providerId: payload.sub,
+      photoUrl: payload.picture ?? null,
+      status: UserStatus.ACTIVE,
+      isEmailVisible: true,
+    });
+
+    return this.createSession(user, 'Account created successfully with Google');
+  }
+
   // --- Helpers ---
 
   private async generateAndSendOtp(userId: string, email: string) {
@@ -173,21 +279,32 @@ export class AuthService {
     await this.mailService.sendOtpEmail(email, otp);
   }
 
-  private async createSession(userId: string, email: string) {
+  private async createSession(user: User, message: string) {
     const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
 
     const refreshTokenRecord = await this.refreshTokenRepository.create(
-      userId,
+      user.id,
       refreshExpiresAt,
     );
 
     const { accessToken, refreshToken } =
       await this.tokenService.generateAuthTokens(
-        userId,
-        email,
+        user.id,
+        user.email,
         refreshTokenRecord.id,
       );
 
-    return { accessToken, refreshToken };
+    return {
+      message,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        photoUrl: user.photoUrl,
+        status: user.status,
+      },
+      accessToken,
+      refreshToken,
+    };
   }
 }
