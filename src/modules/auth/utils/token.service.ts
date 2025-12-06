@@ -18,6 +18,7 @@ export class TokenService {
     userId: string,
     email: string,
     refreshTokenId: string,
+    sessionId: string,
   ): Promise<TokenResult> {
     const payload = { sub: userId, email };
 
@@ -25,6 +26,7 @@ export class TokenService {
       sub: userId,
       email,
       jti: refreshTokenId,
+      sid: sessionId,
     };
 
     const accessMinutes = this.configService.get<number>(

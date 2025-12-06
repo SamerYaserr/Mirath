@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
@@ -51,34 +52,39 @@ export class AuthService {
       signupDto.username,
     );
     if (existingUser) {
-      switch (existingUser.status) {
-        // Case: User started signup but didn't finish OTP
-        case UserStatus.PENDING_VERIFICATION:
-          throw new ForbiddenException(
-            'Account already created but not verified. Please verify your email or request a new code.',
-          );
+      if (
+        existingUser.email === signupDto.email &&
+        existingUser.username === signupDto.username
+      ) {
+        switch (existingUser.status) {
+          case UserStatus.PENDING_VERIFICATION:
+            throw new ConflictException(
+              'An account with this email and username already exists but is pending verification. Please verify your email or request a new code.',
+            );
 
-        // Case: User is blocked/suspended
-        case UserStatus.SUSPENDED:
-        case UserStatus.BANNED:
-          throw new ForbiddenException(
-            'Your account has been suspended or banned. Please contact support.',
-          );
+          case UserStatus.ACTIVE:
+            throw new ConflictException(
+              'An account with this email and username already exists.',
+            );
 
-        // Case: User deactivated their account previously
-        case UserStatus.DEACTIVATED:
-          throw new ForbiddenException(
-            'Your account is deactivated. Please contact support to reactivate it.',
-          );
+          case UserStatus.SUSPENDED:
+          case UserStatus.BANNED:
+            throw new ConflictException(
+              'An account with this email and username exists but has been suspended. Please contact support.',
+            );
 
-        // Case: Normal active user trying to sign up again
-        case UserStatus.ACTIVE:
-          throw new ConflictException(
-            'Account already exists with this email or username.',
-          );
+          case UserStatus.DEACTIVATED:
+            throw new ConflictException(
+              'An account with this email and username exists but is deactivated. Please contact support to reactivate your account.',
+            );
+        }
+      }
 
-        default:
-          throw new InternalServerErrorException('Unknown account status.');
+      if (existingUser.email === signupDto.email) {
+        throw new ConflictException('Email is already in use');
+      }
+      if (existingUser.username === signupDto.username) {
+        throw new ConflictException('Username is already in use');
       }
     }
 
@@ -335,9 +341,12 @@ export class AuthService {
   private async createSession(user: User, message: string) {
     const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
 
+    const sessionId = uuidv4();
+
     const refreshTokenRecord = await this.refreshTokenRepository.create(
       user.id,
       refreshExpiresAt,
+      sessionId,
     );
 
     const { accessToken, refreshToken } =
@@ -345,6 +354,7 @@ export class AuthService {
         user.id,
         user.email,
         refreshTokenRecord.id,
+        sessionId,
       );
 
     return {
