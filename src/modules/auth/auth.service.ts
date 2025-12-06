@@ -128,7 +128,7 @@ export class AuthService {
     await this.otpRepository.markAsUsed(otpRecord.id);
     const updatedUser = await this.userRepository.updateStatus(
       user.id,
-      UserStatus.ACTIVE,
+      UserStatus.ONBOARDING,
     );
 
     await this.mailService.sendWelcome(user);

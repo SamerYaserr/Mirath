@@ -8,6 +8,7 @@ datasource db {
 
 enum UserStatus {
   PENDING_VERIFICATION
+  ONBOARDING
   ACTIVE
   SUSPENDED
   DEACTIVATED
