@@ -14,4 +14,22 @@ export class RefreshTokenRepository {
       },
     });
   }
+
+  async countActiveAndDeleteOldestToken(userId: string) {
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    if (tokens.length >= 2) {
+      await this.prisma.refreshToken.delete({
+        where: { id: tokens[0]!.id },
+      });
+    }
+  }
 }

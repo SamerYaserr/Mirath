@@ -21,6 +21,7 @@ import { RefreshTokenRepository } from './repositories/refreshToken.repository';
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -254,6 +255,58 @@ export class AuthService {
     });
 
     return this.createSession(user, 'Account created successfully with Google');
+  }
+
+  async login(loginDto: LoginDto) {
+    winstonLogger.info(`Login attempt for: ${loginDto.emailOrUsername}`);
+
+    const { emailOrUsername, password } = loginDto;
+    const isEmail = emailOrUsername.includes('@');
+
+    const user = await this.userRepository.findByEmailOrUsername(
+      isEmail ? emailOrUsername : '',
+      isEmail ? '' : emailOrUsername,
+    );
+
+    if (!user) {
+      winstonLogger.warn(`Invlaid login username/email for ${emailOrUsername}`);
+      throw new UnauthorizedException('Invalid email/username or password');
+    }
+
+    if (!user.password) {
+      winstonLogger.warn(
+        `User ${emailOrUsername} attempted password login but account is Google-only`,
+      );
+      throw new UnauthorizedException(
+        'This account uses Google Sign-In. Please log in with Google.',
+      );
+    }
+
+    const isCorrectPass = await bcrypt.compare(password, user.password!);
+    if (!isCorrectPass) {
+      winstonLogger.warn(`Invlaid login password for ${emailOrUsername}`);
+      throw new UnauthorizedException('Invalid email/username or password');
+    }
+
+    const status = user.status;
+    if (status === UserStatus.PENDING_VERIFICATION)
+      throw new ForbiddenException(
+        'Please verify your email or request a new code.',
+      );
+
+    if (status === UserStatus.BANNED || status === UserStatus.SUSPENDED)
+      throw new ForbiddenException(
+        'Your account has been suspended or banned. Please contact support.',
+      );
+
+    if (status === UserStatus.DEACTIVATED)
+      throw new ForbiddenException(
+        'Your account is deactivated. Please contact support to reactivate it.',
+      );
+
+    await this.refreshTokenRepository.countActiveAndDeleteOldestToken(user.id);
+    winstonLogger.info(`User ${emailOrUsername} logged in successfully`);
+    return await this.createSession(user, 'Logged in successfully');
   }
 
   // --- Helpers ---
