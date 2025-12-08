@@ -52,6 +52,16 @@ export class TokenService {
     return { accessToken, refreshToken };
   }
 
+  async verifyRefreshToken(token: string): Promise<{
+    jti: string;
+    sub: string;
+    sid: string;
+    email: string;
+  }> {
+    const secret = this.configService.get<string>('JWT_REFRESH_SECRET')!;
+    return await this.jwtService.verifyAsync(token, { secret });
+  }
+
   getRefreshTokenExpiresAt(): Date {
     const refreshDays = this.configService.get<number>(
       'JWT_REFRESH_EXPIRATION_DAYS',

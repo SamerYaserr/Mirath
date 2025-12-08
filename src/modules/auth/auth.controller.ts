@@ -4,13 +4,9 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   Res,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
-
-import { AuthService } from './auth.service';
-import { SignupDto } from './dto/signup.dto';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -21,6 +17,11 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
+
+import { AuthService } from './auth.service';
+import { SignupDto } from './dto/signup.dto';
 import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
@@ -161,6 +162,32 @@ export class AuthController {
       user,
       accessToken,
     };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Logout',
+    description:
+      'Invalidates the current session and clears the refresh token cookie.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully logged out.',
+  })
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies['refreshToken'];
+
+    await this.authService.logout(refreshToken);
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return { message: 'Logged out successfully' };
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
