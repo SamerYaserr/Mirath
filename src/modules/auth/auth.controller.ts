@@ -193,6 +193,23 @@ export class AuthController {
 
   @Post('forget-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset OTP',
+    description:
+      "Sends a 6-digit OTP to the user's email -if exists- for password reset. Returns a generic success message regardless of whether the email exists to prevent user enumeration.",
+  })
+  @ApiBody({
+    type: ForgetPasswordDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'OTP request processed successfully. A verification code has been sent if the email exists.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid email format',
+  })
   forgetPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
     const { email } = forgetPasswordDto;
 
