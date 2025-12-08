@@ -24,6 +24,7 @@ import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
+import { CheckVerificationDto } from './dto/checkVerification.dto';
 
 @Injectable()
 export class AuthService {
@@ -325,8 +326,10 @@ export class AuthService {
     );
   }
 
-  async checkVerificationStatus(email: string) {
-    const user = await this.userRepository.findByEmail(email);
+  async checkVerificationStatus(checkVerificationDto: CheckVerificationDto) {
+    const user = await this.userRepository.findByEmail(
+      checkVerificationDto.email,
+    );
 
     if (!user) {
       throw new NotFoundException('User with this email does not exist');
@@ -339,6 +342,17 @@ export class AuthService {
       status: user.status,
     };
   }
+
+  async checkSetupStatus(userId: string) {
+    const user = await this.userRepository.findById(userId);
+    const isSetupCompleted = user!.status === UserStatus.ACTIVE;
+
+    return {
+      isSetupCompleted,
+      status: user!.status,
+    };
+  }
+
   // --- Helpers ---
 
   private async generateAndSendOtp(userId: string, email: string) {

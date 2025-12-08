@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -9,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
   ApiForbiddenResponse,
@@ -166,6 +168,7 @@ export class AuthController {
     };
   }
 
+  // Use AuthGaurd to protect this route
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -214,7 +217,31 @@ export class AuthController {
   async checkVerificationStatus(
     @Body() checkVerificationDto: CheckVerificationDto,
   ) {
-    return this.authService.checkVerificationStatus(checkVerificationDto.email);
+    return this.authService.checkVerificationStatus(checkVerificationDto);
+  }
+
+  // Use AuthGaurd to protect this route
+  @Get('check-setup')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Check setup completion',
+    description:
+      'Checks if the currently logged-in user has completed the onboarding setup.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Setup status retrieved.',
+    schema: {
+      example: {
+        isSetupCompleted: false,
+        status: 'ONBOARDING',
+      },
+    },
+  })
+  async checkSetupStatus(@Req() req: Request) {
+    const userId = req.user!.id;
+    return this.authService.checkSetupStatus(userId);
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
