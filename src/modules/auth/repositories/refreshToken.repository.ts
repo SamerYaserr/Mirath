@@ -32,4 +32,10 @@ export class RefreshTokenRepository {
       });
     }
   }
+
+  async deleteBySessionId(sessionId: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: { sessionId },
+    });
+  }
 }

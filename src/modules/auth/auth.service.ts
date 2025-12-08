@@ -315,6 +315,14 @@ export class AuthService {
     return await this.createSession(user, 'Logged in successfully');
   }
 
+  async logout(refreshToken: string) {
+    let payload = await this.tokenService.verifyRefreshToken(refreshToken);
+    await this.refreshTokenRepository.deleteBySessionId(payload.sid);
+
+    winstonLogger.info(
+      `Session ${payload.sid} logged out/revoked successfully`,
+    );
+  }
   // --- Helpers ---
 
   private async generateAndSendOtp(userId: string, email: string) {
