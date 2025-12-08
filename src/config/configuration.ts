@@ -46,7 +46,7 @@ const envSchema = z.object({
 
   JWT_ACCESS_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
   JWT_REFRESH_EXPIRATION_DAYS: z.coerce.number().int().min(1).default(7),
-  JWT_RESET_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
+  JWT_RESET_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(10),
   OTP_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(10),
 
   FRONTEND_URL: z.string().url(),

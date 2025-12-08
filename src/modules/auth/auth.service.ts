@@ -377,6 +377,32 @@ export class AuthService {
     return { resetToken };
   }
 
+  async resetPassword(
+    resetToken: string,
+    password: string,
+    confirmPassword: string,
+  ) {
+    if (password !== confirmPassword)
+      throw new BadRequestException('Passwords do not match');
+
+    const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
+    console.log(verifiedToken);
+    if (!verifiedToken || !verifiedToken.forPasswordReset)
+      throw new ForbiddenException('Reset token is invalid or expired');
+
+    const user = await this.userRepository.findById(verifiedToken.userId);
+    if (!user)
+      throw new ForbiddenException('Reset token is invalid or expired');
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await this.userRepository.updatePassword(user.id, hashedPassword);
+
+    await this.refreshTokenRepository.deleteByUserId(user.id);
+
+    winstonLogger.info(`User ${user.email} successfully reset their password`);
+    return { message: 'Password reset successfully.' };
+  }
+
   // --- Helpers ---
 
   private async generateAndSendOtp(

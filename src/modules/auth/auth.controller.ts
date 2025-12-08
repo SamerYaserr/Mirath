@@ -28,6 +28,7 @@ import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -242,6 +243,42 @@ export class AuthController {
     const { email, otp } = verifyResetCodeDto;
 
     return this.authService.verifyResetCode(email, otp);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset user password',
+    description:
+      "Resets the user's password using a valid reset token obtained from the verify-reset-code endpoint. This action will log out the user from all devices by invalidating all refresh tokens.",
+  })
+  @ApiBody({
+    description: 'Reset token and new password details',
+    type: ResetPasswordDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Password reset successfully. User is logged out from all devices.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Bad Request - Passwords do not match or do not meet strength requirements',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - Reset token is not valid, not for password reset, or user not found',
+  })
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const { resetToken, password, confirmPassword } = resetPasswordDto;
+
+    return this.authService.resetPassword(
+      resetToken,
+      password,
+      confirmPassword,
+    );
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
