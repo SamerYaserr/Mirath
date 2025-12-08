@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 export interface TokenResult {
@@ -50,6 +50,13 @@ export class TokenService {
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  async generateResetToken(payload: object) {
+    return await this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>('JWT_RESET_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_RESET_EXPIRATION_MINUTES'),
+    } as JwtSignOptions);
   }
 
   async verifyRefreshToken(token: string): Promise<{

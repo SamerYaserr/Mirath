@@ -351,6 +351,32 @@ export class AuthService {
     };
   }
 
+  async verifyResetCode(email: string, otp: string) {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) throw new BadRequestException('Invalid or expired OTP');
+
+    const storedOtp = await this.otpRepository.findPendingOtp(
+      user.id,
+      OtpPurpose.RESET_PASSWORD,
+    );
+    if (!storedOtp) throw new BadRequestException('Invalid or expired OTP');
+
+    const isMatch = await bcrypt.compare(otp, storedOtp.otpCode);
+    if (!isMatch) {
+      winstonLogger.warn(`Password reset code mismatch for email: ${email}`);
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    await this.otpRepository.markAsUsed(storedOtp.id);
+
+    const payload = {
+      userId: user.id,
+      forPasswordReset: true,
+    };
+    const resetToken = await this.tokenService.generateResetToken(payload);
+    return { resetToken };
+  }
+
   // --- Helpers ---
 
   private async generateAndSendOtp(

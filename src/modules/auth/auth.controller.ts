@@ -27,6 +27,7 @@ import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
+import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -214,6 +215,33 @@ export class AuthController {
     const { email } = forgetPasswordDto;
 
     return this.authService.forgetPassword(email);
+  }
+
+  @Post('verify-reset-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify password reset OTP',
+    description:
+      "Verifies the 6-digit OTP sent to the user's email for password reset. Upon successful verification, returns a short-lived reset token that can be used to set a new password.",
+  })
+  @ApiBody({
+    type: VerifyResetCodeDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'OTP verified successfully. Returns a short-lived reset token.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
+  })
+  @Post('verify-reset-code')
+  @HttpCode(HttpStatus.OK)
+  verifyResetCode(@Body() verifyResetCodeDto: VerifyResetCodeDto) {
+    const { email, otp } = verifyResetCodeDto;
+
+    return this.authService.verifyResetCode(email, otp);
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
