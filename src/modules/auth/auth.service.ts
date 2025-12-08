@@ -97,7 +97,11 @@ export class AuthService {
       status: UserStatus.PENDING_VERIFICATION,
     });
 
-    await this.generateAndSendOtp(newUser.id, newUser.email);
+    await this.generateAndSendOtp(
+      newUser.id,
+      newUser.email,
+      OtpPurpose.REGISTER,
+    );
 
     winstonLogger.info(
       `User ${newUser.id} signed up successfully. OTP sent to ${newUser.email}`,
@@ -162,7 +166,7 @@ export class AuthService {
       OtpPurpose.REGISTER,
     );
 
-    await this.generateAndSendOtp(user.id, user.email);
+    await this.generateAndSendOtp(user.id, user.email, OtpPurpose.REGISTER);
 
     return { message: 'Verification code resent successfully' };
   }
@@ -323,9 +327,37 @@ export class AuthService {
       `Session ${payload.sid} logged out/revoked successfully`,
     );
   }
+
+  async forgetPassword(email: string) {
+    const user = await this.userRepository.findByEmail(email);
+    if (user) {
+      await this.otpRepository.invalidatePendingOtps(
+        user.id,
+        OtpPurpose.RESET_PASSWORD,
+      );
+
+      await this.generateAndSendOtp(
+        user.id,
+        user.email,
+        OtpPurpose.RESET_PASSWORD,
+      );
+      winstonLogger.info(
+        `User ${user.id} requested a forget-password OTP. OTP sent to ${user.email}`,
+      );
+    }
+
+    return {
+      message: 'Please check your email for the verification code.',
+    };
+  }
+
   // --- Helpers ---
 
-  private async generateAndSendOtp(userId: string, email: string) {
+  private async generateAndSendOtp(
+    userId: string,
+    email: string,
+    purpose: OtpPurpose,
+  ) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const hashedOtp = await bcrypt.hash(otp, 10);
@@ -339,7 +371,7 @@ export class AuthService {
     await this.otpRepository.create({
       userId,
       otpCode: hashedOtp,
-      purpose: OtpPurpose.REGISTER,
+      purpose,
       expiresAt,
     });
 

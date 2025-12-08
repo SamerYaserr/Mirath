@@ -26,6 +26,7 @@ import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgetPasswordDto } from './dto/forget-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -188,6 +189,14 @@ export class AuthController {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('forget-password')
+  @HttpCode(HttpStatus.OK)
+  forgetPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
+    const { email } = forgetPasswordDto;
+
+    return this.authService.forgetPassword(email);
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
