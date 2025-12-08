@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   InternalServerErrorException,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -322,6 +323,21 @@ export class AuthService {
     winstonLogger.info(
       `Session ${payload.sid} logged out/revoked successfully`,
     );
+  }
+
+  async checkVerificationStatus(email: string) {
+    const user = await this.userRepository.findByEmail(email);
+
+    if (!user) {
+      throw new NotFoundException('User with this email does not exist');
+    }
+
+    const isVerified = user.status !== UserStatus.PENDING_VERIFICATION;
+
+    return {
+      isVerified,
+      status: user.status,
+    };
   }
   // --- Helpers ---
 

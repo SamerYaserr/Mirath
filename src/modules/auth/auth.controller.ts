@@ -12,6 +12,7 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -26,6 +27,7 @@ import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
+import { CheckVerificationDto } from './dto/checkVerification.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -188,6 +190,31 @@ export class AuthController {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('is-verified')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Check verification status',
+    description:
+      'Checks the account status (Verified) for a specific email address.',
+  })
+  @ApiBody({ type: CheckVerificationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Status retrieved successfully.',
+    schema: {
+      example: {
+        isVerified: true,
+        status: 'ACTIVE',
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  async checkVerificationStatus(
+    @Body() checkVerificationDto: CheckVerificationDto,
+  ) {
+    return this.authService.checkVerificationStatus(checkVerificationDto.email);
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
