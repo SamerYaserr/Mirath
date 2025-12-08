@@ -355,6 +355,17 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(email);
     if (!user) throw new BadRequestException('Invalid or expired OTP');
 
+    const status = user.status;
+    if (status === UserStatus.BANNED || status === UserStatus.SUSPENDED)
+      throw new ForbiddenException(
+        'Your account has been suspended or banned. Please contact support.',
+      );
+
+    if (status === UserStatus.DEACTIVATED)
+      throw new ForbiddenException(
+        'Your account is deactivated. Please contact support to reactivate it.',
+      );
+
     const storedOtp = await this.otpRepository.findPendingOtp(
       user.id,
       OtpPurpose.RESET_PASSWORD,
@@ -393,6 +404,17 @@ export class AuthService {
     const user = await this.userRepository.findById(verifiedToken.userId);
     if (!user)
       throw new ForbiddenException('Reset token is invalid or expired');
+
+    const status = user.status;
+    if (status === UserStatus.BANNED || status === UserStatus.SUSPENDED)
+      throw new ForbiddenException(
+        'Your account has been suspended or banned. Please contact support.',
+      );
+
+    if (status === UserStatus.DEACTIVATED)
+      throw new ForbiddenException(
+        'Your account is deactivated. Please contact support to reactivate it.',
+      );
 
     const hashedPassword = await bcrypt.hash(password, 10);
     await this.userRepository.updatePassword(user.id, hashedPassword);
