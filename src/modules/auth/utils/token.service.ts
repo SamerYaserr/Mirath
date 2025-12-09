@@ -80,7 +80,6 @@ export class TokenService {
   }> {
     try {
       const secret = this.configService.get<string>('JWT_RESET_SECRET')!;
-      console.log(secret);
       return await this.jwtService.verifyAsync(token, { secret });
     } catch {
       throw new ForbiddenException('Reset token is invalid or expired');

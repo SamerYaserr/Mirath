@@ -397,7 +397,6 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
 
     const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
-    console.log(verifiedToken);
     if (!verifiedToken || !verifiedToken.forPasswordReset)
       throw new ForbiddenException('Reset token is invalid or expired');
 
