@@ -40,14 +40,36 @@ export class RefreshTokenRepository {
   }
 
   async deleteById(id: string) {
-    await this.prisma.refreshToken.delete({
-      where: { id },
-    });
+    try {
+      await this.prisma.refreshToken.delete({
+        where: { id },
+      });
+    } catch (error) {
+      // Token not found, ignore
+    }
   }
 
   async findById(tokenId: string) {
     return await this.prisma.refreshToken.findUnique({
       where: { id: tokenId },
+    });
+  }
+
+  async atomicDeleteByIdAndCreate(
+    userId: string,
+    tokenId: string,
+    expireAt: Date,
+    sessionId: string,
+  ) {
+    return await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.delete({ where: { id: tokenId } });
+      return await tx.refreshToken.create({
+        data: {
+          userId,
+          expiresAt: expireAt,
+          sessionId: sessionId,
+        },
+      });
     });
   }
 }
