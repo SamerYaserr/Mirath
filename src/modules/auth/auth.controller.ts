@@ -7,12 +7,14 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiCookieAuth,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
@@ -181,18 +183,56 @@ export class AuthController {
     description: 'Successfully logged out.',
   })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies['refreshToken'];
+    const refreshToken = req.cookies?.['refreshToken'];
 
     await this.authService.logout(refreshToken);
 
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    });
+    this.clearRefreshTokenCookie(res);
 
     return { message: 'Logged out successfully' };
+  }
+
+  // Use AuthGaurd to protect this route
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('refreshToken')
+  @ApiOperation({
+    summary: 'Rotate refresh token and issue new session tokens',
+    description: `
+Uses the refresh token stored in the secure HTTP-only cookie to rotate the session. 
+Returns a new access token and a newly rotated refresh token.
+If the refresh token is invalid, revoked, or expired, the operation will fail with 401.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens refreshed successfully.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid, missing, or expired refresh token.',
+  })
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = req.cookies?.['refreshToken'];
+
+    if (!token) {
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
+    }
+
+    const { accessToken, refreshToken } =
+      await this.authService.rotateRefreshToken(token);
+
+    this.setRefreshTokenCookie(res, refreshToken);
+
+    return {
+      message: 'Tokens refreshed successfully.',
+      refreshToken,
+      accessToken,
+    };
   }
 
   @Post('is-verified')
@@ -255,6 +295,15 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: refreshDays * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+  }
+
+  private clearRefreshTokenCookie(res: Response) {
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       path: '/',
     });
   }
