@@ -7,6 +7,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
+import { UsersModule } from './modules/users/users.module';
+import { InterestsModule } from './modules/interests/interests.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { MailModule } from './modules/mail/mail.module';
     HealthModule,
     AuthModule,
     MailModule,
+    UsersModule,
+    InterestsModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }],
 })

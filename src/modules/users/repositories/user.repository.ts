@@ -47,4 +47,8 @@ export class UserRepository {
       data: { providerId, photoUrl },
     });
   }
+
+  async update(args: Prisma.UserUpdateArgs, tx?: Prisma.TransactionClient) {
+    return await this.prisma.user.update(args);
+  }
 }
