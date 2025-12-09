@@ -26,6 +26,9 @@
 
     "strict": true,
 
+    // Remove unnecessary '!' in dtos
+    "strictPropertyInitialization": false,
+
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 

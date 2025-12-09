@@ -8,5 +8,5 @@ export class CheckVerificationDto {
   })
   @IsEmail()
   @IsNotEmpty()
-  email!: string;
+  email: string;
 }

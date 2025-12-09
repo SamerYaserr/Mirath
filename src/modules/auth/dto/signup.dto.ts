@@ -14,7 +14,7 @@ export class SignupDto {
     example: 'student@university.edu',
   })
   @IsEmail()
-  email!: string;
+  email: string;
 
   @ApiProperty({
     description: 'The unique username. Cannot contain "@" symbol.',
@@ -30,7 +30,7 @@ export class SignupDto {
     message:
       'Username can only contain letters, numbers, underscores, dots, and hyphens',
   })
-  username!: string;
+  username: string;
 
   @ApiProperty({
     description:
@@ -45,7 +45,7 @@ export class SignupDto {
     message:
       'Password must contain uppercase, lowercase, number and special character',
   })
-  password!: string;
+  password: string;
 
   @ApiProperty({
     description: 'Must match the password field',
@@ -54,5 +54,5 @@ export class SignupDto {
   })
   @IsString()
   @IsNotEmpty()
-  confirmPassword!: string;
+  confirmPassword: string;
 }

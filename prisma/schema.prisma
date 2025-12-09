@@ -85,8 +85,9 @@ model RefreshToken {
 }
 
 model Interest {
-  id   String @id @default(uuid()) @db.Uuid
-  name String @unique
+  id     String  @id @default(uuid()) @db.Uuid
+  name   String  @unique
+  custom Boolean @default(false)
 
   users UserInterest[]
 
