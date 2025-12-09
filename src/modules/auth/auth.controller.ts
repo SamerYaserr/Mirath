@@ -237,7 +237,6 @@ export class AuthController {
     status: 400,
     description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
   })
-  @Post('verify-reset-code')
   @HttpCode(HttpStatus.OK)
   verifyResetCode(@Body() verifyResetCodeDto: VerifyResetCodeDto) {
     const { email, otp } = verifyResetCodeDto;
