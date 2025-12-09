@@ -435,8 +435,7 @@ export class AuthService {
       !user ||
       user.status === UserStatus.SUSPENDED ||
       user.status === UserStatus.BANNED ||
-      user.status === UserStatus.DEACTIVATED ||
-      user.status === UserStatus.PENDING_VERIFICATION
+      user.status === UserStatus.DEACTIVATED
     ) {
       throw new UnauthorizedException(
         'Invalid, missing, or expired refresh token.',
