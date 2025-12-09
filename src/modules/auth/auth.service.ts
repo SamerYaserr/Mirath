@@ -412,15 +412,21 @@ export class AuthService {
   async rotateRefreshToken(
     token: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const { jti } = await this.tokenService.verifyRefreshToken(token);
+    let jti: string;
+
+    try {
+      ({ jti } = await this.tokenService.verifyRefreshToken(token));
+    } catch (error) {
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
+    }
     const existing = await this.refreshTokenRepository.findById(jti);
 
     if (!existing) {
-      throw new UnauthorizedException('missing, or expired refresh token.');
-    }
-
-    if (existing.expiresAt < new Date()) {
-      throw new UnauthorizedException('expired refresh token.');
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
     }
 
     const user = await this.userRepository.findById(existing.userId);
@@ -429,7 +435,8 @@ export class AuthService {
       !user ||
       user.status === UserStatus.SUSPENDED ||
       user.status === UserStatus.BANNED ||
-      user.status === UserStatus.DEACTIVATED
+      user.status === UserStatus.DEACTIVATED ||
+      user.status === UserStatus.PENDING_VERIFICATION
     ) {
       throw new UnauthorizedException(
         'Invalid, missing, or expired refresh token.',
@@ -439,13 +446,13 @@ export class AuthService {
     const expireAt = this.tokenService.getRefreshTokenExpiresAt();
     const sessionId = existing.sessionId;
 
-    await this.refreshTokenRepository.deleteById(jti);
-
-    const newToken = await this.refreshTokenRepository.create(
-      user.id,
-      expireAt,
-      sessionId,
-    );
+    const newToken =
+      await this.refreshTokenRepository.atomicDeleteByIdAndCreate(
+        user.id,
+        jti,
+        expireAt,
+        sessionId,
+      );
 
     const { accessToken, refreshToken } =
       await this.tokenService.generateAuthTokens(
