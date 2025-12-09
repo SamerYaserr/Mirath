@@ -17,6 +17,7 @@ export class UsersService {
 
   async setupProfile(
     userId: string,
+    profilePhoto: Express.Multer.File,
     dto: ProfileSetupDto,
   ): Promise<HttpResponse> {
     const existingInterests = await this.interestsRepository.findMany({

@@ -8,6 +8,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { EducationLevel } from '../users.enums';
 
 export class ProfileSetupDto {
@@ -31,6 +32,15 @@ export class ProfileSetupDto {
   })
   university?: string;
 
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+
+    // If multipart form data
+    if (typeof value === 'string') {
+      return value.split(',').map((item) => item.trim());
+    }
+    return value;
+  })
   @IsArray({ message: 'Interests must be an array' })
   @ArrayMinSize(1, { message: 'Please select at least 1 interest' })
   @ArrayMaxSize(10, { message: 'You can select a maximum of 10 interests' }) // This could be changed in the future

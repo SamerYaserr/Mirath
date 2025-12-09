@@ -52,6 +52,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.5",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.19.1",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.15.6",

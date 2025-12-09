@@ -6,9 +6,13 @@ import {
   HttpStatus,
   Post,
   Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ProfileSetupDto } from './dto/profile-setup.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ProfilePhotoPipe } from 'src/common/pipes/profile-photo.pipe';
 
 @Controller('users')
 export class UsersController {
@@ -16,7 +20,12 @@ export class UsersController {
 
   @Post('profile/setup')
   @HttpCode(HttpStatus.OK)
-  setupProfile(@Req() req: Request, @Body() dto: ProfileSetupDto) {
-    return this.usersService.setupProfile(req.user!.id, dto);
+  @UseInterceptors(FileInterceptor('profilePhoto'))
+  setupProfile(
+    @Req() req: Request,
+    @Body() dto: ProfileSetupDto,
+    @UploadedFile(ProfilePhotoPipe) profilePhoto: Express.Multer.File,
+  ) {
+    return this.usersService.setupProfile(req.user!.id, profilePhoto, dto);
   }
 }
