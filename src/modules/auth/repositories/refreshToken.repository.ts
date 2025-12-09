@@ -38,4 +38,16 @@ export class RefreshTokenRepository {
       where: { sessionId },
     });
   }
+
+  async deleteById(id: string) {
+    await this.prisma.refreshToken.delete({
+      where: { id },
+    });
+  }
+
+  async findById(tokenId: string) {
+    return await this.prisma.refreshToken.findUnique({
+      where: { id: tokenId },
+    });
+  }
 }
