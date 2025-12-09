@@ -230,7 +230,6 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
 
     return {
       message: 'Tokens refreshed successfully.',
-      refreshToken,
       accessToken,
     };
   }
@@ -260,7 +259,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     return this.authService.checkVerificationStatus(checkVerificationDto);
   }
 
-  // Use AuthGaurd to protect this route
+  // Use AuthGuard to protect this route
   @Get('check-setup')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
@@ -302,7 +301,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   private clearRefreshTokenCookie(res: Response) {
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
       sameSite: 'lax',
       path: '/',
     });
