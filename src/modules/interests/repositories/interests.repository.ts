@@ -21,4 +21,8 @@ export class InterestsRepository {
     const client = tx || this.prisma;
     return await client.interest.createMany({ data });
   }
+
+  async findById(id: string) {
+    return await this.prisma.interest.findUnique({ where: { id } });
+  }
 }
