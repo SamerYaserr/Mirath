@@ -21,24 +21,30 @@ enum OtpPurpose {
   EMAIL_CHANGE
 }
 
+enum LevelOfEducation {
+  HIGH_SCHOOL
+  UNDERGRADUATE
+  GRADUATE
+}
+
 model User {
-  id               String     @id @default(uuid()) @db.Uuid
-  username         String     @unique
-  email            String     @unique
+  id               String            @id @default(uuid()) @db.Uuid
+  username         String            @unique
+  email            String            @unique
   password         String?
   providerId       String?
   fullName         String?
   photoUrl         String?
   bio              String?
-  birthDate        DateTime?  @db.Date
+  birthDate        DateTime?         @db.Date
   country          String?
-  levelOfEducation String?
+  levelOfEducation LevelOfEducation?
   university       String?
-  status           UserStatus @default(PENDING_VERIFICATION)
-  isEmailVisible   Boolean    @default(false)
-  isPremium        Boolean    @default(false)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  status           UserStatus        @default(PENDING_VERIFICATION)
+  isEmailVisible   Boolean           @default(false)
+  isPremium        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   otpVerifications OtpVerification[]
   refreshTokens    RefreshToken[]
@@ -71,7 +77,7 @@ model OtpVerification {
 model RefreshToken {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @db.Uuid
-  sessionId String?  @db.Uuid
+  sessionId String   @db.Uuid
   expiresAt DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

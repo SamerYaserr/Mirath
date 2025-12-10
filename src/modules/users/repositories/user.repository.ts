@@ -37,6 +37,13 @@ export class UserRepository {
     });
   }
 
+  async updatePassword(id: string, password: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { password },
+    });
+  }
+
   async updateGoogleProvider(
     id: string,
     providerId: string,
@@ -49,6 +56,7 @@ export class UserRepository {
   }
 
   async update(args: Prisma.UserUpdateArgs, tx?: Prisma.TransactionClient) {
-    return await this.prisma.user.update(args);
+    const client = tx || this.prisma;
+    return await client.user.update(args);
   }
 }

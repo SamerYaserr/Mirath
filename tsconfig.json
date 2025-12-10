@@ -33,6 +33,9 @@
     "exactOptionalPropertyTypes": true,
 
     "noImplicitReturns": true,
-    "noUnusedLocals": true
+    "noUnusedLocals": true,
+
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true
   }
 }

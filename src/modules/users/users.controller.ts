@@ -53,6 +53,7 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('profilePhoto'))
   // @UseGuards(AuthGuard)
+  // Only one profile setup allowed after signup
   setupProfile(
     @Req() req: Request,
     @Body() dto: ProfileSetupDto,

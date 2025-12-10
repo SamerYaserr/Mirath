@@ -1,168 +1,132 @@
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
-import { configuration } from '../../src/config/configuration';
-import { winstonLogger as logger } from '../../src/config/logger.config';
+import { Prisma } from '@prisma/client';
 
-const config = configuration();
-
-const pool = new Pool({
-  connectionString: config.DATABASE_URL,
-});
-
-const adapter = new PrismaPg(pool);
-
-const prisma = new PrismaClient({
-  adapter,
-});
-
-const researchInterests = [
+export const interests: Prisma.InterestCreateInput[] = [
   // Natural Sciences
-  'Physics',
-  'Chemistry',
-  'Biology',
-  'Astronomy',
-  'Geology',
-  'Oceanography',
-  'Meteorology',
-  'Environmental Science',
-  'Ecology',
-  'Zoology',
-  'Botany',
-  'Microbiology',
-  'Genetics',
-  'Biochemistry',
-  'Molecular Biology',
-  'Neuroscience',
+  { name: 'Physics' },
+  { name: 'Chemistry' },
+  { name: 'Biology' },
+  { name: 'Astronomy' },
+  { name: 'Geology' },
+  { name: 'Oceanography' },
+  { name: 'Meteorology' },
+  { name: 'Environmental Science' },
+  { name: 'Ecology' },
+  { name: 'Zoology' },
+  { name: 'Botany' },
+  { name: 'Microbiology' },
+  { name: 'Genetics' },
+  { name: 'Biochemistry' },
+  { name: 'Molecular Biology' },
+  { name: 'Neuroscience' },
 
   // Medicine & Health
-  'Medicine',
-  'Public Health',
-  'Epidemiology',
-  'Immunology',
-  'Pharmacology',
-  'Cardiology',
-  'Oncology',
-  'Psychiatry',
-  'Nutrition',
-  'Clinical Psychology',
-  'Physical Therapy',
-  'Nursing',
-  'Pediatrics',
-  'Geriatrics',
+  { name: 'Medicine' },
+  { name: 'Public Health' },
+  { name: 'Epidemiology' },
+  { name: 'Immunology' },
+  { name: 'Pharmacology' },
+  { name: 'Cardiology' },
+  { name: 'Oncology' },
+  { name: 'Psychiatry' },
+  { name: 'Nutrition' },
+  { name: 'Clinical Psychology' },
+  { name: 'Physical Therapy' },
+  { name: 'Nursing' },
+  { name: 'Pediatrics' },
+  { name: 'Geriatrics' },
 
   // Engineering & Technology
-  'Computer Science',
-  'Artificial Intelligence',
-  'Machine Learning',
-  'Data Science',
-  'Software Engineering',
-  'Cybersecurity',
-  'Robotics',
-  'Electrical Engineering',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'Chemical Engineering',
-  'Aerospace Engineering',
-  'Biomedical Engineering',
-  'Materials Science',
-  'Nanotechnology',
-  'Quantum Computing',
+  { name: 'Computer Science' },
+  { name: 'Artificial Intelligence' },
+  { name: 'Machine Learning' },
+  { name: 'Data Science' },
+  { name: 'Software Engineering' },
+  { name: 'Cybersecurity' },
+  { name: 'Robotics' },
+  { name: 'Electrical Engineering' },
+  { name: 'Mechanical Engineering' },
+  { name: 'Civil Engineering' },
+  { name: 'Chemical Engineering' },
+  { name: 'Aerospace Engineering' },
+  { name: 'Biomedical Engineering' },
+  { name: 'Materials Science' },
+  { name: 'Nanotechnology' },
+  { name: 'Quantum Computing' },
 
   // Mathematics & Statistics
-  'Mathematics',
-  'Statistics',
-  'Applied Mathematics',
-  'Computational Mathematics',
-  'Cryptography',
+  { name: 'Mathematics' },
+  { name: 'Statistics' },
+  { name: 'Applied Mathematics' },
+  { name: 'Computational Mathematics' },
+  { name: 'Cryptography' },
 
   // Social Sciences
-  'Psychology',
-  'Sociology',
-  'Anthropology',
-  'Economics',
-  'Political Science',
-  'International Relations',
-  'Geography',
-  'Demography',
-  'Social Work',
-  'Criminology',
-  'Education',
-  'Linguistics',
-  'Communication Studies',
+  { name: 'Psychology' },
+  { name: 'Sociology' },
+  { name: 'Anthropology' },
+  { name: 'Economics' },
+  { name: 'Political Science' },
+  { name: 'International Relations' },
+  { name: 'Geography' },
+  { name: 'Demography' },
+  { name: 'Social Work' },
+  { name: 'Criminology' },
+  { name: 'Education' },
+  { name: 'Linguistics' },
+  { name: 'Communication Studies' },
 
   // Humanities
-  'History',
-  'Philosophy',
-  'Literature',
-  'Art History',
-  'Religious Studies',
-  'Cultural Studies',
-  'Ethics',
-  'Archaeology',
-  'Classics',
+  { name: 'History' },
+  { name: 'Philosophy' },
+  { name: 'Literature' },
+  { name: 'Art History' },
+  { name: 'Religious Studies' },
+  { name: 'Cultural Studies' },
+  { name: 'Ethics' },
+  { name: 'Archaeology' },
+  { name: 'Classics' },
 
   // Business & Management
-  'Business Administration',
-  'Marketing',
-  'Finance',
-  'Accounting',
-  'Management',
-  'Entrepreneurship',
-  'Human Resources',
-  'Operations Research',
-  'Supply Chain Management',
-  'Organizational Behavior',
+  { name: 'Business Administration' },
+  { name: 'Marketing' },
+  { name: 'Finance' },
+  { name: 'Accounting' },
+  { name: 'Management' },
+  { name: 'Entrepreneurship' },
+  { name: 'Human Resources' },
+  { name: 'Operations Research' },
+  { name: 'Supply Chain Management' },
+  { name: 'Organizational Behavior' },
 
   // Interdisciplinary & Applied
-  'Urban Planning',
-  'Agricultural Science',
-  'Food Science',
-  'Sustainability Studies',
-  'Climate Change',
-  'Renewable Energy',
-  'Biotechnology',
-  'Cognitive Science',
-  'Game Theory',
-  'Information Systems',
-  'Library Science',
-  'Sports Science',
-  'Gender Studies',
-  'Media Studies',
-  'Digital Humanities',
+  { name: 'Urban Planning' },
+  { name: 'Agricultural Science' },
+  { name: 'Food Science' },
+  { name: 'Sustainability Studies' },
+  { name: 'Climate Change' },
+  { name: 'Renewable Energy' },
+  { name: 'Biotechnology' },
+  { name: 'Cognitive Science' },
+  { name: 'Game Theory' },
+  { name: 'Information Systems' },
+  { name: 'Library Science' },
+  { name: 'Sports Science' },
+  { name: 'Gender Studies' },
+  { name: 'Media Studies' },
+  { name: 'Digital Humanities' },
 
   // Law & Policy
-  'Law',
-  'Public Policy',
-  'Constitutional Law',
-  'Environmental Law',
-  'Health Policy',
+  { name: 'Law' },
+  { name: 'Public Policy' },
+  { name: 'Constitutional Law' },
+  { name: 'Environmental Law' },
+  { name: 'Health Policy' },
 
   // Arts & Design
-  'Architecture',
-  'Graphic Design',
-  'Music Theory',
-  'Film Studies',
-  'Performing Arts',
-  'Industrial Design',
+  { name: 'Architecture' },
+  { name: 'Graphic Design' },
+  { name: 'Music Theory' },
+  { name: 'Film Studies' },
+  { name: 'Performing Arts' },
+  { name: 'Industrial Design' },
 ];
-
-async function seedInterests() {
-  logger.info('Starting interests seeding...');
-
-  try {
-    const result = await prisma.interest.createMany({
-      data: researchInterests.map((name) => ({ name })),
-      skipDuplicates: true,
-    });
-
-    logger.info(`Successfully seeded ${result.count} interests`);
-  } catch (error) {
-    console.error('Error seeding interests:', error);
-    throw error;
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-seedInterests();

@@ -9,8 +9,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { EducationLevel } from '../users.enums';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LevelOfEducation } from '@prisma/client';
 
 export class ProfileSetupDto {
   @ApiProperty({
@@ -26,14 +26,14 @@ export class ProfileSetupDto {
 
   @ApiProperty({
     description: 'User level of education',
-    enum: EducationLevel,
-    example: EducationLevel.HIGH_SCHOOL,
-    enumName: 'EducationLevel',
+    enum: LevelOfEducation,
+    example: LevelOfEducation.HIGH_SCHOOL,
+    enumName: 'LevelOfEducation',
   })
-  @IsEnum(EducationLevel, {
-    message: `Level of education must be one of: ${Object.values(EducationLevel).join(', ')}`,
+  @IsEnum(LevelOfEducation, {
+    message: `Level of education must be one of: ${Object.values(LevelOfEducation).join(', ')}`,
   })
-  levelOfEducation: EducationLevel;
+  levelOfEducation: LevelOfEducation;
 
   @ApiPropertyOptional({
     description:
@@ -47,7 +47,7 @@ export class ProfileSetupDto {
     message: 'University name must be at least 2 characters long',
   })
   @MaxLength(100, { message: 'University name must not exceed 100 characters' })
-  @ValidateIf((obj) => obj.levelOfEducation !== EducationLevel.HIGH_SCHOOL, {
+  @ValidateIf((obj) => obj.levelOfEducation !== LevelOfEducation.HIGH_SCHOOL, {
     message: 'University is required for non-high school education levels',
   })
   university?: string;
