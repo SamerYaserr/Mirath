@@ -7,7 +7,7 @@ export class VerifyEmailDto {
     example: 'student@university.edu',
   })
   @IsEmail()
-  email!: string;
+  email: string;
 
   @ApiProperty({
     description: 'The 6-digit one-time password sent to the email',
@@ -17,5 +17,5 @@ export class VerifyEmailDto {
   })
   @IsString()
   @Length(6, 6)
-  otp!: string;
+  otp: string;
 }

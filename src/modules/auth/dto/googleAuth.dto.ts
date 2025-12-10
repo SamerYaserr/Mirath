@@ -8,5 +8,5 @@ export class GoogleAuthDto {
   })
   @IsString()
   @IsNotEmpty()
-  idToken!: string;
+  idToken: string;
 }

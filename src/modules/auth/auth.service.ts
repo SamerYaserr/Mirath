@@ -14,7 +14,7 @@ import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
 import { SignupDto } from './dto/signup.dto';
-import { UserRepository } from './repositories/user.repository';
+import { UserRepository } from '../users/repositories/user.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { MailService } from '../mail/mail.service';
 import { winstonLogger } from 'src/config/logger.config';
