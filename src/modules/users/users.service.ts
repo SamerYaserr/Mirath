@@ -8,6 +8,7 @@ import { winstonLogger as logger } from 'src/config/logger.config';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { InterestsRepository } from '../interests/repositories/interests.repository';
 import { UserInterestsRepository } from '../interests/repositories/user-interests.repository';
+import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 
 @Injectable()
 export class UsersService {
@@ -87,6 +88,9 @@ export class UsersService {
       throw error;
     }
 
-    return { message: 'Profile setup completed successfully', data: user };
+    return {
+      message: 'Profile setup completed successfully',
+      data: excludeUserSensitiveFields(user),
+    };
   }
 }

@@ -62,7 +62,6 @@ export class AuthController {
   })
   @ApiConflictResponse({ description: 'Email or Username already exists.' })
   async signup(@Body() signupDto: SignupDto) {
-    console.log('Received signup request:', signupDto);
     return this.authService.signup(signupDto);
   }
 
