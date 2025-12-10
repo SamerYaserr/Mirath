@@ -14,7 +14,7 @@ export class ProfilePhotoPipe implements PipeTransform {
     const parseFilePipe = new ParseFilePipe({
       fileIsRequired: false,
       validators: [
-        new MaxFileSizeValidator({ maxSize: 3 * 1024 * 1024 }), // 3 MB
+        new MaxFileSizeValidator({ maxSize: 30 * 1024 * 1024 }), // 30 MB
         new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/ }), // The file must be an image
       ],
     });

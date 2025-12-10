@@ -1,8 +1,11 @@
+import { User, UserStatus } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileSetupDto } from './dto/profile-setup.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { UserRepository } from './repositories/user.repository';
+import { winstonLogger as logger } from 'src/config/logger.config';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { InterestsRepository } from '../interests/repositories/interests.repository';
 import { UserInterestsRepository } from '../interests/repositories/user-interests.repository';
 
@@ -11,6 +14,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private userRepository: UserRepository,
+    private cloudinaryService: CloudinaryService,
     private interestsRepository: InterestsRepository,
     private userInterestsRepository: UserInterestsRepository,
   ) {}
@@ -32,37 +36,56 @@ export class UsersService {
       (i) => !existingInterestNames.has(i),
     );
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      await this.interestsRepository.createMany(
-        customInterests.map((c) => ({ name: c, custom: true })),
-        tx,
-      );
+    let secureUrl = null;
+    if (profilePhoto)
+      secureUrl = (await this.cloudinaryService.uploadFile(profilePhoto))
+        .secure_url;
 
-      const userInterestIds = await this.interestsRepository.findMany(
-        {
-          where: { name: { in: dto.interests } },
-          select: { id: true },
-        },
-        tx,
-      );
+    let user: User | null = null;
+    try {
+      user = await this.prisma.$transaction(async (tx) => {
+        if (customInterests.length)
+          await this.interestsRepository.createMany(
+            customInterests.map((c) => ({ name: c, custom: true })),
+            tx,
+          );
 
-      await this.userInterestsRepository.createMany(
-        userInterestIds.map((ui) => ({ userId, interestId: ui.id })),
-        tx,
-      );
-
-      return await this.userRepository.update(
-        {
-          where: { id: userId },
-          data: {
-            fullName: dto.name,
-            levelOfEducation: dto.levelOfEducation,
-            ...(dto.university && { university: dto.university }),
+        const userInterestIds = await this.interestsRepository.findMany(
+          {
+            where: { name: { in: dto.interests } },
+            select: { id: true },
           },
-        },
-        tx,
+          tx,
+        );
+
+        await this.userInterestsRepository.createMany(
+          userInterestIds.map((ui) => ({ userId, interestId: ui.id })),
+          tx,
+        );
+
+        return await this.userRepository.update(
+          {
+            where: { id: userId },
+            data: {
+              fullName: dto.name,
+              status: UserStatus.ACTIVE,
+              levelOfEducation: dto.levelOfEducation,
+              ...(secureUrl && { photoUrl: secureUrl }),
+              ...(dto.university && { university: dto.university }),
+            },
+          },
+          tx,
+        );
+      });
+    } catch (error) {
+      logger.error(
+        `Database transaction to finish user ${userId} profile setup failed`,
+        { error: error },
       );
-    });
+      if (secureUrl) await this.cloudinaryService.deleteFile(secureUrl);
+
+      throw error;
+    }
 
     return { message: 'Profile setup completed successfully', data: user };
   }

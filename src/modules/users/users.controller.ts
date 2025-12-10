@@ -21,6 +21,7 @@ export class UsersController {
   @Post('profile/setup')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('profilePhoto'))
+  // @UseGuards(AuthGuard)
   setupProfile(
     @Req() req: Request,
     @Body() dto: ProfileSetupDto,
