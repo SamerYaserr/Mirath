@@ -23,7 +23,7 @@ export class ProfilePhotoPipe implements PipeTransform {
       return await parseFilePipe.transform(value);
     } catch (error: any) {
       const msg = error.message.includes('File too large')
-        ? 'Profile photo file size must not exceed 3MB'
+        ? 'Profile photo file size must not exceed 30MB'
         : error.message.includes('file type')
           ? 'Profile photo must be in JPG, JPEG, PNG, or WebP format'
           : 'Invalid profile photo file';
