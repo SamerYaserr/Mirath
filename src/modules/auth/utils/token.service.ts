@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 export interface TokenResult {
@@ -71,9 +71,33 @@ export class TokenService {
     return { accessToken, refreshToken };
   }
 
+  async generateResetToken(payload: object) {
+    const secret = this.configService.get<string>('JWT_RESET_SECRET');
+    const expiresIn = this.configService.get<string>(
+      'JWT_RESET_EXPIRATION_MINUTES',
+    );
+
+    return await this.jwtService.signAsync(payload, {
+      secret,
+      expiresIn: `${expiresIn}m`,
+    } as JwtSignOptions);
+  }
+
   async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
     const secret = this.configService.get<string>('JWT_REFRESH_SECRET')!;
     return await this.jwtService.verifyAsync(token, { secret });
+  }
+
+  async verifyResetToken(token: string): Promise<{
+    userId: string;
+    forPasswordReset: boolean;
+  }> {
+    try {
+      const secret = this.configService.get<string>('JWT_RESET_SECRET')!;
+      return await this.jwtService.verifyAsync(token, { secret });
+    } catch {
+      throw new ForbiddenException('Reset token is invalid or expired');
+    }
   }
 
   async verifyAccessToken(token: string): Promise<TokenPayload> {

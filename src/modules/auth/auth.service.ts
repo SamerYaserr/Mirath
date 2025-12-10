@@ -99,7 +99,11 @@ export class AuthService {
       status: UserStatus.PENDING_VERIFICATION,
     });
 
-    await this.generateAndSendOtp(newUser.id, newUser.email);
+    await this.generateAndSendOtp(
+      newUser.id,
+      newUser.email,
+      OtpPurpose.REGISTER,
+    );
 
     winstonLogger.info(
       `User ${newUser.id} signed up successfully. OTP sent to ${newUser.email}`,
@@ -164,7 +168,7 @@ export class AuthService {
       OtpPurpose.REGISTER,
     );
 
-    await this.generateAndSendOtp(user.id, user.email);
+    await this.generateAndSendOtp(user.id, user.email, OtpPurpose.REGISTER);
 
     return { message: 'Verification code resent successfully' };
   }
@@ -326,6 +330,102 @@ export class AuthService {
     );
   }
 
+  async forgetPassword(email: string) {
+    const user = await this.userRepository.findByEmail(email);
+    if (user) {
+      await this.otpRepository.invalidatePendingOtps(
+        user.id,
+        OtpPurpose.RESET_PASSWORD,
+      );
+
+      await this.generateAndSendOtp(
+        user.id,
+        user.email,
+        OtpPurpose.RESET_PASSWORD,
+      );
+      winstonLogger.info(
+        `User ${user.id} requested a forget-password OTP. OTP sent to ${user.email}`,
+      );
+    }
+
+    return {
+      message: 'Please check your email for the verification code.',
+    };
+  }
+
+  async verifyResetCode(email: string, otp: string) {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) throw new BadRequestException('Invalid or expired OTP');
+
+    const status = user.status;
+    if (status === UserStatus.BANNED || status === UserStatus.SUSPENDED)
+      throw new ForbiddenException(
+        'Your account has been suspended or banned. Please contact support.',
+      );
+
+    if (status === UserStatus.DEACTIVATED)
+      throw new ForbiddenException(
+        'Your account is deactivated. Please contact support to reactivate it.',
+      );
+
+    const storedOtp = await this.otpRepository.findPendingOtp(
+      user.id,
+      OtpPurpose.RESET_PASSWORD,
+    );
+    if (!storedOtp) throw new BadRequestException('Invalid or expired OTP');
+
+    const isMatch = await bcrypt.compare(otp, storedOtp.otpCode);
+    if (!isMatch) {
+      winstonLogger.warn(`Password reset code mismatch for email: ${email}`);
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    await this.otpRepository.markAsUsed(storedOtp.id);
+
+    const payload = {
+      userId: user.id,
+      forPasswordReset: true,
+    };
+    const resetToken = await this.tokenService.generateResetToken(payload);
+    return { resetToken };
+  }
+
+  async resetPassword(
+    resetToken: string,
+    password: string,
+    confirmPassword: string,
+  ) {
+    if (password !== confirmPassword)
+      throw new BadRequestException('Passwords do not match');
+
+    const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
+    if (!verifiedToken || !verifiedToken.forPasswordReset)
+      throw new ForbiddenException('Reset token is invalid or expired');
+
+    const user = await this.userRepository.findById(verifiedToken.userId);
+    if (!user)
+      throw new ForbiddenException('Reset token is invalid or expired');
+
+    const status = user.status;
+    if (status === UserStatus.BANNED || status === UserStatus.SUSPENDED)
+      throw new ForbiddenException(
+        'Your account has been suspended or banned. Please contact support.',
+      );
+
+    if (status === UserStatus.DEACTIVATED)
+      throw new ForbiddenException(
+        'Your account is deactivated. Please contact support to reactivate it.',
+      );
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await this.userRepository.updatePassword(user.id, hashedPassword);
+
+    await this.refreshTokenRepository.deleteByUserId(user.id);
+
+    winstonLogger.info(`User ${user.email} successfully reset their password`);
+    return { message: 'Password reset successfully.' };
+  }
+
   async checkVerificationStatus(checkVerificationDto: CheckVerificationDto) {
     const user = await this.userRepository.findByEmail(
       checkVerificationDto.email,
@@ -350,62 +450,6 @@ export class AuthService {
     return {
       isSetupCompleted,
       status: user!.status,
-    };
-  }
-
-  // --- Helpers ---
-
-  private async generateAndSendOtp(userId: string, email: string) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const hashedOtp = await bcrypt.hash(otp, 10);
-
-    const expirationMinutes = this.configService.get<number>(
-      'OTP_EXPIRATION_MINUTES',
-      10,
-    );
-    const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
-
-    await this.otpRepository.create({
-      userId,
-      otpCode: hashedOtp,
-      purpose: OtpPurpose.REGISTER,
-      expiresAt,
-    });
-
-    await this.mailService.sendOtpEmail(email, otp);
-  }
-
-  private async createSession(user: User, message: string) {
-    const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
-
-    const sessionId = uuidv4();
-
-    const refreshTokenRecord = await this.refreshTokenRepository.create(
-      user.id,
-      refreshExpiresAt,
-      sessionId,
-    );
-
-    const { accessToken, refreshToken } =
-      await this.tokenService.generateAuthTokens(
-        user.id,
-        user.email,
-        refreshTokenRecord.id,
-        sessionId,
-      );
-
-    return {
-      message,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        photoUrl: user.photoUrl,
-        status: user.status,
-      },
-      accessToken,
-      refreshToken,
     };
   }
 
@@ -462,6 +506,66 @@ export class AuthService {
       );
 
     return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  // --- Helpers ---
+
+  private async generateAndSendOtp(
+    userId: string,
+    email: string,
+    purpose: OtpPurpose,
+  ) {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    const expirationMinutes = this.configService.get<number>(
+      'OTP_EXPIRATION_MINUTES',
+      10,
+    );
+    const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+
+    await this.otpRepository.create({
+      userId,
+      otpCode: hashedOtp,
+      purpose,
+      expiresAt,
+    });
+
+    await this.mailService.sendOtpEmail(email, otp);
+  }
+
+  private async createSession(user: User, message: string) {
+    const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
+
+    const sessionId = uuidv4();
+
+    const refreshTokenRecord = await this.refreshTokenRepository.create(
+      user.id,
+      refreshExpiresAt,
+      sessionId,
+    );
+
+    const { accessToken, refreshToken } =
+      await this.tokenService.generateAuthTokens(
+        user.id,
+        user.email,
+        refreshTokenRecord.id,
+        sessionId,
+      );
+
+    return {
+      message,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        photoUrl: user.photoUrl,
+        status: user.status,
+      },
       accessToken,
       refreshToken,
     };

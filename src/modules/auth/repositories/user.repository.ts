@@ -37,6 +37,13 @@ export class UserRepository {
     });
   }
 
+  async updatePassword(id: string, password: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { password },
+    });
+  }
+
   async updateGoogleProvider(
     id: string,
     providerId: string,

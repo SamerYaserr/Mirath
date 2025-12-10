@@ -39,6 +39,12 @@ export class RefreshTokenRepository {
     });
   }
 
+  async deleteByUserId(userId: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+  }
+
   async deleteById(id: string) {
     try {
       await this.prisma.refreshToken.delete({

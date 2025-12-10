@@ -31,6 +31,9 @@ import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgetPasswordDto } from './dto/forget-password.dto';
+import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { CheckVerificationDto } from './dto/checkVerification.dto';
 
 @ApiTags('Authentication')
@@ -190,6 +193,93 @@ export class AuthController {
     this.clearRefreshTokenCookie(res);
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('forget-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset OTP',
+    description:
+      "Sends a 6-digit OTP to the user's email -if exists- for password reset. Returns a generic success message regardless of whether the email exists to prevent user enumeration.",
+  })
+  @ApiBody({
+    type: ForgetPasswordDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'OTP request processed successfully. A verification code has been sent if the email exists.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid email format',
+  })
+  forgetPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
+    const { email } = forgetPasswordDto;
+
+    return this.authService.forgetPassword(email);
+  }
+
+  @Post('verify-reset-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify password reset OTP',
+    description:
+      "Verifies the 6-digit OTP sent to the user's email for password reset. Upon successful verification, returns a short-lived reset token that can be used to set a new password.",
+  })
+  @ApiBody({
+    type: VerifyResetCodeDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'OTP verified successfully. Returns a short-lived reset token.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
+  })
+  @HttpCode(HttpStatus.OK)
+  verifyResetCode(@Body() verifyResetCodeDto: VerifyResetCodeDto) {
+    const { email, otp } = verifyResetCodeDto;
+
+    return this.authService.verifyResetCode(email, otp);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset user password',
+    description:
+      "Resets the user's password using a valid reset token obtained from the verify-reset-code endpoint. This action will log out the user from all devices by invalidating all refresh tokens.",
+  })
+  @ApiBody({
+    description: 'Reset token and new password details',
+    type: ResetPasswordDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Password reset successfully. User is logged out from all devices.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Bad Request - Passwords do not match or do not meet strength requirements',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden - Reset token is not valid, not for password reset, or user not found',
+  })
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const { resetToken, password, confirmPassword } = resetPasswordDto;
+
+    return this.authService.resetPassword(
+      resetToken,
+      password,
+      confirmPassword,
+    );
   }
 
   // Use AuthGaurd to protect this route
