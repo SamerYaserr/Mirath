@@ -1,17 +1,22 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiCookieAuth,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -29,6 +34,7 @@ import { LoginDto } from './dto/login.dto';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { CheckVerificationDto } from './dto/checkVerification.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -167,6 +173,7 @@ export class AuthController {
     };
   }
 
+  // Use AuthGaurd to protect this route
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -179,16 +186,11 @@ export class AuthController {
     description: 'Successfully logged out.',
   })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies['refreshToken'];
+    const refreshToken = req.cookies?.['refreshToken'];
 
     await this.authService.logout(refreshToken);
 
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-    });
+    this.clearRefreshTokenCookie(res);
 
     return { message: 'Logged out successfully' };
   }
@@ -280,6 +282,97 @@ export class AuthController {
     );
   }
 
+  // Use AuthGaurd to protect this route
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('refreshToken')
+  @ApiOperation({
+    summary: 'Rotate refresh token and issue new session tokens',
+    description: `
+Uses the refresh token stored in the secure HTTP-only cookie to rotate the session. 
+Returns a new access token and a newly rotated refresh token.
+If the refresh token is invalid, revoked, or expired, the operation will fail with 401.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens refreshed successfully.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid, missing, or expired refresh token.',
+  })
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = req.cookies?.['refreshToken'];
+
+    if (!token) {
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
+    }
+
+    const { accessToken, refreshToken } =
+      await this.authService.rotateRefreshToken(token);
+
+    this.setRefreshTokenCookie(res, refreshToken);
+
+    return {
+      message: 'Tokens refreshed successfully.',
+      accessToken,
+    };
+  }
+
+  @Post('is-verified')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Check verification status',
+    description:
+      'Checks the account status (Verified) for a specific email address.',
+  })
+  @ApiBody({ type: CheckVerificationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Status retrieved successfully.',
+    schema: {
+      example: {
+        isVerified: true,
+        status: 'ACTIVE',
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  async checkVerificationStatus(
+    @Body() checkVerificationDto: CheckVerificationDto,
+  ) {
+    return this.authService.checkVerificationStatus(checkVerificationDto);
+  }
+
+  // Use AuthGuard to protect this route
+  @Get('check-setup')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Check setup completion',
+    description:
+      'Checks if the currently logged-in user has completed the onboarding setup.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Setup status retrieved.',
+    schema: {
+      example: {
+        isSetupCompleted: false,
+        status: 'ONBOARDING',
+      },
+    },
+  })
+  async checkSetupStatus(@Req() req: Request) {
+    const userId = req.user!.id;
+    return this.authService.checkSetupStatus(userId);
+  }
+
   private setRefreshTokenCookie(res: Response, token: string) {
     const refreshDays = this.configService.get<number>(
       'JWT_REFRESH_EXPIRATION_DAYS',
@@ -291,6 +384,15 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: refreshDays * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+  }
+
+  private clearRefreshTokenCookie(res: Response) {
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
+      sameSite: 'lax',
       path: '/',
     });
   }

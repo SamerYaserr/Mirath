@@ -5,6 +5,7 @@ import {
   MinLength,
   Matches,
   NotContains,
+  IsStrongPassword,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -45,6 +46,7 @@ export class SignupDto {
     message:
       'Password must contain uppercase, lowercase, number and special character',
   })
+  @IsStrongPassword()
   password!: string;
 
   @ApiProperty({

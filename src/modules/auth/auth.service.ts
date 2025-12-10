@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   InternalServerErrorException,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -23,6 +24,7 @@ import { VerifyEmailDto } from './dto/verifyEmail.dto';
 import { ResendVerificationDto } from './dto/resendVerification.dto';
 import { GoogleAuthDto } from './dto/googleAuth.dto';
 import { LoginDto } from './dto/login.dto';
+import { CheckVerificationDto } from './dto/checkVerification.dto';
 
 @Injectable()
 export class AuthService {
@@ -422,6 +424,91 @@ export class AuthService {
 
     winstonLogger.info(`User ${user.email} successfully reset their password`);
     return { message: 'Password reset successfully.' };
+  }
+
+  async checkVerificationStatus(checkVerificationDto: CheckVerificationDto) {
+    const user = await this.userRepository.findByEmail(
+      checkVerificationDto.email,
+    );
+
+    if (!user) {
+      throw new NotFoundException('User with this email does not exist');
+    }
+
+    const isVerified = user.status !== UserStatus.PENDING_VERIFICATION;
+
+    return {
+      isVerified,
+      status: user.status,
+    };
+  }
+
+  async checkSetupStatus(userId: string) {
+    const user = await this.userRepository.findById(userId);
+    const isSetupCompleted = user!.status === UserStatus.ACTIVE;
+
+    return {
+      isSetupCompleted,
+      status: user!.status,
+    };
+  }
+
+  async rotateRefreshToken(
+    token: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    let jti: string;
+
+    try {
+      ({ jti } = await this.tokenService.verifyRefreshToken(token));
+    } catch (error) {
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
+    }
+    const existing = await this.refreshTokenRepository.findById(jti);
+
+    if (!existing) {
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
+    }
+
+    const user = await this.userRepository.findById(existing.userId);
+
+    if (
+      !user ||
+      user.status === UserStatus.SUSPENDED ||
+      user.status === UserStatus.BANNED ||
+      user.status === UserStatus.DEACTIVATED
+    ) {
+      throw new UnauthorizedException(
+        'Invalid, missing, or expired refresh token.',
+      );
+    }
+
+    const expireAt = this.tokenService.getRefreshTokenExpiresAt();
+    const sessionId = existing.sessionId;
+
+    const newToken =
+      await this.refreshTokenRepository.atomicDeleteByIdAndCreate(
+        user.id,
+        jti,
+        expireAt,
+        sessionId,
+      );
+
+    const { accessToken, refreshToken } =
+      await this.tokenService.generateAuthTokens(
+        user.id,
+        user.email,
+        newToken.id,
+        sessionId,
+      );
+
+    return {
+      accessToken,
+      refreshToken,
+    };
   }
 
   // --- Helpers ---
