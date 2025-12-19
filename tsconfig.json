@@ -35,7 +35,7 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
 
-    "allowImportingTsExtensions": true,
-    "emitDeclarationOnly": true
+    // "allowImportingTsExtensions": true,
+    // "emitDeclarationOnly": true
   }
 }
