@@ -35,6 +35,7 @@ import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { CheckVerificationDto } from './dto/checkVerification.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -44,6 +45,7 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {}
 
+  @Public()
   @Post('signup')
   @ApiOperation({
     summary: 'Register a new user',
@@ -70,6 +72,7 @@ export class AuthController {
     return this.authService.signup(signupDto);
   }
 
+  @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -91,6 +94,7 @@ export class AuthController {
     return { accessToken };
   }
 
+  @Public()
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -105,6 +109,7 @@ export class AuthController {
     return this.authService.resendVerification(resendVerificationDto);
   }
 
+  @Public()
   @Post('google')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -139,6 +144,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -172,7 +178,6 @@ export class AuthController {
     };
   }
 
-  // Use AuthGaurd to protect this route
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -194,6 +199,7 @@ export class AuthController {
     return { message: 'Logged out successfully' };
   }
 
+  @Public()
   @Post('forget-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -219,6 +225,7 @@ export class AuthController {
     return this.authService.forgetPassword(email);
   }
 
+  @Public()
   @Post('verify-reset-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -245,6 +252,7 @@ export class AuthController {
     return this.authService.verifyResetCode(email, otp);
   }
 
+  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -281,7 +289,7 @@ export class AuthController {
     );
   }
 
-  // Use AuthGaurd to protect this route
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth('refreshToken')
@@ -323,6 +331,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     };
   }
 
+  @Public()
   @Post('is-verified')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -348,7 +357,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     return this.authService.checkVerificationStatus(checkVerificationDto);
   }
 
-  // Use AuthGuard to protect this route
+  // @Roles(Role.USER)
   @Get('check-setup')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
