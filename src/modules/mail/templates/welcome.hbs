@@ -1,0 +1,108 @@
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <title>Welcome to Your Research App</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+    <style type='text/css'>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      table {
+        border-spacing: 0;
+      }
+      td {
+        padding: 0;
+      }
+      img {
+        border: 0;
+        display: block;
+      }
+      .wrapper {
+        width: 100%;
+        table-layout: fixed;
+        background: #ffffff;
+      }
+      .main {
+        background: #f8f5f2;
+        border-radius: 16px;
+        margin: 0 auto;
+        max-width: 600px;
+      }
+    </style>
+  </head>
+  <body>
+    <center class='wrapper'>
+      <table class='main' width='100%'>
+        <tr>
+          <td align='center' style='padding:40px 20px;'>
+
+            <!-- Hero Illustration – exact same as your onboarding screen -->
+            <img
+              src='https://your-domain.com/email-assets/welcome-illustration.png'
+              alt='Woman standing on books reaching for knowledge'
+              width='380'
+              style='max-width:100%; height:auto; margin-bottom:30px;'
+            />
+
+            <!-- Big beautiful heading -->
+            <h1
+              style='font-size:32px; line-height:1.2; font-weight:700; color:#6B5A4D; margin:0 0 30px; text-align:center;'
+            >
+              Instantly Find Any<br />Research
+            </h1>
+
+            <!-- Warm greeting -->
+            <p
+              style='font-size:16px; color:#444444; line-height:1.6; margin:16px 0; text-align:center;'
+            >
+              Hi{{#if username}} {{username}}{{else}} there{{/if}},
+            </p>
+
+            <!-- Welcome message -->
+            <p
+              style='font-size:16px; color:#444444; line-height:1.6; margin:16px 0; text-align:center;'
+            >
+              Welcome! You’re all set. You can now search by keywords, authors,
+              titles, or even paste a block of text to instantly find the exact
+              research paper you need.
+            </p>
+
+            <p
+              style='font-size:16px; color:#444444; line-height:1.6; margin:16px 0 40px; text-align:center;'
+            >
+              Happy researching — the entire world of academic papers is now at
+              your fingertips.
+            </p>
+
+            <!-- Optional soft CTA (no button, just friendly text) -->
+            <p
+              style='font-size:16px; color:#8C7A6B; font-weight:600; margin:30px 0; text-align:center;'
+            >
+              Let’s go find some papers!
+            </p>
+
+            <!-- Divider -->
+            <hr
+              style='border:none; border-top:1px solid #D7CBC1; margin:40px 0;'
+            />
+
+            <!-- Footer -->
+            <p
+              style='font-size:13px; color:#888888; text-align:center; line-height:1.6; margin:0;'
+            >
+              ©
+              {{year}}
+              Mirath · All rights reserved.<br />
+              Questions? Just reply to this email — we’re here to help.
+            </p>
+
+          </td>
+        </tr>
+      </table>
+    </center>
+  </body>
+</html>
