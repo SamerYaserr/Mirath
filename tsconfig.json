@@ -26,10 +26,16 @@
 
     "strict": true,
 
+    // Remove unnecessary '!' in dtos
+    "strictPropertyInitialization": false,
+
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 
     "noImplicitReturns": true,
-    "noUnusedLocals": true
+    "noUnusedLocals": true,
+
+    // "allowImportingTsExtensions": true,
+    // "emitDeclarationOnly": true
   }
 }

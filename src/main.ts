@@ -2,9 +2,48 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
+import { ValidationError } from 'class-validator';
+import cookieParser from 'cookie-parser';
+
+import { winstonLogger } from './config/logger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(cookieParser());
+
+  app.setGlobalPrefix('api');
+
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      enableDebugMessages: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+
+      exceptionFactory: (errors: ValidationError[]) => {
+        const messages = errors.map((error) => ({
+          field: error.property,
+          constraints: error.constraints,
+        }));
+
+        winstonLogger.error('Validation failed:', JSON.stringify(messages));
+        return new BadRequestException(
+          errors.map((e) => Object.values(e.constraints || {}).join(', ')),
+        );
+      },
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Mirath Project API')
@@ -34,6 +73,12 @@ async function bootstrap() {
       },
     }),
   );
+
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }

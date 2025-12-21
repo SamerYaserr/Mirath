@@ -5,6 +5,8 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
+COPY prisma ./prisma
+
 RUN npm ci
 
 # Development
@@ -21,6 +23,8 @@ FROM base AS build
 
 COPY . .
 
+RUN npx prisma generate
+
 RUN npm run build
 
 # Production stage
@@ -34,6 +38,8 @@ RUN npm ci --omit=dev
 
 COPY --from=build /usr/src/app/dist ./dist
 
+COPY --from=build /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /usr/src/app/node_modules/@prisma ./node_modules/@prisma
 
 ENV NODE_ENV=production
 

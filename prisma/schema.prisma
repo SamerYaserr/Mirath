@@ -1,8 +1,140 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ONBOARDING
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  BANNED
+}
+
+enum OtpPurpose {
+  REGISTER
+  RESET_PASSWORD
+  EMAIL_CHANGE
+}
+
+enum LevelOfEducation {
+  HIGH_SCHOOL
+  UNDERGRADUATE
+  GRADUATE
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id               String            @id @default(uuid()) @db.Uuid
+  username         String            @unique
+  email            String            @unique
+  password         String?
+  providerId       String?
+  fullName         String?
+  photoUrl         String?
+  bio              String?
+  birthDate        DateTime?         @db.Date
+  country          String?
+  levelOfEducation LevelOfEducation?
+  university       String?
+  role             Role              @default(USER)
+  status           UserStatus        @default(PENDING_VERIFICATION)
+  isEmailVisible   Boolean           @default(false)
+  isPremium        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  otpVerifications OtpVerification[]
+  refreshTokens    RefreshToken[]
+  userInterests    UserInterest[]
+  userFields       UserField[]
+
+  @@unique([providerId])
+  @@index([email])
+  @@index([username])
+}
+
+model OtpVerification {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  otpCode   String
+  purpose   OtpPurpose
+  expiresAt DateTime
+  isUsed    Boolean    @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([otpCode])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  sessionId String   @db.Uuid
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([expiresAt])
+}
+
+model Interest {
+  id     String  @id @default(uuid()) @db.Uuid
+  name   String  @unique
+  custom Boolean @default(false)
+
+  users UserInterest[]
+
+  @@index([name])
+}
+
+model UserInterest {
+  userId     String @db.Uuid
+  interestId String @db.Uuid
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([userId, interestId])
+  @@index([userId])
+  @@index([interestId])
+}
+
+model FieldOfStudy {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
+
+  users UserField[]
+
+  @@index([name])
+}
+
+model UserField {
+  userId  String @db.Uuid
+  fieldId String @db.Uuid
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field FieldOfStudy @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@id([userId, fieldId])
+  @@index([userId])
+  @@index([fieldId])
 }
