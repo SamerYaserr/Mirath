@@ -27,14 +27,14 @@ import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
-import { VerifyEmailDto } from './dto/verifyEmail.dto';
-import { ResendVerificationDto } from './dto/resendVerification.dto';
-import { GoogleAuthDto } from './dto/googleAuth.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { CheckVerificationDto } from './dto/checkVerification.dto';
+import { CheckVerificationDto } from './dto/check-verification.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Authentication')
@@ -357,7 +357,6 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     return this.authService.checkVerificationStatus(checkVerificationDto);
   }
 
-  // @Roles(Role.USER)
   @Get('check-setup')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()

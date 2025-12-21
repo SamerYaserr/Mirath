@@ -1,6 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
-import { HealthService } from './health.service';
 
+import { HealthService } from './health.service';
+import { Public } from '../../common/decorators/public.decorator';
+
+@Public()
 @Controller({
   version: '',
   path: 'health',

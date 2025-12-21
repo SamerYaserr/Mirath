@@ -20,11 +20,11 @@ import { MailService } from '../mail/mail.service';
 import { winstonLogger } from 'src/config/logger.config';
 import { TokenService } from './utils/token.service';
 import { RefreshTokenRepository } from './repositories/refreshToken.repository';
-import { VerifyEmailDto } from './dto/verifyEmail.dto';
-import { ResendVerificationDto } from './dto/resendVerification.dto';
-import { GoogleAuthDto } from './dto/googleAuth.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
-import { CheckVerificationDto } from './dto/checkVerification.dto';
+import { CheckVerificationDto } from './dto/check-verification.dto';
 
 @Injectable()
 export class AuthService {
