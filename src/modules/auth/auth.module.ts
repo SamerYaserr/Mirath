@@ -31,6 +31,6 @@ import { UsersModule } from '../users/users.module';
     MailService,
     TokenService,
   ],
-  exports: [AuthService],
+  exports: [AuthService, TokenService],
 })
 export class AuthModule {}
