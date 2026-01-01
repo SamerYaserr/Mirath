@@ -24,6 +24,7 @@ async function seedPapersFromFile(
   const papers: Paper[] = JSON.parse(fileContent);
 
   const paperInputs: Prisma.PaperCreateManyInput[] = papers.map((paper) => ({
+    id: paper.id,
     citation: paper.citation,
     title: paper.title,
     abstract: paper.abstract,
