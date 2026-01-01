@@ -1,4 +1,6 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+
+import { winstonLogger as logger } from '../../src/config/logger.config';
 
 export const interests: Prisma.InterestCreateInput[] = [
   // Natural Sciences
@@ -130,3 +132,12 @@ export const interests: Prisma.InterestCreateInput[] = [
   { name: 'Performing Arts' },
   { name: 'Industrial Design' },
 ];
+
+export async function seedInterests(prisma: PrismaClient) {
+  await prisma.interest.createMany({
+    data: interests,
+    skipDuplicates: true,
+  });
+
+  logger.info('Interests seeding completed successfully');
+}

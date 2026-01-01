@@ -144,7 +144,7 @@ model UserField {
 model Paper {
   id String @id @default(uuid()) @db.Uuid
 
-  citation String @unique
+  citation String
   title    String
   abstract String @db.Text
 
