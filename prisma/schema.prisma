@@ -58,6 +58,8 @@ model User {
   refreshTokens    RefreshToken[]
   userInterests    UserInterest[]
   userFields       UserField[]
+  searchHistories  SearchHistory[]
+  savedPapers      SavedPaper[]
 
   @@unique([providerId])
   @@index([email])
@@ -163,8 +165,9 @@ model Paper {
   // INDEXED. Used for all text queries.
   fullText String @db.Text
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  savedPapers SavedPaper[]
 
   @@index([publishedAt])
   // Array Indexes (Exact Match)
@@ -172,4 +175,28 @@ model Paper {
   @@index([categories], type: Gin)
   // Text Search Index (Fuzzy Match)
   @@index([fullText(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  query     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SavedPaper {
+  userId  String @db.Uuid
+  paperId String @db.Uuid
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, paperId])
+  @@index([userId])
 }
