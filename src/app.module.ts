@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { InterestsModule } from './modules/interests/interests.module';
 import { AuthGuard } from './modules/auth/guards/auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { PapersModule } from './modules/papers/papers.module';
 
 @Module({
   imports: [
@@ -25,8 +26,10 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     MailModule,
     UsersModule,
     InterestsModule,
+    PapersModule,
   ],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
