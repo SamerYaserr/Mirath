@@ -1,5 +1,5 @@
 import { User, UserStatus } from '@prisma/client';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileSetupDto } from './dto/profile-setup.dto';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -91,6 +91,25 @@ export class UsersService {
     return {
       message: 'Profile setup completed successfully',
       data: excludeUserSensitiveFields(user),
+    };
+  }
+
+  async getMyProfile(userId: string): Promise<HttpResponse> {
+    const user = await this.userRepository.findProfileById(userId);
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const { userInterests, userFields, ...userData } = user;
+
+    const formattedProfile = {
+      ...userData,
+      interests: userInterests.map((ui) => ui.interest),
+      fieldsOfStudy: userFields.map((uf) => uf.field),
+    };
+
+    return {
+      message: 'User profile retrieved successfully',
+      data: formattedProfile,
     };
   }
 }
