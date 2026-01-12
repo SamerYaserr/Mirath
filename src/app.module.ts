@@ -11,6 +11,10 @@ import { UsersModule } from './modules/users/users.module';
 import { InterestsModule } from './modules/interests/interests.module';
 import { AuthGuard } from './modules/auth/guards/auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+<<<<<<< HEAD
+import { SearchModule } from './modules/search/search.module';
+=======
+>>>>>>> epic/36-research-discovery-search
 import { PapersModule } from './modules/papers/papers.module';
 
 @Module({
@@ -26,6 +30,7 @@ import { PapersModule } from './modules/papers/papers.module';
     MailModule,
     UsersModule,
     InterestsModule,
+    SearchModule,
     PapersModule,
   ],
   providers: [
