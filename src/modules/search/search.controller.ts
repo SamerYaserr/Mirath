@@ -14,16 +14,13 @@ import {
   Param,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 
 import { IdDto } from 'src/common/dto/id.dto';
 import { SearchService } from './search.service';
-import { AuthGuard } from '../auth/guards/auth.guard';
 import { SearchHistoryQueryDto } from './dto/search-history-query.dto';
 
 @Controller('search')
-@UseGuards(AuthGuard)
 export class SearchController {
   constructor(private searchService: SearchService) {}
 
