@@ -12,7 +12,7 @@ export class SearchHistoryQueryDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'Limit must be an integer' })
-  @Min(1, { message: 'Limit must be at least 1' })
+  @IsInt({ message: 'limit must be an integer' })
+  @Min(1, { message: 'limit must be at least 1' })
   limit: number = 10;
 }
