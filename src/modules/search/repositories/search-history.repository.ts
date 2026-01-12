@@ -18,4 +18,12 @@ export class SearchHistoryRepository {
       where: { id, userId },
     }));
   }
+
+  async find(userId: string, take: number) {
+    return await this.prisma.searchHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+  }
 }

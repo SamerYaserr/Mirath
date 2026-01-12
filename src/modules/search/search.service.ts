@@ -24,6 +24,15 @@ export class SearchService {
     };
   }
 
+  async getSearchHistory(userId: string, limit: number): Promise<HttpResponse> {
+    const searchHistory = await this.searchHistoryRepo.find(userId, limit);
+
+    return {
+      size: searchHistory.length,
+      data: searchHistory,
+    };
+  }
+
   // ========== Helpers ========== //
 
   private async checkSearchQueryExistance(id: string, userId: string) {
