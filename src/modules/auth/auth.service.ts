@@ -14,7 +14,7 @@ import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
 import { SignupDto } from './dto/signup.dto';
-import { UserRepository } from '../users/repositories/user.repository';
+import { UsersRepository } from '../users/repositories/users.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { MailService } from '../mail/mail.service';
 import { winstonLogger } from 'src/config/logger.config';
@@ -31,7 +31,7 @@ export class AuthService {
   private googleClient: OAuth2Client;
 
   constructor(
-    private userRepository: UserRepository,
+    private usersRepository: UsersRepository,
     private otpRepository: OtpRepository,
     private refreshTokenRepository: RefreshTokenRepository,
     private mailService: MailService,
@@ -49,7 +49,7 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const existingUser = await this.userRepository.findByEmailOrUsername(
+    const existingUser = await this.usersRepository.findByEmailOrUsername(
       signupDto.email,
       signupDto.username,
     );
@@ -92,7 +92,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(signupDto.password, 10);
 
-    const newUser = await this.userRepository.create({
+    const newUser = await this.usersRepository.create({
       email: signupDto.email,
       username: signupDto.username,
       password: hashedPassword,
@@ -116,7 +116,7 @@ export class AuthService {
   }
 
   async verifyEmail(verifyEmailDto: VerifyEmailDto) {
-    const user = await this.userRepository.findByEmail(verifyEmailDto.email);
+    const user = await this.usersRepository.findByEmail(verifyEmailDto.email);
     if (!user) throw new BadRequestException('Invalid request');
 
     const otpRecord = await this.otpRepository.findPendingOtp(
@@ -132,7 +132,7 @@ export class AuthService {
     }
 
     await this.otpRepository.markAsUsed(otpRecord.id);
-    const updatedUser = await this.userRepository.updateStatus(
+    const updatedUser = await this.usersRepository.updateStatus(
       user.id,
       UserStatus.ONBOARDING,
     );
@@ -143,7 +143,7 @@ export class AuthService {
   }
 
   async resendVerification(resendVerificationDto: ResendVerificationDto) {
-    const user = await this.userRepository.findByEmail(
+    const user = await this.usersRepository.findByEmail(
       resendVerificationDto.email,
     );
     if (!user) throw new BadRequestException('User not found');
@@ -203,7 +203,7 @@ export class AuthService {
       throw new UnauthorizedException('Google email not verified');
 
     const email = payload.email.toLowerCase();
-    let user = await this.userRepository.findByEmail(email);
+    let user = await this.usersRepository.findByEmail(email);
 
     // Existing user
     if (user) {
@@ -224,7 +224,7 @@ export class AuthService {
 
       // Auto-activate pending users
       if (user.status === UserStatus.PENDING_VERIFICATION) {
-        user = await this.userRepository.updateStatus(
+        user = await this.usersRepository.updateStatus(
           user.id,
           UserStatus.ACTIVE,
         );
@@ -239,7 +239,7 @@ export class AuthService {
             'This email is already associated with a different Google account. Please use the correct Google account to log in.',
           );
         }
-        await this.userRepository.updateGoogleProvider(
+        await this.usersRepository.updateGoogleProvider(
           user.id,
           payload.sub,
           payload.picture ?? '',
@@ -256,7 +256,7 @@ export class AuthService {
       email.split('@')[0]!.replace(/[^a-zA-Z0-9]/g, '') || 'user';
     let username = `${baseUsername}_${Date.now().toString(36)}`;
 
-    user = await this.userRepository.create({
+    user = await this.usersRepository.create({
       email,
       username,
       fullName: payload.name || payload.given_name || 'User',
@@ -275,7 +275,7 @@ export class AuthService {
     const { emailOrUsername, password } = loginDto;
     const isEmail = emailOrUsername.includes('@');
 
-    const user = await this.userRepository.findByEmailOrUsername(
+    const user = await this.usersRepository.findByEmailOrUsername(
       isEmail ? emailOrUsername : '',
       isEmail ? '' : emailOrUsername,
     );
@@ -331,7 +331,7 @@ export class AuthService {
   }
 
   async forgetPassword(email: string) {
-    const user = await this.userRepository.findByEmail(email);
+    const user = await this.usersRepository.findByEmail(email);
     if (user) {
       await this.otpRepository.invalidatePendingOtps(
         user.id,
@@ -354,7 +354,7 @@ export class AuthService {
   }
 
   async verifyResetCode(email: string, otp: string) {
-    const user = await this.userRepository.findByEmail(email);
+    const user = await this.usersRepository.findByEmail(email);
     if (!user) throw new BadRequestException('Invalid or expired OTP');
 
     const status = user.status;
@@ -402,7 +402,7 @@ export class AuthService {
     if (!verifiedToken || !verifiedToken.forPasswordReset)
       throw new ForbiddenException('Reset token is invalid or expired');
 
-    const user = await this.userRepository.findById(verifiedToken.userId);
+    const user = await this.usersRepository.findById(verifiedToken.userId);
     if (!user)
       throw new ForbiddenException('Reset token is invalid or expired');
 
@@ -418,7 +418,7 @@ export class AuthService {
       );
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.userRepository.updatePassword(user.id, hashedPassword);
+    await this.usersRepository.updatePassword(user.id, hashedPassword);
 
     await this.refreshTokenRepository.deleteByUserId(user.id);
 
@@ -427,7 +427,7 @@ export class AuthService {
   }
 
   async checkVerificationStatus(checkVerificationDto: CheckVerificationDto) {
-    const user = await this.userRepository.findByEmail(
+    const user = await this.usersRepository.findByEmail(
       checkVerificationDto.email,
     );
 
@@ -444,7 +444,7 @@ export class AuthService {
   }
 
   async checkSetupStatus(userId: string) {
-    const user = await this.userRepository.findById(userId);
+    const user = await this.usersRepository.findById(userId);
     const isSetupCompleted = user!.status === UserStatus.ACTIVE;
 
     return {
@@ -473,7 +473,7 @@ export class AuthService {
       );
     }
 
-    const user = await this.userRepository.findById(existing.userId);
+    const user = await this.usersRepository.findById(existing.userId);
 
     if (
       !user ||

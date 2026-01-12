@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileSetupDto } from './dto/profile-setup.dto';
 import { HttpResponse } from 'src/common/types/api.types';
-import { UserRepository } from './repositories/user.repository';
+import { UsersRepository } from './repositories/users.repository';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { InterestsRepository } from '../interests/repositories/interests.repository';
@@ -14,7 +14,7 @@ import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 export class UsersService {
   constructor(
     private prisma: PrismaService,
-    private userRepository: UserRepository,
+    private usersRepository: UsersRepository,
     private cloudinaryService: CloudinaryService,
     private interestsRepository: InterestsRepository,
     private userInterestsRepository: UserInterestsRepository,
@@ -64,7 +64,7 @@ export class UsersService {
           tx,
         );
 
-        return await this.userRepository.update(
+        return await this.usersRepository.update(
           {
             where: { id: userId },
             data: {
@@ -95,7 +95,7 @@ export class UsersService {
   }
 
   async getMyProfile(userId: string): Promise<HttpResponse> {
-    const user = await this.userRepository.findProfileById(userId);
+    const user = await this.usersRepository.findProfileById(userId);
 
     if (!user) throw new NotFoundException('User not found');
 
