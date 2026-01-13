@@ -11,13 +11,13 @@ export class FeedService {
     const { category, page = 1, limit = 10 } = dto;
     const offset = (page - 1) * limit;
 
-    const { papers, total } = await this.repo.findRecentPapers({
+    const { papers } = await this.repo.findRecentPapers({
       category: category ?? undefined,
       limit,
       offset,
     });
 
-        const paperIds = papers.map((p) => p.id);
+    const paperIds = papers.map((p) => p.id);
     const savedIds = await this.repo.findSavedPaperIdsForUser({
       userId,
       paperIds,
@@ -29,17 +29,15 @@ export class FeedService {
       ...p,
       isSaved: savedSet.has(p.id),
     }));
-    
 
     return {
       message: 'Recent papers fetched successfully',
       data,
-      size: total,
+      size: data.length,
     };
-
   }
 
-    async getRecommendations(
+  async getRecommendations(
     userId: string,
     dto: RecommendationQueryDto,
   ): Promise<HttpResponse> {
@@ -62,7 +60,7 @@ export class FeedService {
       };
     }
 
-    const { papers, total } = await this.repo.findRecommendationPapers({
+    const { papers } = await this.repo.findRecommendationPapers({
       tags,
       excludePaperIds: savedPaperIds,
       limit,
@@ -77,7 +75,7 @@ export class FeedService {
     return {
       message: 'Recommendations fetched successfully',
       data,
-      size: total,
+      size: data.length,
     };
   }
 }
