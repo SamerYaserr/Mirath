@@ -38,4 +38,46 @@ export class FeedService {
     };
 
   }
+
+    async getRecommendations(
+    userId: string,
+    dto: RecommendationQueryDto,
+  ): Promise<HttpResponse> {
+    const { page = 1, limit = 5 } = dto;
+    const offset = (page - 1) * limit;
+
+    const user = await this.repo.findUserForRecommendations(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const interestNames = user.userInterests.map((ui) => ui.interest.name);
+    const fieldNames = user.userFields.map((uf) => uf.field.name);
+    const tags = [...new Set([...interestNames, ...fieldNames])];
+    const savedPaperIds = user.savedPapers.map((sp) => sp.paperId);
+
+    if (tags.length === 0) {
+      return {
+        message: 'No interests found for recommendations',
+        data: [],
+        size: 0,
+      };
+    }
+
+    const { papers, total } = await this.repo.findRecommendationPapers({
+      tags,
+      excludePaperIds: savedPaperIds,
+      limit,
+      offset,
+    });
+
+    const data = papers.map((p) => ({
+      ...p,
+      isSaved: false,
+    }));
+
+    return {
+      message: 'Recommendations fetched successfully',
+      data,
+      size: total,
+    };
+  }
 }
