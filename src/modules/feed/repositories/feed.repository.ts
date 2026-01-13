@@ -45,7 +45,7 @@ export class FeedRepository {
       }),
       this.prisma.paper.count({ where }),
     ]);
-
+    
     return { papers, total };
   }
 
@@ -66,5 +66,51 @@ export class FeedRepository {
     });
 
     return saved.map((s) => s.paperId);
+  }
+
+  async findUserForRecommendations(userId: string): Promise<{
+    id: string;
+    userInterests: { interest: { name: string } }[];
+    userFields: { field: { name: string } }[];
+    savedPapers: { paperId: string }[];
+  } | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userInterests: { include: { interest: true } },
+        userFields: { include: { field: true } },
+        savedPapers: { select: { paperId: true } },
+      },
+    });
+  }
+
+  async findRecommendationPapers(params: {
+    tags: string[];
+    excludePaperIds: string[];
+    limit: number;
+    offset: number;
+  }): Promise<{ papers: PaperCard[]; total: number }> {
+    const { tags, excludePaperIds, limit, offset } = params;
+
+    const where: any = {
+      categories: { hasSome: tags },
+    };
+
+    if (excludePaperIds.length > 0) {
+      where.id = { notIn: excludePaperIds };
+    }
+
+    const [papers, total] = await Promise.all([
+      this.prisma.paper.findMany({
+        where,
+        orderBy: { publishedAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: this.paperCardSelect,
+      }),
+      this.prisma.paper.count({ where }),
+    ]);
+
+    return { papers, total };
   }
 }
