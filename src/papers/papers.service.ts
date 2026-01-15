@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -19,5 +20,13 @@ export class PapersService {
     return await this.paperRepository.create(paperId, userId);
   }
 
-  deleteSavedPaper(id: string, userId: string) {}
+  async deleteSavedPaper(paperId: string, userId: string) {
+    const paper = await this.paperRepository.find(paperId);
+    if (!paper) throw new NotFoundException('No paper found with this id');
+
+    const isSaved = await this.paperRepository.findSaved(paperId, userId);
+    if (!isSaved) throw new BadRequestException('This paper is not saved');
+
+    await this.paperRepository.deleteSaved(paperId, userId);
+  }
 }
