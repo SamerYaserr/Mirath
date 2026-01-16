@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { LibraryRepository } from './repositories/library.repository';
+
+import { SortOrder } from './dtos/get-saved-papers.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { LibraryRepository } from './repositories/library.repository';
 
 @Injectable()
 export class LibraryService {
@@ -10,7 +12,7 @@ export class LibraryService {
     userId: string,
     page: number = 1,
     limit: number = 10,
-    sort: string = 'desc',
+    sort: SortOrder = SortOrder.DESC,
   ): Promise<HttpResponse> {
     const skip = (page - 1) * limit;
     const papers = await this.libraryRepository.findAll(
