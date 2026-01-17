@@ -3,11 +3,11 @@ import {
   Post,
   Param,
   Delete,
-  Req,
-  HttpStatus,
-  HttpCode,
   Get,
+  HttpCode,
+  HttpStatus,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -16,8 +16,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-
 import type { Request } from 'express';
+
 import { PapersService } from './papers.service';
 import { SearchPaperDto } from './dto/search-paper.dto';
 import { IdDto } from 'src/common/dto/id.dto';

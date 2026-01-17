@@ -14,6 +14,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { LibraryModule } from './modules/library/library.module';
 import { SearchModule } from './modules/search/search.module';
 import { PapersModule } from './modules/papers/papers.module';
+import { FeedModule } from './modules/feed/feed.module';
 
 @Module({
   imports: [
@@ -32,6 +33,9 @@ import { PapersModule } from './modules/papers/papers.module';
     LibraryModule,
     SearchModule,
     PapersModule,
+    SearchModule,
+    PapersModule,
+    FeedModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
