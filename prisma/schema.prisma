@@ -34,6 +34,11 @@ enum Role {
   ADMIN
 }
 
+enum VoteType {
+  UP
+  DOWN
+}
+
 model User {
   id               String            @id @default(uuid()) @db.Uuid
   username         String            @unique
@@ -60,6 +65,13 @@ model User {
   userFields       UserField[]
   searchHistories  SearchHistory[]
   savedPapers      SavedPaper[]
+  readingLists     ReadingList[]
+  discussions      Discussion[]
+  comments         Comment[]
+  discussionVotes  DiscussionVote[]
+  commentVotes     CommentVote[]
+  followers        Follows[]         @relation("follower")
+  followings       Follows[]         @relation("following")
 
   @@unique([providerId])
   @@index([email])
@@ -105,7 +117,8 @@ model Interest {
   name   String  @unique
   custom Boolean @default(false)
 
-  users UserInterest[]
+  users            UserInterest[]
+  discussionTopics DiscussionTopic[]
 
   @@index([name])
 }
@@ -165,9 +178,11 @@ model Paper {
   // INDEXED. Used for all text queries.
   fullText String @db.Text
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  savedPapers SavedPaper[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  savedPapers       SavedPaper[]
+  readingListPapers ReadingListPaper[]
 
   @@index([publishedAt])
   // Array Indexes (Exact Match)
@@ -199,4 +214,123 @@ model SavedPaper {
 
   @@id([userId, paperId])
   @@index([userId])
+}
+
+model Follows {
+  followerId  String @db.Uuid
+  followingId String @db.Uuid
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model ReadingList {
+  id          String  @id @default(uuid()) @db.Uuid
+  title       String
+  description String? @db.Text
+  isPublic    Boolean @default(true)
+  ownerId     String  @db.Uuid
+
+  owner  User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  papers ReadingListPaper[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model ReadingListPaper {
+  readingListId String @db.Uuid
+  paperId       String @db.Uuid
+
+  readingList ReadingList @relation(fields: [readingListId], references: [id], onDelete: Cascade)
+  paper       Paper       @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@id([readingListId, paperId])
+}
+
+model Discussion {
+  id           String @id @default(uuid()) @db.Uuid
+  title        String
+  content      String @db.Text
+  voteScore    Int    @default(0)
+  commentCount Int    @default(0)
+  authorId     String @db.Uuid
+
+  author   User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  votes    DiscussionVote[]
+  topics   DiscussionTopic[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([voteScore])
+  @@index([createdAt])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model Comment {
+  id           String  @id @default(uuid()) @db.Uuid
+  content      String  @db.Text
+  authorId     String  @db.Uuid
+  discussionId String  @db.Uuid
+  parentId     String? @db.Uuid
+  voteScore    Int     @default(0)
+
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  discussion Discussion    @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  parent     Comment?      @relation("Thread", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Comment[]     @relation("Thread")
+  votes      CommentVote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([discussionId])
+  @@index([parentId])
+}
+
+model CommentVote {
+  userId    String   @db.Uuid
+  commentId String   @db.Uuid
+  type      VoteType
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, commentId])
+}
+
+model DiscussionVote {
+  userId       String   @db.Uuid
+  discussionId String   @db.Uuid
+  type         VoteType
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, discussionId])
+}
+
+model DiscussionTopic {
+  discussionId String @db.Uuid
+  interestId   String @db.Uuid
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  interest   Interest   @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([discussionId, interestId])
 }
