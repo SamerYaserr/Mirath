@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { InterestsModule } from './modules/interests/interests.module';
 import { AuthGuard } from './modules/auth/guards/auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { LibraryModule } from './modules/library/library.module';
 import { SearchModule } from './modules/search/search.module';
 import { PapersModule } from './modules/papers/papers.module';
 import { FeedModule } from './modules/feed/feed.module';
@@ -28,6 +29,10 @@ import { FeedModule } from './modules/feed/feed.module';
     MailModule,
     UsersModule,
     InterestsModule,
+    PapersModule,
+    LibraryModule,
+    SearchModule,
+    PapersModule,
     SearchModule,
     PapersModule,
     FeedModule,
