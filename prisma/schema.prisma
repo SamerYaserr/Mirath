@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pg_trgm]
 }
 
 enum UserStatus {
@@ -56,6 +58,8 @@ model User {
   refreshTokens    RefreshToken[]
   userInterests    UserInterest[]
   userFields       UserField[]
+  searchHistories  SearchHistory[]
+  savedPapers      SavedPaper[]
 
   @@unique([providerId])
   @@index([email])
@@ -137,4 +141,62 @@ model UserField {
   @@id([userId, fieldId])
   @@index([userId])
   @@index([fieldId])
+}
+
+model Paper {
+  id String @id @default(uuid()) @db.Uuid
+
+  citation String
+  title    String
+  abstract String @db.Text
+
+  // Store as Arrays for scraping speed + GIN indexing
+  authors    String[]
+  categories String[]
+
+  publishedAt DateTime
+
+  // FOR DISPLAY
+  // NEVER SEARCHED. Fetched only on "Detail View".
+  content Json @db.JsonB
+
+  // FOR SEARCHING
+  // Stores stripped text (lowercase, no tags).
+  // INDEXED. Used for all text queries.
+  fullText String @db.Text
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  savedPapers SavedPaper[]
+
+  @@index([publishedAt])
+  // Array Indexes (Exact Match)
+  @@index([authors], type: Gin)
+  @@index([categories], type: Gin)
+  // Text Search Index (Fuzzy Match)
+  @@index([fullText(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  query     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SavedPaper {
+  userId  String @db.Uuid
+  paperId String @db.Uuid
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, paperId])
+  @@index([userId])
 }
