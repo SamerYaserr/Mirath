@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FeedRepository } from './repositories/feed.repository';
-import { FeedQueryDto, RecommendationQueryDto } from './dto/feed.dto';
+import { FeedQueryDto } from './dto/FeedQuery.dto';
+import { RecommendationQueryDto } from './dto/RecommendationQuery.dto';
 import { HttpResponse } from '../../common/types/api.types';
 
 @Injectable()
@@ -50,7 +51,7 @@ export class FeedService {
     const interestNames = user.userInterests.map((ui) => ui.interest.name);
     const fieldNames = user.userFields.map((uf) => uf.field.name);
     const tags = [...new Set([...interestNames, ...fieldNames])];
-    const savedPaperIds = user.savedPapers.map((sp) => sp.paperId);
+    // const savedPaperIds = user.savedPapers.map((sp) => sp.paperId);
 
     if (tags.length === 0) {
       return {
@@ -62,9 +63,9 @@ export class FeedService {
 
     const { papers } = await this.repo.findRecommendationPapers({
       tags,
-      excludePaperIds: savedPaperIds,
       limit,
       offset,
+      userId,
     });
 
     const data = papers.map((p) => ({

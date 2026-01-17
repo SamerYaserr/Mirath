@@ -15,7 +15,8 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { FeedService } from './feed.service';
-import { FeedQueryDto, RecommendationQueryDto } from './dto/feed.dto';
+import { FeedQueryDto } from './dto/FeedQuery.dto';
+import { RecommendationQueryDto } from './dto/RecommendationQuery.dto';
 
 @ApiTags('Feed')
 @Controller('feed')
@@ -63,7 +64,7 @@ export class FeedController {
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async getRecent(@Req() req: Request, @Query() query: FeedQueryDto) {
-    const userId = (req as any).user!.id;
+    const userId = req.user!.id;
     return this.feedService.getRecent(userId, query);
   }
 
@@ -101,7 +102,7 @@ export class FeedController {
     @Req() req: Request,
     @Query() query: RecommendationQueryDto,
   ) {
-    const userId = (req as any).user!.id;
+    const userId = req.user!.id;
     return this.feedService.getRecommendations(userId, query);
   }
 }

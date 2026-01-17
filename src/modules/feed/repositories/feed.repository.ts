@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 type PaperCard = {
   id: string;
@@ -30,7 +31,7 @@ export class FeedRepository {
   }): Promise<{ papers: PaperCard[]; total: number }> {
     const { category, limit, offset } = params;
 
-    const where: any = {};
+    const where: Prisma.PaperWhereInput = {};
     if (category) {
       where.categories = { has: category };
     }
@@ -45,7 +46,7 @@ export class FeedRepository {
       }),
       this.prisma.paper.count({ where }),
     ]);
-    
+
     return { papers, total };
   }
 
@@ -72,33 +73,28 @@ export class FeedRepository {
     id: string;
     userInterests: { interest: { name: string } }[];
     userFields: { field: { name: string } }[];
-    savedPapers: { paperId: string }[];
   } | null> {
     return this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         userInterests: { include: { interest: true } },
         userFields: { include: { field: true } },
-        savedPapers: { select: { paperId: true } },
       },
     });
   }
 
   async findRecommendationPapers(params: {
     tags: string[];
-    excludePaperIds: string[];
     limit: number;
     offset: number;
+    userId: string;
   }): Promise<{ papers: PaperCard[]; total: number }> {
-    const { tags, excludePaperIds, limit, offset } = params;
+    const { tags, limit, offset, userId } = params;
 
-    const where: any = {
+    const where: Prisma.PaperWhereInput = {
       categories: { hasSome: tags },
+      savedPapers: { none: { userId } },
     };
-
-    if (excludePaperIds.length > 0) {
-      where.id = { notIn: excludePaperIds };
-    }
 
     const [papers, total] = await Promise.all([
       this.prisma.paper.findMany({
