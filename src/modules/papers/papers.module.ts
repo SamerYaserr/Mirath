@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { PapersService } from './papers.service';
 import { PapersController } from './papers.controller';
-import { PaperRepository } from './repositories/paper.repository';
+import { PapersRepository } from './repositories/papers.repository';
 
 @Module({
   controllers: [PapersController],
-  providers: [PapersService, PaperRepository],
+  providers: [PapersService, PapersRepository],
 })
 export class PapersModule {}
