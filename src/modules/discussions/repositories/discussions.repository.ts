@@ -24,7 +24,7 @@ export class DiscussionsRepository {
           })),
         },
       },
-      select: {
+      include: {
         topics: {
           include: {
             interest: {
