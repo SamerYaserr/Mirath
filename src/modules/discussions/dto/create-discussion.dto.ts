@@ -1,0 +1,85 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform, TransformFnParams } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
+  IsString,
+  IsUUID,
+  Length,
+} from 'class-validator';
+import sanitizeHtml from 'sanitize-html';
+
+// sanitize HTML
+const sanitizeToText = ({ value }: TransformFnParams) => {
+  if (typeof value !== 'string') return value;
+
+  const clean = sanitizeHtml(value, {
+    allowedTags: [
+      'p',
+      'br',
+      'strong',
+      'em',
+      'ul',
+      'ol',
+      'li',
+      'code',
+      'pre',
+      'blockquote',
+      'a',
+    ],
+    allowedAttributes: {
+      a: ['href', 'title'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+  });
+
+  return clean.trim();
+};
+
+// remove duplicate UUIDs
+const removeDuplicates = ({ value }: TransformFnParams) => {
+  if (!Array.isArray(value)) return value;
+
+  return [...new Set(value)];
+};
+
+export class CreateDiscussionDto {
+  @ApiProperty({
+    description: 'String defining title of the discussion',
+    example: 'Best practices for implementing ...',
+    type: String,
+  })
+  @Transform(sanitizeToText)
+  @IsString({ message: 'Title must be a string' })
+  @Length(3, 150, { message: 'Title must be between 3 and 150 characters' })
+  title: string;
+
+  @ApiProperty({
+    description: 'Content of the discussion',
+    example: 'I am currently working on ...',
+    type: String,
+  })
+  @Transform(sanitizeToText)
+  @IsString({ message: 'Content must be a string' })
+  @Length(10, 10000, {
+    message: 'Content must be between 10 and 10000 characters',
+  })
+  content: string;
+
+  @ApiProperty({
+    description: 'Array of topic IDs in UUID format',
+    example: [
+      '550e8400-e29b-41d4-a716-446655440000',
+      '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+    ],
+    type: [String],
+    isArray: true,
+  })
+  @Transform(removeDuplicates)
+  @IsArray({ message: 'Topic Ids must be an array' })
+  @ArrayNotEmpty({ message: 'Topic Ids array cannot be empty' })
+  @ArrayMaxSize(25, { message: 'Maximum 25 topics allowed' })
+  @IsUUID('4', { each: true, message: 'Each topic ID must be a valid UUID' })
+  topicIds: string[];
+}
