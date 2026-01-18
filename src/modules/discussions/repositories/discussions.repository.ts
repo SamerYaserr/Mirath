@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Discussion } from '@prisma/client';
+import { Discussion, Prisma } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { SortType } from '../dto/get-discussions.dto';
 
 @Injectable()
 export class DiscussionsRepository {
@@ -40,6 +41,56 @@ export class DiscussionsRepository {
             id: true,
             username: true,
             photoUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findAll(
+    userId: string,
+    sort: string,
+    skip: number,
+    limit: number,
+    topicId?: string,
+  ) {
+    const whereClause: Prisma.DiscussionWhereInput = topicId
+      ? {
+          topics: {
+            some: {
+              interestId: topicId,
+            },
+          },
+        }
+      : {};
+
+    const orderByClause: Prisma.DiscussionOrderByWithRelationInput =
+      sort === SortType.TOP ? { voteScore: 'desc' } : { createdAt: 'desc' };
+
+    return this.prisma.discussion.findMany({
+      where: whereClause,
+      orderBy: orderByClause,
+      skip,
+      take: limit,
+      include: {
+        topics: {
+          include: {
+            interest: true,
+          },
+        },
+        author: {
+          select: {
+            id: true,
+            username: true,
+            photoUrl: true,
+          },
+        },
+        votes: {
+          where: {
+            userId,
+          },
+          select: {
+            type: true,
           },
         },
       },
