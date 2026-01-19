@@ -1,5 +1,9 @@
 import { User, UserStatus } from '@prisma/client';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileSetupDto } from './dto/profile-setup.dto';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -9,6 +13,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { InterestsRepository } from '../interests/repositories/interests.repository';
 import { UserInterestsRepository } from '../interests/repositories/user-interests.repository';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
+import { FollowsRepository } from './repositories/follows.repository';
 
 @Injectable()
 export class UsersService {
@@ -16,6 +21,7 @@ export class UsersService {
     private prisma: PrismaService,
     private usersRepository: UsersRepository,
     private cloudinaryService: CloudinaryService,
+    private followsRepository: FollowsRepository,
     private interestsRepository: InterestsRepository,
     private userInterestsRepository: UserInterestsRepository,
   ) {}
@@ -26,7 +32,7 @@ export class UsersService {
     dto: ProfileSetupDto,
   ): Promise<HttpResponse> {
     const existingInterests = await this.interestsRepository.findMany({
-      where: { custom: false, name: { in: dto.interests } },
+      where: { name: { in: dto.interests } },
       select: {
         name: true,
       },
@@ -111,5 +117,52 @@ export class UsersService {
       message: 'User profile retrieved successfully',
       data: formattedProfile,
     };
+  }
+
+  async follow(followerId: string, followingId: string): Promise<HttpResponse> {
+    if (followerId === followingId)
+      throw new BadRequestException('You cannot follow yourself');
+
+    await this.checkUserExistance(followingId);
+
+    // Only create the relationship if there was no one
+    if (!(await this.checkFollowRelationship(followerId, followingId)))
+      await this.followsRepository.create(followerId, followingId);
+
+    return {
+      message: 'User followed successfully',
+    };
+  }
+
+  async unfollow(
+    followerId: string,
+    followingId: string,
+  ): Promise<HttpResponse> {
+    if (followerId === followingId)
+      throw new BadRequestException('You cannot unfollow yourself');
+
+    await this.checkUserExistance(followingId);
+
+    // Only remove the relationship if there was already one
+    if (await this.checkFollowRelationship(followerId, followingId))
+      await this.followsRepository.delete(followerId, followingId);
+
+    return {
+      message: 'User unfollowed successfully',
+    };
+  }
+
+  // ============ Helpers ============ //
+
+  async checkUserExistance(id: string) {
+    const user = await this.usersRepository.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+  }
+
+  async checkFollowRelationship(
+    followerId: string,
+    followingId: string,
+  ): Promise<boolean> {
+    return !!(await this.followsRepository.find(followerId, followingId));
   }
 }

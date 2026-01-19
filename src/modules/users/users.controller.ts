@@ -2,9 +2,11 @@ import type { Request } from 'express';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UploadedFile,
@@ -20,6 +22,7 @@ import {
   ApiOperation,
   ApiResponse,
 } from '@nestjs/swagger';
+import { IdDto } from 'src/common/dto/id.dto';
 
 @Controller('users')
 export class UsersController {
@@ -117,5 +120,65 @@ export class UsersController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   getMyProfile(@Req() req: Request) {
     return this.usersService.getMyProfile(req.user!.id);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Follow user',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User followed successfully',
+    schema: {
+      example: {
+        message: 'User followed successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'You cannot follow yourself',
+    schema: {
+      example: {
+        message: 'You cannot follow yourself',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
+  })
+  @Post(':id/follow')
+  @HttpCode(HttpStatus.OK)
+  follow(@Req() req: Request, @Param() { id }: IdDto) {
+    return this.usersService.follow(req.user!.id, id);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Unfollow user',
+  })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'User unfollowed successfully',
+    schema: {
+      example: {
+        message: 'User unfollowed successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'You cannot unfollow yourself',
+    schema: {
+      example: {
+        message: 'You cannot unfollow yourself',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
+  })
+  @Delete(':id/follow')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unfollow(@Req() req: Request, @Param() { id }: IdDto) {
+    return this.usersService.unfollow(req.user!.id, id);
   }
 }
