@@ -83,6 +83,26 @@ export class SearchService {
     };
   }
 
+  async searchReadingLists(
+    userId: string,
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<HttpResponse> {
+    const skip = (page - 1) * limit;
+    const lists = await this.searchRepository.searchReadingLists(
+      userId,
+      query,
+      skip,
+      limit,
+    );
+
+    return {
+      message: 'Reading List search results retrieved successfully',
+      data: this.mapReadingLists(lists, userId),
+    };
+  }
+
   // ========== Helpers ========== //
 
   private async checkSearchQueryExistance(id: string, userId: string) {

@@ -237,4 +237,62 @@ export class SearchController {
       dto.limit,
     );
   }
+
+  @Get('reading-lists')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Search Reading Lists',
+    description:
+      'Search through reading lists. Returns a paginated list of reading lists matching the query, including the paper count, save status, and owner details.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reading list search results retrieved successfully.',
+    schema: {
+      example: {
+        message: 'Reading List search results retrieved successfully',
+        data: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174005',
+            title: 'Foundational Computer Vision Papers',
+            updatedAt: '2024-03-10T08:00:00.000Z',
+            paperCount: 24,
+            isSaved: true,
+            owner: {
+              id: 'user-uuid-88',
+              fullName: 'Alice Chen',
+              username: 'alice_cv',
+              photoUrl: 'https://example.com/alice.jpg',
+              isMe: false,
+              isFollowing: true,
+            },
+          },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174006',
+            title: 'My Thesis References',
+            updatedAt: '2024-03-01T12:00:00.000Z',
+            paperCount: 8,
+            isSaved: false,
+            owner: {
+              id: 'user-uuid-99',
+              fullName: 'Bob Ross',
+              username: 'happy_accidents',
+              photoUrl: null,
+              isMe: true,
+              isFollowing: false,
+            },
+          },
+        ],
+      },
+    },
+  })
+  async searchReadingLists(@Req() req: Request, @Query() dto: SearchQueryDto) {
+    return this.searchService.searchReadingLists(
+      req.user!.id,
+      dto.query,
+      dto.page,
+      dto.limit,
+    );
+  }
 }
