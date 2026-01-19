@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, VoteType } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { SortType } from '../dto/get-discussions.dto';
@@ -114,6 +114,56 @@ export class DiscussionsRepository {
 
   async deleteOne(id: string) {
     await this.prisma.discussion.delete({ where: { id } });
+  }
+
+  async findVote(
+    userId: string,
+    discussionId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussionVote.findUnique({
+      where: {
+        userId_discussionId: { userId, discussionId },
+      },
+    });
+  }
+
+  async createVote(
+    userId: string,
+    discussionId: string,
+    type: VoteType,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussionVote.create({
+      data: { userId, discussionId, type },
+    });
+  }
+
+  async updateVoteType(
+    userId: string,
+    discussionId: string,
+    type: VoteType,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussionVote.update({
+      where: { userId_discussionId: { userId, discussionId } },
+      data: { type },
+    });
+  }
+
+  async updateVoteScore(
+    id: string,
+    increment: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussion.update({
+      where: { id },
+      data: { voteScore: { increment } },
+    });
   }
 
   async findExistingTopics(topicIds: string[]) {

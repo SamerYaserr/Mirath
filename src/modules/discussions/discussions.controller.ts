@@ -13,6 +13,7 @@ import {
 import type { Request } from 'express';
 
 import { IdDto } from 'src/common/dto/id.dto';
+import { VoteTypeDto } from './dto/vote-type.dto';
 import { DiscussionsService } from './discussions.service';
 import { GetDiscussionsDto } from './dto/get-discussions.dto';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
@@ -47,5 +48,16 @@ export class DiscussionsController {
   deleteOne(@Req() req: Request, @Param() { id }: IdDto) {
     const userId = req.user!.id;
     return this.discussionsService.deleteOne(id, userId);
+  }
+
+  @Post(':id/vote')
+  vote(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Body() voteTypeDto: VoteTypeDto,
+  ) {
+    const userId = req.user!.id;
+    const { type } = voteTypeDto;
+    return this.discussionsService.vote(id, userId, type);
   }
 }

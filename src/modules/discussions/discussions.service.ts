@@ -4,19 +4,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { VoteType } from '@prisma/client';
 
-import { HttpResponse } from 'src/common/types/api.types';
 import {
   DiscussionsRepository,
   DiscussionWithRelations,
 } from './repositories/discussions.repository';
+import { PrismaService } from '../prisma/prisma.service';
+import { HttpResponse } from 'src/common/types/api.types';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
 import { GetDiscussionsDto, SortType } from './dto/get-discussions.dto';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 
 @Injectable()
 export class DiscussionsService {
-  constructor(private discussionsRepository: DiscussionsRepository) {}
+  constructor(
+    private discussionsRepository: DiscussionsRepository,
+    private prisma: PrismaService,
+  ) {}
 
   async create(
     dto: CreateDiscussionDto,
@@ -92,6 +97,60 @@ export class DiscussionsService {
     await this.discussionsRepository.deleteOne(discussionId);
 
     return { message: 'Discussion deleted successfully.' };
+  }
+
+  async vote(
+    discussionId: string,
+    userId: string,
+    type: VoteType,
+  ): Promise<HttpResponse> {
+    const discussion = await this.discussionsRepository.findOne(
+      discussionId,
+      userId,
+    );
+    if (!discussion)
+      throw new NotFoundException('No discussion found with this ID');
+
+    await this.prisma.$transaction(async (tx) => {
+      const existingVote = await this.discussionsRepository.findVote(
+        userId,
+        discussionId,
+        tx,
+      );
+
+      if (existingVote) {
+        if (existingVote.type === type)
+          throw new BadRequestException(
+            'You have already voted this way on this discussion.',
+          );
+
+        await this.discussionsRepository.updateVoteType(
+          userId,
+          discussionId,
+          type,
+          tx,
+        );
+        await this.discussionsRepository.updateVoteScore(
+          discussionId,
+          type === 'UP' ? 2 : -2,
+          tx,
+        );
+      } else {
+        await this.discussionsRepository.createVote(
+          userId,
+          discussionId,
+          type,
+          tx,
+        );
+        await this.discussionsRepository.updateVoteScore(
+          discussionId,
+          type === 'UP' ? 1 : -1,
+          tx,
+        );
+      }
+    });
+
+    return { message: 'Vote created successfully.' };
   }
 
   // --- helpers ---
