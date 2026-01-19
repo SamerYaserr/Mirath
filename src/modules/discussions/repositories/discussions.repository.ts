@@ -78,19 +78,27 @@ export class DiscussionsRepository {
             interest: true,
           },
         },
-        author: {
-          select: {
-            id: true,
-            username: true,
-            photoUrl: true,
-          },
-        },
+        author: true,
         votes: {
           where: {
             userId,
           },
           select: {
             type: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findOne(id: string) {
+    return await this.prisma.discussion.findUnique({
+      where: { id },
+      include: {
+        author: true,
+        topics: {
+          select: {
+            interest: true,
           },
         },
       },

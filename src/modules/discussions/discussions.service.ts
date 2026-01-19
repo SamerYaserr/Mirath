@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { HttpResponse } from 'src/common/types/api.types';
 import { DiscussionsRepository } from './repositories/discussions.repository';
@@ -72,5 +76,13 @@ export class DiscussionsService {
       size: transformedDiscussions.length,
       data: transformedDiscussions,
     };
+  }
+
+  async findOne(id: string): Promise<HttpResponse> {
+    const discussion = await this.discussionsRepository.findOne(id);
+    if (!discussion)
+      throw new NotFoundException('No discussion found with this ID');
+
+    return { data: discussion };
   }
 }
