@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Discussion, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { SortType } from '../dto/get-discussions.dto';
@@ -12,13 +12,15 @@ export class DiscussionsRepository {
     title: string,
     content: string,
     topicIds: string[],
+    paperIds: string[],
     authorId: string,
-  ): Promise<Discussion> {
+  ) {
     return this.prisma.discussion.create({
       data: {
         title,
         content,
         authorId,
+        paperIds,
         topics: {
           create: topicIds.map((interestId) => ({
             interestId,
@@ -26,21 +28,18 @@ export class DiscussionsRepository {
         },
       },
       include: {
+        author: true,
         topics: {
           include: {
-            interest: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+            interest: true,
           },
         },
-        author: {
+        votes: {
+          where: {
+            userId: authorId,
+          },
           select: {
-            id: true,
-            username: true,
-            photoUrl: true,
+            type: true,
           },
         },
       },
@@ -129,4 +128,21 @@ export class DiscussionsRepository {
       },
     });
   }
+
+  async findExistingPapers(paperIds: string[]) {
+    return await this.prisma.paper.findMany({
+      where: {
+        id: {
+          in: paperIds,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
 }
+
+export type DiscussionWithRelations = Awaited<
+  ReturnType<DiscussionsRepository['findOne']>
+>;

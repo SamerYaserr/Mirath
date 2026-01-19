@@ -6,9 +6,13 @@ import {
 } from '@nestjs/common';
 
 import { HttpResponse } from 'src/common/types/api.types';
-import { DiscussionsRepository } from './repositories/discussions.repository';
+import {
+  DiscussionsRepository,
+  DiscussionWithRelations,
+} from './repositories/discussions.repository';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
 import { GetDiscussionsDto, SortType } from './dto/get-discussions.dto';
+import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 
 @Injectable()
 export class DiscussionsService {
@@ -18,42 +22,32 @@ export class DiscussionsService {
     dto: CreateDiscussionDto,
     userId: string,
   ): Promise<HttpResponse> {
-    const { title, content, topicIds } = dto;
+    const { title, content, topicIds, paperIds } = dto;
+    await Promise.all([
+      this.checkExisting(topicIds),
+      this.checkExisting(paperIds, 'paper'),
+    ]);
 
-    const existingTopics =
-      await this.discussionsRepository.findExistingTopics(topicIds);
-
-    if (existingTopics.length !== topicIds.length) {
-      const foundIds = existingTopics.map((topic) => topic.id);
-      const invalidIds = topicIds.filter((id) => !foundIds.includes(id));
-
-      throw new BadRequestException(
-        `Invalid topic IDs: ${invalidIds.join(', ')}`,
-      );
-    }
     const discussion = await this.discussionsRepository.create(
       title,
       content,
       topicIds,
+      paperIds,
       userId,
     );
+    const transformedDiscussions = this.transformDiscussion(discussion);
 
     return {
       message: 'discussion created successfully',
-      data: discussion,
+      data: transformedDiscussions,
     };
   }
 
   async findAll(q: GetDiscussionsDto, userId: string): Promise<HttpResponse> {
     const { sort = SortType.NEW, page = 1, limit = 10, topicId } = q;
     const skip = (page - 1) * limit;
-    if (topicId) {
-      const existingTopic = await this.discussionsRepository.findExistingTopics(
-        [topicId],
-      );
-      if (!existingTopic.length)
-        throw new BadRequestException(`Invalid topic ID`);
-    }
+    if (topicId) await this.checkExisting([topicId]);
+
     const discussions = await this.discussionsRepository.findAll(
       userId,
       sort,
@@ -62,15 +56,7 @@ export class DiscussionsService {
       topicId,
     );
     const transformedDiscussions = discussions.map((discussion) => {
-      const userVote = discussion.votes[0];
-      const { votes, ...rest } = discussion;
-
-      return {
-        ...rest,
-        hasVoted: !!userVote,
-        userVoteType: userVote?.type || undefined,
-        topics: discussion.topics.map((t) => t.interest),
-      };
+      return this.transformDiscussion(discussion);
     });
 
     return {
@@ -84,16 +70,10 @@ export class DiscussionsService {
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
-    const userVote = discussion.votes[0];
-    const { votes, ...rest } = discussion;
+    const transformedDiscussions = this.transformDiscussion(discussion);
 
     return {
-      data: {
-        ...rest,
-        topics: discussion.topics.map((t) => t.interest),
-        hasVoted: !!userVote,
-        userVoteType: userVote?.type || undefined,
-      },
+      data: transformedDiscussions,
     };
   }
 
@@ -112,5 +92,35 @@ export class DiscussionsService {
     await this.discussionsRepository.deleteOne(discussionId);
 
     return { message: 'Discussion deleted successfully.' };
+  }
+
+  // --- helpers ---
+  async checkExisting(ids: string[], type: string = 'topic') {
+    let existing;
+    if (type === 'paper')
+      existing = await this.discussionsRepository.findExistingPapers(ids);
+    else existing = await this.discussionsRepository.findExistingTopics(ids);
+
+    if (existing.length !== ids.length) {
+      const foundIds = existing.map((f) => f.id);
+      const invalidIds = ids.filter((id) => !foundIds.includes(id));
+
+      throw new BadRequestException(
+        `Invalid ${type} ID(s): ${invalidIds.join(', ')}`,
+      );
+    }
+  }
+
+  private transformDiscussion(discussion: DiscussionWithRelations) {
+    const userVote = discussion!.votes[0];
+    const { votes, ...rest } = discussion!;
+
+    return {
+      ...rest,
+      hasVoted: !!userVote,
+      userVoteType: userVote?.type || undefined,
+      topics: discussion!.topics.map((t) => t.interest),
+      author: excludeUserSensitiveFields(discussion!.author),
+    };
   }
 }
