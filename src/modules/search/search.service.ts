@@ -103,6 +103,26 @@ export class SearchService {
     };
   }
 
+  async searchResearchers(
+    currentUserId: string,
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<HttpResponse> {
+    const skip = (page - 1) * limit;
+    const users = await this.searchRepository.searchResearchers(
+      currentUserId,
+      query,
+      skip,
+      limit,
+    );
+
+    return {
+      message: 'Researcher search results retrieved successfully',
+      data: this.mapResearchers(users),
+    };
+  }
+
   // ========== Helpers ========== //
 
   private async checkSearchQueryExistance(id: string, userId: string) {

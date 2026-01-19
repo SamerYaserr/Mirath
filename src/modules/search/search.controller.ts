@@ -295,4 +295,52 @@ export class SearchController {
       dto.limit,
     );
   }
+
+  @Get('researchers')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Search Researchers',
+    description:
+      'Fuzzy search for researchers by name, username, or bio. Returns profile details including university info and follow status.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Researcher search results retrieved successfully.',
+    schema: {
+      example: {
+        message: 'Researcher search results retrieved successfully',
+        data: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174008',
+            fullName: 'Dr. Emily Carter',
+            username: 'emily_carter_phd',
+            bio: 'Researching quantum computing algorithms...',
+            university: 'Stanford University',
+            country: 'USA',
+            photoUrl: 'https://example.com/emily.jpg',
+            isFollowing: true,
+          },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174009',
+            fullName: 'Raj Patel',
+            username: 'raj_ai_research',
+            bio: 'Focusing on Ethics in AI.',
+            university: 'Imperial College London',
+            country: 'UK',
+            photoUrl: null,
+            isFollowing: false,
+          },
+        ],
+      },
+    },
+  })
+  async searchResearchers(@Req() req: Request, @Query() dto: SearchQueryDto) {
+    return this.searchService.searchResearchers(
+      req.user!.id,
+      dto.query,
+      dto.page,
+      dto.limit,
+    );
+  }
 }
