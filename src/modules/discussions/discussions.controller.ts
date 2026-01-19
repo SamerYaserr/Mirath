@@ -1,9 +1,21 @@
-import { Controller, Post, Body, Req, Get, Query, Param } from '@nestjs/common';
-import { DiscussionsService } from './discussions.service';
-import { CreateDiscussionDto } from './dto/create-discussion.dto';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Get,
+  Query,
+  Param,
+  Delete,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Request } from 'express';
-import { GetDiscussionsDto } from './dto/get-discussions.dto';
+
 import { IdDto } from 'src/common/dto/id.dto';
+import { DiscussionsService } from './discussions.service';
+import { GetDiscussionsDto } from './dto/get-discussions.dto';
+import { CreateDiscussionDto } from './dto/create-discussion.dto';
 
 @Controller('discussions')
 export class DiscussionsController {
@@ -25,7 +37,15 @@ export class DiscussionsController {
   }
 
   @Get(':id')
-  findOne(@Param() { id }: IdDto) {
-    return this.discussionsService.findOne(id);
+  findOne(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.discussionsService.findOne(id, userId);
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':id')
+  deleteOne(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.discussionsService.deleteOne(id, userId);
   }
 }

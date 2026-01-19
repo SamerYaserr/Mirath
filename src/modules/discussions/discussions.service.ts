@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -62,13 +63,13 @@ export class DiscussionsService {
     );
     const transformedDiscussions = discussions.map((discussion) => {
       const userVote = discussion.votes[0];
+      const { votes, ...rest } = discussion;
 
       return {
-        ...discussion,
+        ...rest,
         hasVoted: !!userVote,
         userVoteType: userVote?.type || undefined,
         topics: discussion.topics.map((t) => t.interest),
-        votes: undefined,
       };
     });
 
@@ -78,11 +79,38 @@ export class DiscussionsService {
     };
   }
 
-  async findOne(id: string): Promise<HttpResponse> {
-    const discussion = await this.discussionsRepository.findOne(id);
+  async findOne(id: string, userId: string): Promise<HttpResponse> {
+    const discussion = await this.discussionsRepository.findOne(id, userId);
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
-    return { data: discussion };
+    const userVote = discussion.votes[0];
+    const { votes, ...rest } = discussion;
+
+    return {
+      data: {
+        ...rest,
+        topics: discussion.topics.map((t) => t.interest),
+        hasVoted: !!userVote,
+        userVoteType: userVote?.type || undefined,
+      },
+    };
+  }
+
+  async deleteOne(discussionId: string, userId: string): Promise<HttpResponse> {
+    const discussion = await this.discussionsRepository.findOne(
+      discussionId,
+      userId,
+    );
+    if (!discussion)
+      throw new NotFoundException('No discussion found with this ID');
+    if (discussion.authorId !== userId)
+      throw new ForbiddenException(
+        'You are only allowed to delete your discussions',
+      );
+
+    await this.discussionsRepository.deleteOne(discussionId);
+
+    return { message: 'Discussion deleted successfully.' };
   }
 }

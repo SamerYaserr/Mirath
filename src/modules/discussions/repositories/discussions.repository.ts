@@ -91,18 +91,30 @@ export class DiscussionsRepository {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, userId: string) {
     return await this.prisma.discussion.findUnique({
       where: { id },
       include: {
         author: true,
         topics: {
-          select: {
+          include: {
             interest: true,
+          },
+        },
+        votes: {
+          where: {
+            userId,
+          },
+          select: {
+            type: true,
           },
         },
       },
     });
+  }
+
+  async deleteOne(id: string) {
+    await this.prisma.discussion.delete({ where: { id } });
   }
 
   async findExistingTopics(topicIds: string[]) {
