@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { HttpResponse } from 'src/common/types/api.types';
 import { SearchHistoryRepository } from './repositories/search-history.repository';
+import { SearchRepository } from './repositories/search.repository';
 
 @Injectable()
 export class SearchService {
-  constructor(private searchHistoryRepo: SearchHistoryRepository) {}
+  constructor(
+    private searchHistoryRepo: SearchHistoryRepository,
+    private searchRepository: SearchRepository,
+  ) {}
 
   async deleteSearchQuery(id: string, userId: string): Promise<HttpResponse> {
     await this.checkSearchQueryExistance(id, userId);
@@ -33,10 +37,70 @@ export class SearchService {
     };
   }
 
+  async searchGlobal(
+    userId: string,
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<HttpResponse> {
+    const skip = (page - 1) * limit;
+
+    const [discussions, readingLists, researchers] = await Promise.all([
+      this.searchRepository.searchDiscussions(userId, query, skip, limit),
+      this.searchRepository.searchReadingLists(userId, query, skip, limit),
+      this.searchRepository.searchResearchers(userId, query, skip, limit),
+    ]);
+
+    await this.searchHistoryRepo.create(userId, query);
+
+    return {
+      message: 'Global search results retrieved successfully',
+      data: {
+        discussions: this.mapDiscussions(discussions),
+        readingLists: this.mapReadingLists(readingLists),
+        researchers: this.mapResearchers(researchers),
+      },
+    };
+  }
+
   // ========== Helpers ========== //
 
   private async checkSearchQueryExistance(id: string, userId: string) {
     if (!(await this.searchHistoryRepo.exist(id, userId)))
       throw new NotFoundException('No search query found with this id');
+  }
+
+  // Data Mappers to ensure UI-friendly structure
+
+  private mapDiscussions(
+    discussions: Awaited<ReturnType<SearchRepository['searchDiscussions']>>,
+  ) {
+    return discussions.map((d) => ({
+      ...d,
+      tags: d.topics.map((t) => t.interest.name),
+      topics: undefined,
+    }));
+  }
+
+  private mapReadingLists(
+    lists: Awaited<ReturnType<SearchRepository['searchReadingLists']>>,
+  ) {
+    return lists.map((l) => ({
+      ...l,
+      paperCount: l._count.papers,
+      isSaved: l.savedReadingLists?.length > 0 || false,
+      _count: undefined,
+      savedReadingLists: undefined,
+    }));
+  }
+
+  private mapResearchers(
+    users: Awaited<ReturnType<SearchRepository['searchResearchers']>>,
+  ) {
+    return users.map((u) => ({
+      ...u,
+      isFollowing: u.followers.length > 0,
+      followers: undefined,
+    }));
   }
 }

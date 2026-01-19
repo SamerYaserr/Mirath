@@ -19,6 +19,7 @@ import {
 import { IdDto } from 'src/common/dto/id.dto';
 import { SearchService } from './search.service';
 import { SearchHistoryQueryDto } from './dto/search-history-query.dto';
+import { SearchQueryDto } from './dto/search-query.dto';
 
 @Controller('search')
 export class SearchController {
@@ -97,5 +98,83 @@ export class SearchController {
     @Query() { limit }: SearchHistoryQueryDto,
   ) {
     return this.searchService.getSearchHistory(req.user!.id, limit);
+  }
+
+  @Get('global')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Global Search',
+    description:
+      'Aggregated search across Discussions, Reading Lists, and Researchers. Returns the top matches for each category based on the limit provided.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Search results retrieved successfully.',
+    schema: {
+      example: {
+        message: 'Global search results retrieved successfully',
+        data: {
+          discussions: [
+            {
+              id: '123e4567-e89b-12d3-a456-426614174001',
+              title: 'Thoughts on the new transformer architecture?',
+              content: "I've been reading the paper and...",
+              voteScore: 42,
+              createdAt: '2024-01-20T10:00:00.000Z',
+              author: {
+                id: 'user-uuid',
+                fullName: 'Jane Doe',
+                username: 'jane_d',
+                photoUrl: 'https://example.com/photo.jpg',
+                isMe: false,
+                isFollowing: true,
+              },
+              tags: ['AI', 'NLP'],
+            },
+          ],
+          readingLists: [
+            {
+              id: '123e4567-e89b-12d3-a456-426614174002',
+              title: 'Essential NLP Papers',
+              updatedAt: '2024-01-19T10:00:00.000Z',
+              owner: {
+                id: 'owner-uuid',
+                fullName: 'John Smith',
+                username: 'jsmith',
+                photoUrl: null,
+                isMe: true,
+                isFollowing: false,
+              },
+              paperCount: 12,
+              isSaved: true,
+            },
+          ],
+          researchers: [
+            {
+              id: '123e4567-e89b-12d3-a456-426614174003',
+              fullName: 'Alice Johnson',
+              username: 'alice_j',
+              bio: 'PhD Student at MIT...',
+              university: 'MIT',
+              country: 'USA',
+              photoUrl: 'https://example.com/alice.jpg',
+              isFollowing: false,
+            },
+          ],
+        },
+      },
+    },
+  })
+  async searchGlobal(
+    @Req() req: Request,
+    @Query() searchQueryDto: SearchQueryDto,
+  ) {
+    return this.searchService.searchGlobal(
+      req.user!.id,
+      searchQueryDto.query,
+      searchQueryDto.page,
+      searchQueryDto.limit,
+    );
   }
 }
