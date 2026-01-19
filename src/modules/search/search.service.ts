@@ -56,10 +56,30 @@ export class SearchService {
     return {
       message: 'Global search results retrieved successfully',
       data: {
-        discussions: this.mapDiscussions(discussions),
-        readingLists: this.mapReadingLists(readingLists),
+        discussions: this.mapDiscussions(discussions, userId),
+        readingLists: this.mapReadingLists(readingLists, userId),
         researchers: this.mapResearchers(researchers),
       },
+    };
+  }
+
+  async searchDiscussions(
+    userId: string,
+    query: string,
+    page: number,
+    limit: number,
+  ): Promise<HttpResponse> {
+    const skip = (page - 1) * limit;
+    const discussions = await this.searchRepository.searchDiscussions(
+      userId,
+      query,
+      skip,
+      limit,
+    );
+
+    return {
+      message: 'Discussion search results retrieved successfully',
+      data: this.mapDiscussions(discussions, userId),
     };
   }
 
@@ -74,21 +94,35 @@ export class SearchService {
 
   private mapDiscussions(
     discussions: Awaited<ReturnType<SearchRepository['searchDiscussions']>>,
+    currentUserId: string,
   ) {
     return discussions.map((d) => ({
       ...d,
       tags: d.topics.map((t) => t.interest.name),
       topics: undefined,
+      author: {
+        ...d.author,
+        isMe: d.author.id === currentUserId,
+        isFollowing: d.author.followers.length > 0,
+        followers: undefined,
+      },
     }));
   }
 
   private mapReadingLists(
     lists: Awaited<ReturnType<SearchRepository['searchReadingLists']>>,
+    currentUserId: string,
   ) {
     return lists.map((l) => ({
       ...l,
       paperCount: l._count.papers,
       isSaved: l.savedReadingLists?.length > 0 || false,
+      owner: {
+        ...l.owner,
+        isMe: l.owner.id === currentUserId,
+        isFollowing: l.owner.followers.length > 0,
+        followers: undefined,
+      },
       _count: undefined,
       savedReadingLists: undefined,
     }));

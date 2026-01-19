@@ -177,4 +177,64 @@ export class SearchController {
       searchQueryDto.limit,
     );
   }
+
+  @Get('discussions')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Search Discussions',
+    description:
+      'Search specifically through discussions. Returns a paginated list of discussions matching the query, including author details, follow status, and tags.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Discussion search results retrieved successfully.',
+    schema: {
+      example: {
+        message: 'Discussion search results retrieved successfully',
+        data: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174001',
+            title: 'Is prompt engineering dead?',
+            content: 'With the rise of reasoning models, I feel like...',
+            voteScore: 156,
+            createdAt: '2024-02-15T14:30:00.000Z',
+            tags: ['AI', 'LLM', 'Future Tech'],
+            author: {
+              id: 'user-uuid-1',
+              fullName: 'Sarah Connor',
+              username: 's_connor',
+              photoUrl: 'https://example.com/sarah.jpg',
+              isMe: false,
+              isFollowing: true,
+            },
+          },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174002',
+            title: 'Best practices for NestJS microservices',
+            content: 'I am struggling with shared DTOs in a monorepo...',
+            voteScore: 89,
+            createdAt: '2024-02-10T09:15:00.000Z',
+            tags: ['Backend', 'NestJS', 'Architecture'],
+            author: {
+              id: 'user-uuid-2',
+              fullName: 'John Smith',
+              username: 'jsmith_dev',
+              photoUrl: null,
+              isMe: true,
+              isFollowing: false,
+            },
+          },
+        ],
+      },
+    },
+  })
+  async searchDiscussions(@Req() req: Request, @Query() dto: SearchQueryDto) {
+    return this.searchService.searchDiscussions(
+      req.user!.id,
+      dto.query,
+      dto.page,
+      dto.limit,
+    );
+  }
 }
