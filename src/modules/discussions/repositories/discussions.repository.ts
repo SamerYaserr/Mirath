@@ -166,6 +166,17 @@ export class DiscussionsRepository {
     });
   }
 
+  async deleteVote(
+    userId: string,
+    discussionId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussionVote.delete({
+      where: { userId_discussionId: { userId, discussionId } },
+    });
+  }
+
   async findExistingTopics(topicIds: string[]) {
     return await this.prisma.interest.findMany({
       where: {

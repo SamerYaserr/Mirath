@@ -60,4 +60,11 @@ export class DiscussionsController {
     const { type } = voteTypeDto;
     return this.discussionsService.vote(id, userId, type);
   }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':id/vote')
+  deleteVote(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.discussionsService.deleteVote(id, userId);
+  }
 }

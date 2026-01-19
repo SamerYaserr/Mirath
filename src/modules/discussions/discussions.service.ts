@@ -153,6 +153,29 @@ export class DiscussionsService {
     return { message: 'Vote created successfully.' };
   }
 
+  async deleteVote(
+    discussionId: string,
+    userId: string,
+  ): Promise<HttpResponse> {
+    const vote = await this.discussionsRepository.findVote(
+      userId,
+      discussionId,
+    );
+    if (!vote)
+      throw new BadRequestException('You have not voted for this discussion');
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.discussionsRepository.deleteVote(userId, discussionId, tx);
+      await this.discussionsRepository.updateVoteScore(
+        discussionId,
+        vote.type === 'UP' ? -1 : 1,
+        tx,
+      );
+    });
+
+    return { message: 'Vote deleted successfully.' };
+  }
+
   // --- helpers ---
   async checkExisting(ids: string[], type: string = 'topic') {
     let existing;
