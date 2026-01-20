@@ -16,6 +16,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 
@@ -26,11 +27,12 @@ import { CreateCommentDto } from './dtos/create-comment.dto';
 import { GetDiscussionsDto } from './dtos/get-discussions.dto';
 import { CreateDiscussionDto } from './dtos/create-discussion.dto';
 
+@ApiTags('Discussions')
+@ApiBearerAuth()
 @Controller('discussions')
 export class DiscussionsController {
   constructor(private readonly discussionsService: DiscussionsService) {}
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create a new discussion',
     description:
@@ -59,7 +61,6 @@ export class DiscussionsController {
     return this.discussionsService.create(createDiscussionDto, userId);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all discussions',
     description:
@@ -83,7 +84,6 @@ export class DiscussionsController {
     return this.discussionsService.findAll(q, userId);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get a specific discussion',
     description: 'Retrieves a single discussion by ID with all related data',
@@ -112,7 +112,6 @@ export class DiscussionsController {
     return this.discussionsService.findOne(id, userId);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Delete a discussion',
     description:
@@ -147,7 +146,6 @@ export class DiscussionsController {
     return this.discussionsService.deleteOne(id, userId);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Vote on a discussion',
     description:
@@ -188,7 +186,6 @@ export class DiscussionsController {
     return this.discussionsService.vote(id, userId, type);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Delete a vote on a discussion',
     description: 'Removes the user vote from a specific discussion',
@@ -218,7 +215,6 @@ export class DiscussionsController {
     return this.discussionsService.deleteVote(id, userId);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Post a comment on a discussion',
     description:
@@ -257,7 +253,6 @@ export class DiscussionsController {
     return this.discussionsService.createComment(userId, id, createCommentDto);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all comments for a discussion',
     description:

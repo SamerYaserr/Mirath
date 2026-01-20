@@ -1,10 +1,27 @@
-import { Body, Controller, HttpStatus, Param, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { VoteTypeDto } from 'src/common/dto/vote-type.dto';
 import type { Request } from 'express';
 import { IdDto } from 'src/common/dto/id.dto';
-import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 
+@ApiTags('Comments')
+@ApiBearerAuth()
 @Controller('comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
@@ -40,5 +57,28 @@ export class CommentsController {
     const userId = req.user!.id;
     const { type } = voteTypeDto;
     return this.commentsService.vote(userId, id, type);
+  }
+
+  @ApiOperation({
+    summary: 'Remove vote from a comment',
+    description: "Removes the user's vote from a comment",
+  })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Vote deleted successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'User has not voted on this comment',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':id/vote')
+  deleteVote(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.commentsService.deleteVote(userId, id);
   }
 }

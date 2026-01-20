@@ -60,4 +60,21 @@ export class CommentsService {
 
     return { message: 'Vote created successfully.' };
   }
+
+  async deleteVote(userId: string, commentId: string): Promise<HttpResponse> {
+    const vote = await this.commentsRepository.findVote(userId, commentId);
+    if (!vote)
+      throw new BadRequestException('You have not voted for this comment');
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.commentsRepository.deleteVote(userId, commentId, tx);
+      await this.commentsRepository.updateVoteScore(
+        commentId,
+        vote.type === VoteType.UP ? -1 : 1,
+        tx,
+      );
+    });
+
+    return { message: 'Vote deleted successfully.' };
+  }
 }
