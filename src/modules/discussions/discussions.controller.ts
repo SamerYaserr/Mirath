@@ -20,11 +20,11 @@ import {
 import type { Request } from 'express';
 
 import { IdDto } from 'src/common/dto/id.dto';
-import { VoteTypeDto } from './dto/vote-type.dto';
+import { VoteTypeDto } from './dtos/vote-type.dto';
 import { DiscussionsService } from './discussions.service';
-import { CreateCommentDto } from './dto/create-comment.dto';
-import { GetDiscussionsDto } from './dto/get-discussions.dto';
-import { CreateDiscussionDto } from './dto/create-discussion.dto';
+import { CreateCommentDto } from './dtos/create-comment.dto';
+import { GetDiscussionsDto } from './dtos/get-discussions.dto';
+import { CreateDiscussionDto } from './dtos/create-discussion.dto';
 
 @Controller('discussions')
 export class DiscussionsController {

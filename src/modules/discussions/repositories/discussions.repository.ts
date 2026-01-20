@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, VoteType } from '@prisma/client';
 
-import { SortType } from '../dto/get-discussions.dto';
+import { SortType } from '../dtos/get-discussions.dto';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 
 @Injectable()

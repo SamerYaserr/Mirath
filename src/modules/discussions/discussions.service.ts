@@ -12,10 +12,10 @@ import {
 } from './repositories/discussions.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
-import { CreateDiscussionDto } from './dto/create-discussion.dto';
-import { GetDiscussionsDto, SortType } from './dto/get-discussions.dto';
+import { CreateDiscussionDto } from './dtos/create-discussion.dto';
+import { GetDiscussionsDto, SortType } from './dtos/get-discussions.dto';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
-import { CreateCommentDto } from './dto/create-comment.dto';
+import { CreateCommentDto } from './dtos/create-comment.dto';
 
 @Injectable()
 export class DiscussionsService {
