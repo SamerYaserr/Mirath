@@ -17,6 +17,7 @@ import { VoteTypeDto } from './dto/vote-type.dto';
 import { DiscussionsService } from './discussions.service';
 import { GetDiscussionsDto } from './dto/get-discussions.dto';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
 
 @Controller('discussions')
 export class DiscussionsController {
@@ -66,5 +67,15 @@ export class DiscussionsController {
   deleteVote(@Req() req: Request, @Param() { id }: IdDto) {
     const userId = req.user!.id;
     return this.discussionsService.deleteVote(id, userId);
+  }
+
+  @Post(':id/comments')
+  createComment(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Body() createCommentDto: CreateCommentDto,
+  ) {
+    const userId = req.user!.id;
+    return this.discussionsService.createComment(userId, id, createCommentDto);
   }
 }

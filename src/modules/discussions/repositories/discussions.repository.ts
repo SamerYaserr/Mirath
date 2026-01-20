@@ -166,6 +166,18 @@ export class DiscussionsRepository {
     });
   }
 
+  async updateCommentCount(
+    id: string,
+    increment: number,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussion.update({
+      where: { id },
+      data: { commentCount: { increment } },
+    });
+  }
+
   async deleteVote(
     userId: string,
     discussionId: string,
@@ -201,6 +213,29 @@ export class DiscussionsRepository {
         id: true,
       },
     });
+  }
+
+  async createComment(
+    discussionId: string,
+    authorId: string,
+    content: string,
+    parentId?: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return await client.comment.create({
+      data: {
+        authorId,
+        discussionId,
+        content,
+        parentId: parentId ?? null,
+      },
+    });
+  }
+
+  async findComment(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    return await client.comment.findUnique({ where: { id } });
   }
 }
 

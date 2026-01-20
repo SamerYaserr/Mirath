@@ -15,6 +15,7 @@ import { HttpResponse } from 'src/common/types/api.types';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
 import { GetDiscussionsDto, SortType } from './dto/get-discussions.dto';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
+import { CreateCommentDto } from './dto/create-comment.dto';
 
 @Injectable()
 export class DiscussionsService {
@@ -174,6 +175,45 @@ export class DiscussionsService {
     });
 
     return { message: 'Vote deleted successfully.' };
+  }
+
+  async createComment(
+    userId: string,
+    discussionId: string,
+    dto: CreateCommentDto,
+  ): Promise<HttpResponse> {
+    const { content, parentId = undefined } = dto;
+    const discussion = await this.discussionsRepository.findOne(
+      discussionId,
+      userId,
+    );
+    if (!discussion)
+      throw new NotFoundException('No discussion found with this ID');
+
+    if (parentId) {
+      const parentComment =
+        await this.discussionsRepository.findComment(parentId);
+      if (!parentComment)
+        throw new NotFoundException('Parent comment not found');
+      if (parentComment.discussionId !== discussionId)
+        throw new BadRequestException(
+          'Parent comment does not belong to this discussion',
+        );
+    }
+
+    const comment = await this.prisma.$transaction(async (tx) => {
+      const newComment = await this.discussionsRepository.createComment(
+        discussionId,
+        userId,
+        content,
+        parentId,
+        tx,
+      );
+      await this.discussionsRepository.updateCommentCount(discussionId, 1, tx);
+      return newComment;
+    });
+
+    return { message: 'Comment posted successfully.', data: comment };
   }
 
   // --- helpers ---
