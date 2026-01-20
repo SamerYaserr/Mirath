@@ -52,12 +52,11 @@ export class ReadingListsRepository {
   }
 
   async addPaper(readingListId: string, paperId: string) {
-    return this.prisma.readingListPaper.createMany({
+    return this.prisma.readingListPaper.create({
       data: {
         readingListId,
         paperId,
       },
-      skipDuplicates: true,
     });
   }
 
