@@ -2,20 +2,33 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { ReadingListsRepository } from './repositories/reading-lists.repository';
 import { CreateReadingListDto } from './dtos/create-reading-list.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ReadingListsService {
-  constructor(private readonly readingListsRepository: ReadingListsRepository) {}
+  constructor(
+    private readonly readingListsRepository: ReadingListsRepository,
+  ) {}
 
   async create(userId: string, data: CreateReadingListDto) {
-    return this.readingListsRepository.create(userId, data);
+    const list = await this.readingListsRepository.create(userId, data);
+    return {
+      message: 'The reading list has been successfully created.',
+      data: list,
+    };
   }
 
   async findAll(userId: string) {
-    return this.readingListsRepository.findAllByUserId(userId);
+    const data = await this.readingListsRepository.findAllByUserId(userId);
+    return {
+      message: 'Reading lists fetched successfully',
+      data,
+      size: data.length,
+    };
   }
 
   async findOne(id: string, userId?: string) {
@@ -25,23 +38,50 @@ export class ReadingListsService {
     }
 
     if (!list.isPublic && list.ownerId !== userId) {
-      throw new ForbiddenException('You do not have access to this private list');
+      throw new ForbiddenException(
+        'You do not have access to this private list',
+      );
     }
 
-    return list;
+    return {
+      message: 'Reading list fetched successfully',
+      data: list,
+    };
   }
 
   async addPaper(id: string, paperId: string, userId: string) {
-    const list = await this.readingListsRepository.findById(id);
-    if (!list) {
-      throw new NotFoundException('Reading list not found');
-    }
+    try {
+      const list = await this.readingListsRepository.findById(id);
+      if (!list) {
+        throw new NotFoundException('Reading list not found');
+      }
 
-    const isOwner = await this.readingListsRepository.isOwner(id, userId);
-    if (!isOwner) {
-      throw new ForbiddenException('You can only modify your own reading lists');
+      const isOwner = await this.readingListsRepository.isOwner(id, userId);
+      if (!isOwner) {
+        throw new ForbiddenException(
+          'You can only modify your own reading lists',
+        );
+      }
+
+      const addedPaper = await this.readingListsRepository.addPaper(
+        id,
+        paperId,
+      );
+      return {
+        message: 'Paper saved successfully',
+        data: addedPaper,
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'This paper is already in the reading list',
+        );
+      }
+      throw error;
     }
-    return this.readingListsRepository.addPaper(id, paperId);
   }
 
   async removePaper(id: string, paperId: string, userId: string) {
@@ -51,9 +91,14 @@ export class ReadingListsService {
     }
     const isOwner = await this.readingListsRepository.isOwner(id, userId);
     if (!isOwner) {
-      throw new ForbiddenException('You can only modify your own reading lists');
+      throw new ForbiddenException(
+        'You can only modify your own reading lists',
+      );
     }
 
-    return this.readingListsRepository.removePaper(id, paperId);
+    await this.readingListsRepository.removePaper(id, paperId);
+    return {
+      message: 'Paper removed from the reading list successfully',
+    };
   }
 }
