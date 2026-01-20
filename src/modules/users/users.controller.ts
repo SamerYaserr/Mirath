@@ -70,7 +70,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Get current user profile',
     description:
-      "Retrieves the currently authenticated user's full profile, including interests and fields of study.",
+      "Retrieves the currently authenticated user's full profile, including interests, fields of study, number of following and followers`.",
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -96,7 +96,6 @@ export class UsersController {
           isPremium: false,
           createdAt: '2024-01-10T08:30:00.000Z',
           updatedAt: '2025-01-12T10:45:00.000Z',
-
           interests: [
             {
               id: 'uuid',
@@ -113,6 +112,8 @@ export class UsersController {
               name: 'Computer Science',
             },
           ],
+          followersCount: 1,
+          followingCount: 0,
         },
       },
     },
