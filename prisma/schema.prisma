@@ -59,19 +59,20 @@ model User {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  otpVerifications OtpVerification[]
-  refreshTokens    RefreshToken[]
-  userInterests    UserInterest[]
-  userFields       UserField[]
-  searchHistories  SearchHistory[]
-  savedPapers      SavedPaper[]
-  readingLists     ReadingList[]
-  discussions      Discussion[]
-  comments         Comment[]
-  discussionVotes  DiscussionVote[]
-  commentVotes     CommentVote[]
-  followers        Follows[]         @relation("follower")
-  followings       Follows[]         @relation("following")
+  otpVerifications  OtpVerification[]
+  refreshTokens     RefreshToken[]
+  userInterests     UserInterest[]
+  userFields        UserField[]
+  searchHistories   SearchHistory[]
+  savedPapers       SavedPaper[]
+  readingLists      ReadingList[]
+  discussions       Discussion[]
+  comments          Comment[]
+  discussionVotes   DiscussionVote[]
+  commentVotes      CommentVote[]
+  followers         Follows[]          @relation("follower")
+  followings        Follows[]          @relation("following")
+  savedReadingLists SavedReadingList[]
 
   @@unique([providerId])
   @@index([email])
@@ -238,11 +239,24 @@ model ReadingList {
   owner  User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   papers ReadingListPaper[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  savedReadingLists SavedReadingList[]
 
   @@index([ownerId])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model SavedReadingList {
+  userId        String   @db.Uuid
+  readingListId String   @db.Uuid
+  savedAt       DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readingList ReadingList @relation(fields: [readingListId], references: [id], onDelete: Cascade)
+
+  @@id([userId, readingListId])
+  @@index([userId])
 }
 
 model ReadingListPaper {
