@@ -133,7 +133,7 @@ export class DiscussionsService {
         );
         await this.discussionsRepository.updateVoteScore(
           discussionId,
-          type === 'UP' ? 2 : -2,
+          type === VoteType.UP ? 2 : -2,
           tx,
         );
       } else {
@@ -145,7 +145,7 @@ export class DiscussionsService {
         );
         await this.discussionsRepository.updateVoteScore(
           discussionId,
-          type === 'UP' ? 1 : -1,
+          type === VoteType.UP ? 1 : -1,
           tx,
         );
       }
@@ -169,7 +169,7 @@ export class DiscussionsService {
       await this.discussionsRepository.deleteVote(userId, discussionId, tx);
       await this.discussionsRepository.updateVoteScore(
         discussionId,
-        vote.type === 'UP' ? -1 : 1,
+        vote.type === VoteType.UP ? -1 : 1,
         tx,
       );
     });

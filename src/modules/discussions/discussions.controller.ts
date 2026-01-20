@@ -20,7 +20,7 @@ import {
 import type { Request } from 'express';
 
 import { IdDto } from 'src/common/dto/id.dto';
-import { VoteTypeDto } from './dtos/vote-type.dto';
+import { VoteTypeDto } from '../../common/dto/vote-type.dto';
 import { DiscussionsService } from './discussions.service';
 import { CreateCommentDto } from './dtos/create-comment.dto';
 import { GetDiscussionsDto } from './dtos/get-discussions.dto';

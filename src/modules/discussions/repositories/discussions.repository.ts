@@ -166,6 +166,17 @@ export class DiscussionsRepository {
     });
   }
 
+  async deleteVote(
+    userId: string,
+    discussionId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.discussionVote.delete({
+      where: { userId_discussionId: { userId, discussionId } },
+    });
+  }
+
   async updateCommentCount(
     id: string,
     increment: number,
@@ -175,17 +186,6 @@ export class DiscussionsRepository {
     return client.discussion.update({
       where: { id },
       data: { commentCount: { increment } },
-    });
-  }
-
-  async deleteVote(
-    userId: string,
-    discussionId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.discussionVote.delete({
-      where: { userId_discussionId: { userId, discussionId } },
     });
   }
 
