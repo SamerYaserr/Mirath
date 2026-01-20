@@ -100,6 +100,12 @@ export class UsersRepository {
             },
           },
         },
+        _count: {
+          select: {
+            followers: true,
+            followings: true,
+          },
+        },
       },
     });
   }

@@ -16,6 +16,8 @@ import { SearchModule } from './modules/search/search.module';
 import { PapersModule } from './modules/papers/papers.module';
 import { FeedModule } from './modules/feed/feed.module';
 import { ReadingListsModule } from './modules/reading-lists/reading-lists.module';
+import { DiscussionsModule } from './modules/discussions/discussions.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { ReadingListsModule } from './modules/reading-lists/reading-lists.module
     PapersModule,
     FeedModule,
     ReadingListsModule,
+    DiscussionsModule,
+    CommentsModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },

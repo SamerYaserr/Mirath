@@ -105,12 +105,14 @@ export class UsersService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    const { userInterests, userFields, ...userData } = user;
+    const { userInterests, userFields, _count, ...userData } = user;
 
     const formattedProfile = {
       ...userData,
       interests: userInterests.map((ui) => ui.interest),
       fieldsOfStudy: userFields.map((uf) => uf.field),
+      followersCount: _count.followers,
+      followingCount: _count.followings,
     };
 
     return {
