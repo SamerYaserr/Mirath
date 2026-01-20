@@ -27,6 +27,52 @@ import { CreateCommentDto } from './dtos/create-comment.dto';
 import { GetDiscussionsDto } from './dtos/get-discussions.dto';
 import { CreateDiscussionDto } from './dtos/create-discussion.dto';
 
+const userExample = {
+  id: 'a1b2c3d4-e5f6-4a5b-b5c6-d7e8f9a0b1c2',
+  username: 'johndoe',
+  fullName: 'John Doe',
+  photoUrl: 'https://example.com/avatar.jpg',
+  bio: 'AI Researcher',
+  role: 'USER',
+  isPremium: false,
+};
+
+const topicExample = {
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  name: 'Machine Learning',
+  custom: false,
+};
+
+const discussionExample = {
+  id: '550e8400-e29b-41d4-a716-446655440000',
+  title: 'The Future of Large Language Models',
+  content: 'I believe we are reaching a plateau...',
+  voteScore: 42,
+  commentCount: 5,
+  authorId: userExample.id,
+  paperIds: ['999e8400-e29b-41d4-a716-446655440999'],
+  createdAt: '2023-11-15T10:00:00.000Z',
+  updatedAt: '2023-11-15T10:00:00.000Z',
+  hasVoted: true,
+  userVoteType: 'UP',
+  topics: [topicExample],
+  author: userExample,
+};
+
+const commentExample = {
+  id: '770e8400-e29b-41d4-a716-446655440777',
+  content: 'This is a great point!',
+  voteScore: 10,
+  authorId: userExample.id,
+  discussionId: discussionExample.id,
+  parentId: null,
+  createdAt: '2023-11-15T12:00:00.000Z',
+  updatedAt: '2023-11-15T12:00:00.000Z',
+  hasVoted: false,
+  userVoteType: undefined,
+  author: userExample,
+};
+
 @ApiTags('Discussions')
 @ApiBearerAuth()
 @Controller('discussions')
@@ -42,6 +88,12 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Discussion created successfully',
+    schema: {
+      example: {
+        message: 'discussion created successfully',
+        data: discussionExample,
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -69,6 +121,13 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully retrieved discussions',
+    schema: {
+      example: {
+        message: 'Discussions retrieved successfully',
+        size: 1,
+        data: [discussionExample],
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -97,6 +156,12 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Discussion retrieved successfully',
+    schema: {
+      example: {
+        message: 'Discussion retrieved successfully',
+        data: discussionExample,
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
@@ -126,6 +191,11 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
     description: 'Discussion deleted successfully',
+    schema: {
+      example: {
+        message: 'Discussion deleted successfully.',
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
@@ -161,6 +231,11 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Vote created successfully',
+    schema: {
+      example: {
+        message: 'Vote created successfully.',
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -199,6 +274,11 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
     description: 'Vote deleted successfully',
+    schema: {
+      example: {
+        message: 'Vote deleted successfully.',
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -229,6 +309,12 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Comment posted successfully',
+    schema: {
+      example: {
+        message: 'Comment posted successfully.',
+        data: commentExample,
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -267,6 +353,13 @@ export class DiscussionsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Comments retrieved successfully',
+    schema: {
+      example: {
+        message: 'Comments retrieved successfully',
+        size: 1,
+        data: [commentExample],
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,

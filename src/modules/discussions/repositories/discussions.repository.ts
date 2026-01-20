@@ -48,7 +48,7 @@ export class DiscussionsRepository {
 
   async findAll(
     userId: string,
-    sort: string,
+    sort: SortType,
     skip: number,
     limit: number,
     topicId?: string,
@@ -63,8 +63,10 @@ export class DiscussionsRepository {
         }
       : {};
 
-    const orderByClause: Prisma.DiscussionOrderByWithRelationInput =
-      sort === SortType.TOP ? { voteScore: 'desc' } : { createdAt: 'desc' };
+    const orderByClause: Prisma.DiscussionOrderByWithRelationInput[] =
+      sort === SortType.TOP
+        ? [{ voteScore: 'desc' }, { createdAt: 'desc' }]
+        : [{ createdAt: 'desc' }];
 
     return this.prisma.discussion.findMany({
       where: whereClause,
@@ -252,10 +254,7 @@ export class DiscussionsRepository {
           },
         },
       },
-      orderBy: [
-        { parentId: 'desc' }, // (null comes first)
-        { createdAt: 'desc' },
-      ],
+      orderBy: { createdAt: 'asc' },
     });
   }
 }

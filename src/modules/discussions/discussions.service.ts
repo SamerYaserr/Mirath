@@ -66,6 +66,7 @@ export class DiscussionsService {
     });
 
     return {
+      message: 'Discussions retrieved successfully',
       size: transformedDiscussions.length,
       data: transformedDiscussions,
     };
@@ -79,6 +80,7 @@ export class DiscussionsService {
     const transformedDiscussions = this.transformDiscussion(discussion);
 
     return {
+      message: 'Discussion retrieved successfully',
       data: transformedDiscussions,
     };
   }
@@ -245,6 +247,7 @@ export class DiscussionsService {
     });
 
     return {
+      message: 'Comments retrieved successfully',
       size: transformedComment.length,
       data: transformedComment,
     };

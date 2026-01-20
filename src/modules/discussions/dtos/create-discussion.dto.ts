@@ -2,6 +2,7 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsOptional,
   IsString,
   IsUUID,
   Length,
@@ -54,7 +55,7 @@ export class CreateDiscussionDto {
   topicIds: string[];
 
   @ApiPropertyOptional({
-    description: 'StriArray of paper IDs in UUID format',
+    description: 'Array of paper IDs in UUID format',
     example: [
       '550e8400-e29b-41d4-a716-446655440000',
       '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
@@ -63,8 +64,9 @@ export class CreateDiscussionDto {
     isArray: true,
   })
   @Transform(removeDuplicates)
-  @IsArray({ message: 'Topic Ids must be an array' })
+  @IsOptional()
+  @IsArray({ message: 'Paper Ids must be an array' })
   @ArrayMaxSize(3, { message: 'Maximum 3 papers allowed' })
   @IsUUID('4', { each: true, message: 'Each paper ID must be a valid UUID' })
-  paperIds?: string[];
+  paperIds?: string[] = [];
 }
