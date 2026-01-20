@@ -1,10 +1,10 @@
 import { IsEnum } from 'class-validator';
 import { VoteType } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class VoteTypeDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Type of vote. Up or Down',
     enum: VoteType,
     example: VoteType.UP,

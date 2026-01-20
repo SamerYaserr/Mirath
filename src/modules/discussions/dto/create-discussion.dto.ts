@@ -6,8 +6,9 @@ import {
   IsUUID,
   Length,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 import {
   removeDuplicates,
   sanitizeToText,
@@ -52,7 +53,7 @@ export class CreateDiscussionDto {
   @IsUUID('4', { each: true, message: 'Each topic ID must be a valid UUID' })
   topicIds: string[];
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'StriArray of paper IDs in UUID format',
     example: [
       '550e8400-e29b-41d4-a716-446655440000',
@@ -65,5 +66,5 @@ export class CreateDiscussionDto {
   @IsArray({ message: 'Topic Ids must be an array' })
   @ArrayMaxSize(3, { message: 'Maximum 3 papers allowed' })
   @IsUUID('4', { each: true, message: 'Each paper ID must be a valid UUID' })
-  paperIds: string[];
+  paperIds?: string[];
 }

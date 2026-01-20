@@ -28,7 +28,7 @@ export class DiscussionsService {
     dto: CreateDiscussionDto,
     userId: string,
   ): Promise<HttpResponse> {
-    const { title, content, topicIds, paperIds } = dto;
+    const { title, content, topicIds, paperIds = [] } = dto;
     await Promise.all([
       this.checkExisting(topicIds),
       this.checkExisting(paperIds, 'paper'),
