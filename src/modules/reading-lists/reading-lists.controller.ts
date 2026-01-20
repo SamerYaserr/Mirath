@@ -200,6 +200,9 @@ export class ReadingListsController {
   @ApiForbiddenResponse({
     description: 'You can only modify your own reading lists',
   })
+  @ApiNotFoundResponse({
+    description: 'Reading list not found OR Paper not found in the list.',
+  })
   async removePaper(
     @Param() { id, paperId }: DeletePaperDto,
     @Req() req: Request,

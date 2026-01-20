@@ -61,10 +61,12 @@ export class ReadingListsRepository {
   }
 
   async removePaper(readingListId: string, paperId: string) {
-    return this.prisma.readingListPaper.deleteMany({
+    return this.prisma.readingListPaper.delete({
       where: {
-        readingListId,
-        paperId,
+        readingListId_paperId: {
+          readingListId,
+          paperId,
+        },
       },
     });
   }

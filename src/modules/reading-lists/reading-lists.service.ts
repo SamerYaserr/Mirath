@@ -96,7 +96,17 @@ export class ReadingListsService {
       );
     }
 
-    await this.readingListsRepository.removePaper(id, paperId);
+    try {
+      await this.readingListsRepository.removePaper(id, paperId);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Paper not found in this reading list');
+      }
+      throw error;
+    }
     return {
       message: 'Paper removed from the reading list successfully',
     };
