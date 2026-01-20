@@ -26,4 +26,13 @@ export class SearchHistoryRepository {
       take,
     });
   }
+
+  async create(userId: string, query: string) {
+    return this.prisma.searchHistory.create({
+      data: {
+        userId,
+        query,
+      },
+    });
+  }
 }
