@@ -15,6 +15,8 @@ import { LibraryModule } from './modules/library/library.module';
 import { SearchModule } from './modules/search/search.module';
 import { PapersModule } from './modules/papers/papers.module';
 import { FeedModule } from './modules/feed/feed.module';
+import { DiscussionsModule } from './modules/discussions/discussions.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { FeedModule } from './modules/feed/feed.module';
     SearchModule,
     PapersModule,
     FeedModule,
+    DiscussionsModule,
+    CommentsModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },

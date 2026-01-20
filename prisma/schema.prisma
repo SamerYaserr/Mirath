@@ -276,6 +276,7 @@ model Discussion {
   voteScore    Int    @default(0)
   commentCount Int    @default(0)
   authorId     String @db.Uuid
+  paperIds     String[] @db.Uuid
 
   author   User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments Comment[]

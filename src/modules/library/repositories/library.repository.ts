@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Paper, SavedPaper } from '@prisma/client';
+import { Paper, Prisma, SavedPaper } from '@prisma/client';
+
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 
 type SavedPaperWithPaper = SavedPaper & {
@@ -24,7 +25,7 @@ export class LibraryRepository {
         paper: true,
       },
       orderBy: {
-        createdAt: sort === 'asc' ? 'asc' : 'desc',
+        createdAt: sort as Prisma.SortOrder,
       },
       skip,
       take: limit,
