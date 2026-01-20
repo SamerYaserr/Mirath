@@ -237,6 +237,27 @@ export class DiscussionsRepository {
     const client = tx || this.prisma;
     return await client.comment.findUnique({ where: { id } });
   }
+
+  async findDiscussionComments(userId: string, discussionId: string) {
+    return this.prisma.comment.findMany({
+      where: { discussionId },
+      include: {
+        author: true,
+        votes: {
+          where: {
+            userId,
+          },
+          select: {
+            type: true,
+          },
+        },
+      },
+      orderBy: [
+        { parentId: 'desc' }, // (null comes first)
+        { createdAt: 'desc' },
+      ],
+    });
+  }
 }
 
 export type DiscussionWithRelations = Awaited<

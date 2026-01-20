@@ -216,6 +216,40 @@ export class DiscussionsService {
     return { message: 'Comment posted successfully.', data: comment };
   }
 
+  async getDiscussionComments(
+    userId: string,
+    discussionId: string,
+  ): Promise<HttpResponse> {
+    const discussion = await this.discussionsRepository.findOne(
+      discussionId,
+      userId,
+    );
+    if (!discussion)
+      throw new NotFoundException('No discussion found with this ID');
+
+    const comments = await this.discussionsRepository.findDiscussionComments(
+      userId,
+      discussionId,
+    );
+
+    const transformedComment = comments.map((comment) => {
+      const userVote = comment!.votes[0];
+      const { votes, ...rest } = comment!;
+
+      return {
+        ...rest,
+        hasVoted: !!userVote,
+        userVoteType: userVote?.type || undefined,
+        author: excludeUserSensitiveFields(comment!.author),
+      };
+    });
+
+    return {
+      size: transformedComment.length,
+      data: transformedComment,
+    };
+  }
+
   // --- helpers ---
   async checkExisting(ids: string[], type: string = 'topic') {
     let existing;

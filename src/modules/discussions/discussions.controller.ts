@@ -78,4 +78,10 @@ export class DiscussionsController {
     const userId = req.user!.id;
     return this.discussionsService.createComment(userId, id, createCommentDto);
   }
+
+  @Get(':id/comments')
+  getDiscussionComments(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.discussionsService.getDiscussionComments(userId, id);
+  }
 }
