@@ -50,9 +50,12 @@ export class DiscussionsService {
   }
 
   async findAll(q: GetDiscussionsDto, userId: string): Promise<HttpResponse> {
-    const { sort = SortType.NEW, page = 1, limit = 10, topicId } = q;
+    const { sort = SortType.NEW, page = 1, limit = 10, topicId, authorId } = q;
     const skip = (page - 1) * limit;
-    if (topicId) await this.checkExisting([topicId]);
+    await Promise.all([
+      topicId ? this.checkExisting([topicId]) : Promise.resolve(),
+      authorId ? this.checkExisting([authorId], 'users') : Promise.resolve(),
+    ]);
 
     const discussions = await this.discussionsRepository.findAll(
       userId,
@@ -60,6 +63,7 @@ export class DiscussionsService {
       skip,
       limit,
       topicId,
+      authorId,
     );
     const transformedDiscussions = discussions.map((discussion) => {
       return this.transformDiscussion(discussion);
@@ -258,6 +262,8 @@ export class DiscussionsService {
     let existing;
     if (type === 'paper')
       existing = await this.discussionsRepository.findExistingPapers(ids);
+    else if (type === 'users')
+      existing = await this.discussionsRepository.findExistingUsers(ids);
     else existing = await this.discussionsRepository.findExistingTopics(ids);
 
     if (existing.length !== ids.length) {
