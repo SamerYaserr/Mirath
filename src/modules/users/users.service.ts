@@ -14,6 +14,7 @@ import { InterestsRepository } from '../interests/repositories/interests.reposit
 import { UserInterestsRepository } from '../interests/repositories/user-interests.repository';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { FollowsRepository } from './repositories/follows.repository';
+import { FormattedProfile, FormattedProfileWithMeta } from './user.types';
 
 @Injectable()
 export class UsersService {
@@ -100,24 +101,11 @@ export class UsersService {
     };
   }
 
-  async getMyProfile(userId: string): Promise<HttpResponse> {
-    const user = await this.usersRepository.findProfileById(userId);
-
-    if (!user) throw new NotFoundException('User not found');
-
-    const { userInterests, userFields, _count, ...userData } = user;
-
-    const formattedProfile = {
-      ...userData,
-      interests: userInterests.map((ui) => ui.interest),
-      fieldsOfStudy: userFields.map((uf) => uf.field),
-      followersCount: _count.followers,
-      followingCount: _count.followings,
-    };
+  async getMyProfile(userId: string): Promise<HttpResponse<FormattedProfile>> {
+    const profile = await this._getFormattedProfile(userId);
 
     return {
-      message: 'User profile retrieved successfully',
-      data: formattedProfile,
+      data: profile,
     };
   }
 
@@ -154,6 +142,30 @@ export class UsersService {
     };
   }
 
+  async getProfile(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<HttpResponse<FormattedProfileWithMeta>> {
+    const profile = await this._getFormattedProfile(targetUserId);
+
+    const isMe = currentUserId === targetUserId;
+
+    let isFollowing = false;
+    if (!isMe)
+      isFollowing = !!(await this.followsRepository.find(
+        currentUserId,
+        targetUserId,
+      ));
+
+    return {
+      data: {
+        ...profile,
+        isMe,
+        isFollowing,
+      },
+    };
+  }
+
   // ============ Helpers ============ //
 
   async checkUserExistance(id: string) {
@@ -166,5 +178,22 @@ export class UsersService {
     followingId: string,
   ): Promise<boolean> {
     return !!(await this.followsRepository.find(followerId, followingId));
+  }
+
+  async _getFormattedProfile(userId: string): Promise<FormattedProfile> {
+    const user = await this.usersRepository.findProfileById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    const { userInterests, userFields, _count, ...userData } = user;
+
+    const formattedProfile: FormattedProfile = {
+      ...userData,
+      interests: userInterests.map((ui) => ui.interest),
+      fieldsOfStudy: userFields.map((uf) => uf.field),
+      followersCount: _count.followers,
+      followingCount: _count.followings,
+    };
+
+    return formattedProfile;
   }
 }
