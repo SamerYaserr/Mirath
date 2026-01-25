@@ -134,6 +134,8 @@ export const interests: Prisma.InterestCreateInput[] = [
 ];
 
 export async function seedInterests(prisma: PrismaClient) {
+  logger.info('Seeding Interests...');
+
   await prisma.interest.createMany({
     data: interests,
     skipDuplicates: true,
