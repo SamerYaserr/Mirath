@@ -8,6 +8,7 @@ import {
   Req,
   HttpStatus,
   HttpCode,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -16,6 +17,7 @@ import {
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -26,6 +28,7 @@ import { CreateReadingListDto } from './dtos/create-reading-list.dto';
 import { AddPaperDto } from './dtos/add-paper.dto';
 import { IdDto } from 'src/common/dto/id.dto';
 import { DeletePaperDto } from './dtos/delete-paper.dto';
+import { OwnerIdDto } from './dtos/owner-id.dto';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
@@ -36,36 +39,50 @@ export class ReadingListsController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get all reading lists for current user',
+    summary: 'Get reading lists',
     description:
-      'Fetch all reading lists belonging to the current logged-in user with paper count, sorted in descending order by creation.',
+      'Fetch reading lists for the current user or another user. ' +
+      "If ownerId query parameter is provided, returns that user's PUBLIC lists only. " +
+      'If ownerId is omitted, returns all lists (public and private) belonging to the current user. ' +
+      'Each list includes a paper count and preview tags (top 3 unique categories from the first 5 papers).',
+  })
+  @ApiQuery({
+    name: 'ownerId',
+    required: false,
+    description:
+      "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists.",
+    type: String,
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description:
-      'all reading lists belonging to the current user with paper count.',
+      'Reading lists fetched successfully with paper count and preview tags.',
     schema: {
       example: {
         message: 'Reading lists fetched successfully',
+        size: 1,
         data: [
           {
             id: 'c1a9d9f1-4b21-4b99-8d22-347799777555',
             title: 'Neural Networks Papers',
             description: 'A collection of must-read neural networks papers.',
-            isPublic: false,
+            isPublic: true,
             ownerId: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq',
             createdAt: '2026-01-19T18:39:07.379Z',
             updatedAt: '2026-01-19T18:39:07.379Z',
             _count: { papers: 15 },
+            previewTags: ['AI', 'CNN', 'Deep Learning'],
           },
         ],
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  async findAll(@Req() req: Request) {
+  async findAll(@Req() req: Request, @Query() q: OwnerIdDto) {
     const userId = req.user!['id'];
-    return this.readingListsService.findAll(userId);
+    const { ownerId } = q;
+    return this.readingListsService.findAll(userId, ownerId);
   }
 
   @Post()
