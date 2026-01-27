@@ -19,12 +19,18 @@ import { ProfilePhotoPipe } from 'src/common/pipes/profile-photo.pipe';
 import {
   ApiBearerAuth,
   ApiConsumes,
+  ApiExtraModels,
   ApiOperation,
   ApiResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
+
 import { IdDto } from 'src/common/dto/id.dto';
+import { ProfileResDto } from './dto/profile.res.dto';
+import { HttpResponse } from 'src/common/types/api.types';
 
 @Controller('users')
+@ApiExtraModels(ProfileResDto)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
@@ -182,73 +188,41 @@ export class UsersController {
   unfollow(@Req() req: Request, @Param() { id }: IdDto) {
     return this.usersService.unfollow(req.user!.id, id);
   }
-
-  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get Profile By Id',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'User not found',
-    schema: {
-      example: {
-        message: 'User not found',
-        error: 'Not Found',
-        statusCode: 404,
-      },
-    },
+    summary: 'Get Profile Header Info',
+    description:
+      'Fetches static header info, statistics, and context-aware state (isMe, isFollowing) for a user profile.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'User profile retrieved successfully',
+    description: 'Profile retrieved successfully.',
     schema: {
-      example: {
+      properties: {
+        message: { type: 'string', example: 'Profile retrieved successfully.' },
         data: {
-          data: {
-            id: 'aab521c1-564a-4783-a4aa-f694ee49f290',
-            username: 'johndoe123',
-            email: 'john.doe@example.com',
-            fullName: 'John Doe',
-            photoUrl:
-              'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
-            bio: 'Passionate researcher and software engineer specializing in AI.',
-            birthDate: '1998-05-15T00:00:00.000Z',
-            country: 'Canada',
-            levelOfEducation: 'GRADUATE',
-            university: 'University of Toronto',
-            role: 'USER',
-            status: 'ACTIVE',
-            isEmailVisible: true,
-            isPremium: false,
-            createdAt: '2024-01-10T08:30:00.000Z',
-            updatedAt: '2025-01-12T10:45:00.000Z',
-            interests: [
-              {
-                id: 'uuid',
-                name: 'Technology',
-              },
-              {
-                id: '1f1b22e3-aa0a-4769-8816-ab88f21e4ed6',
-                name: 'Chemistry',
-              },
-            ],
-            fieldsOfStudy: [
-              {
-                id: 'uuid',
-                name: 'Computer Science',
-              },
-            ],
-            followersCount: 1,
-            followingCount: 0,
-            isMe: true,
-            isFollowing: false,
+          properties: {
+            profile: { $ref: getSchemaPath(ProfileResDto) },
           },
         },
       },
     },
   })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User not found.',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: 'User not found',
+        error: 'Not Found',
+      },
+    },
+  })
   @Get(':id/profile')
-  getProfile(@Req() { user }: Request, @Param() { id }: IdDto) {
+  getProfile(
+    @Req() { user }: Request,
+    @Param() { id }: IdDto,
+  ): Promise<HttpResponse<{ profile: ProfileResDto }>> {
     return this.usersService.getProfile(user!.id, id);
   }
 }

@@ -14,7 +14,8 @@ import { InterestsRepository } from '../interests/repositories/interests.reposit
 import { UserInterestsRepository } from '../interests/repositories/user-interests.repository';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { FollowsRepository } from './repositories/follows.repository';
-import { FormattedProfile, FormattedProfileWithMeta } from './user.types';
+import { FormattedProfile } from './user.types';
+import { ProfileResDto } from './dto/profile.res.dto';
 
 @Injectable()
 export class UsersService {
@@ -145,10 +146,13 @@ export class UsersService {
   async getProfile(
     currentUserId: string,
     targetUserId: string,
-  ): Promise<HttpResponse<FormattedProfileWithMeta>> {
+  ): Promise<HttpResponse<{ profile: ProfileResDto }>> {
     const profile = await this._getFormattedProfile(targetUserId);
 
     const isMe = currentUserId === targetUserId;
+    if (!isMe && !profile.isEmailVisible) {
+      profile.email = '';
+    }
 
     let isFollowing = false;
     if (!isMe)
@@ -157,12 +161,15 @@ export class UsersService {
         targetUserId,
       ));
 
+    const data = {
+      ...profile,
+      isMe,
+      isFollowing,
+    };
+
     return {
-      data: {
-        ...profile,
-        isMe,
-        isFollowing,
-      },
+      message: 'Profile retrieved successfully',
+      data: { profile: ProfileResDto.fromDomain(data) },
     };
   }
 
