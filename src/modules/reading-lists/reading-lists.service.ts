@@ -22,8 +22,26 @@ export class ReadingListsService {
     };
   }
 
-  async findAll(userId: string) {
-    const data = await this.readingListsRepository.findAllByUserId(userId);
+  async findAll(userId: string, ownerId?: string) {
+    const lists = await this.readingListsRepository.findAllByUserId(
+      userId,
+      ownerId,
+    );
+
+    const data = lists.map((list) => {
+      const categories = list.papers.flatMap((p) => p.paper.categories || []);
+
+      const uniqueCategories = [...new Set(categories)];
+      const previewTags = uniqueCategories.slice(0, 3);
+
+      const { papers, ...listWithoutPapers } = list;
+
+      return {
+        ...listWithoutPapers,
+        previewTags,
+      };
+    });
+
     return {
       message: 'Reading lists fetched successfully',
       data,
