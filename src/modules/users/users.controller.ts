@@ -22,7 +22,9 @@ import {
   ApiOperation,
   ApiResponse,
 } from '@nestjs/swagger';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { IdDto } from 'src/common/dto/id.dto';
+import { Query } from '@nestjs/common';
 
 @Controller('users')
 export class UsersController {
@@ -181,5 +183,83 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   unfollow(@Req() req: Request, @Param() { id }: IdDto) {
     return this.usersService.unfollow(req.user!.id, id);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get user followers',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Followers retrieved successfully',
+    schema: {
+      example: {
+        message: 'Followers retrieved successfully',
+        data: {
+          followers: [
+            {
+              id: 'uuid',
+              username: 'johndoe123',
+              fullName: 'John Doe',
+              photoUrl:
+                'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
+              bio: 'Passionate researcher and software engineer specializing in AI.',
+              role: 'USER',
+              status: 'ACTIVE',
+              isPremium: false,
+              isFollowing: true,
+            },
+          ],
+        },
+      },
+    },
+  })
+  @Get(':id/followers')
+  @HttpCode(HttpStatus.OK)
+  getFollowers(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.usersService.getFollowers(id, req.user!.id, pagination);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get user following',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Following retrieved successfully',
+    schema: {
+      example: {
+        message: 'Following retrieved successfully',
+        data: {
+          following: [
+            {
+              id: 'uuid',
+              username: 'johndoe123',
+              fullName: 'John Doe',
+              photoUrl:
+                'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
+              bio: 'Passionate researcher and software engineer specializing in AI.',
+              role: 'USER',
+              status: 'ACTIVE',
+              isPremium: false,
+              isFollowing: true,
+            },
+          ],
+        },
+      },
+    },
+  })
+  @Get(':id/following')
+  @HttpCode(HttpStatus.OK)
+  getFollowing(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.usersService.getFollowing(id, req.user!.id, pagination);
   }
 }
