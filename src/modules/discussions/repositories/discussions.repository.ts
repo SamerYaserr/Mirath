@@ -52,8 +52,9 @@ export class DiscussionsRepository {
     skip: number,
     limit: number,
     topicId?: string,
+    authorId?: string,
   ) {
-    const whereClause: Prisma.DiscussionWhereInput = topicId
+    let whereClause: Prisma.DiscussionWhereInput = topicId
       ? {
           topics: {
             some: {
@@ -63,6 +64,7 @@ export class DiscussionsRepository {
         }
       : {};
 
+    if (authorId) whereClause.authorId = authorId;
     const orderByClause: Prisma.DiscussionOrderByWithRelationInput[] =
       sort === SortType.TOP
         ? [{ voteScore: 'desc' }, { createdAt: 'desc' }]
@@ -210,6 +212,25 @@ export class DiscussionsRepository {
         id: {
           in: paperIds,
         },
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
+  async findExistingUsers(ids: string[]) {
+    if (ids.length === 1) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: ids[0]! },
+        select: { id: true },
+      });
+      return user ? [user] : [];
+    }
+
+    return this.prisma.user.findMany({
+      where: {
+        id: { in: ids },
       },
       select: {
         id: true,
