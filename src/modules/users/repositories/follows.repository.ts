@@ -15,6 +15,59 @@ export class FollowsRepository {
     });
   }
 
+  async findFollowers(userId: string, skip: number, take: number) {
+    return await this.prisma.follows.findMany({
+      where: { followingId: userId },
+      skip,
+      take,
+      include: {
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            photoUrl: true,
+            bio: true,
+            role: true,
+            status: true,
+            isPremium: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findFollowings(userId: string, skip: number, take: number) {
+    return await this.prisma.follows.findMany({
+      where: { followerId: userId },
+      skip,
+      take,
+      include: {
+        following: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            photoUrl: true,
+            bio: true,
+            role: true,
+            isPremium: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findMany(followerId: string, followingIds: string[]) {
+    return await this.prisma.follows.findMany({
+      where: {
+        followerId,
+        followingId: { in: followingIds },
+      },
+      select: { followingId: true },
+    });
+  }
+
   async delete(followerId: string, followingId: string) {
     await this.prisma.follows.delete({
       where: { followerId_followingId: { followerId, followingId } },

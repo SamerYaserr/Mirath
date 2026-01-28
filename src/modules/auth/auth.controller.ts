@@ -80,7 +80,13 @@ export class AuthController {
     description: 'Validates OTP, activates account, returns tokens.',
   })
   @ApiBody({ type: VerifyEmailDto })
-  @ApiResponse({ status: 200, description: 'Email successfully verified.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email successfully verified.',
+    schema: {
+      example: { accessToken: 'eyJhbGciOi...' },
+    },
+  })
   @ApiBadRequestResponse({ description: 'Invalid or Expired OTP.' })
   async verifyEmail(
     @Body() verifyEmailDto: VerifyEmailDto,
@@ -126,7 +132,22 @@ export class AuthController {
     `,
   })
   @ApiBody({ type: GoogleAuthDto })
-  @ApiResponse({ status: 200, description: 'Authentication successful.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Authentication successful.',
+    schema: {
+      example: {
+        message: 'Authentication successful',
+        user: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          email: 'user@example.com',
+          username: 'user123',
+          photoUrl: 'https://example.com/photo.jpg',
+          status: 'active',
+        },
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Invalid Google Token' })
   @ApiForbiddenResponse({ description: 'Account suspended' })
   async googleAuth(
@@ -155,6 +176,19 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Login successful',
+    schema: {
+      example: {
+        message: 'Login successful',
+        user: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          email: 'user@example.com',
+          username: 'user123',
+          photoUrl: 'https://example.com/photo.jpg',
+          status: 'active',
+        },
+        accessToken: 'eyJhbGciOi...',
+      },
+    },
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
@@ -240,6 +274,11 @@ export class AuthController {
     status: 200,
     description:
       'OTP verified successfully. Returns a short-lived reset token.',
+    schema: {
+      example: {
+        resetToken: 'd8f9b6a1-2c3d-4e5f-9876-abcdef123456',
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -268,6 +307,11 @@ export class AuthController {
     status: 200,
     description:
       'Password reset successfully. User is logged out from all devices.',
+    schema: {
+      example: {
+        message: 'Password has been reset successfully.',
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -304,6 +348,12 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Tokens refreshed successfully.',
+    schema: {
+      example: {
+        message: 'Tokens refreshed successfully.',
+        accessToken: 'eyJhbGciOi...',
+      },
+    },
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid, missing, or expired refresh token.',
