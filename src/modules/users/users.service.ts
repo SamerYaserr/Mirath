@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileSetupDto } from './dto/profile-setup.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UsersRepository } from './repositories/users.repository';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -154,6 +155,60 @@ export class UsersService {
     };
   }
 
+  async getFollowers(
+    userId: string,
+    viewerId: string,
+    pagination: PaginationDto,
+  ): Promise<HttpResponse> {
+    await this.checkUserExistance(userId);
+
+    const followers = await this.followsRepository.findFollowers(
+      userId,
+      pagination.skip,
+      pagination.limit,
+    );
+
+    const followerIds = followers.map((f) => f.follower.id);
+    const followingSet = await this.getFollowingSet(viewerId, followerIds);
+
+    const formattedFollowers = followers.map((f) => ({
+      ...f.follower,
+      isFollowing: followingSet.has(f.follower.id),
+    }));
+
+    return {
+      message: 'Followers retrieved successfully',
+      data: formattedFollowers,
+    };
+  }
+
+  async getFollowing(
+    userId: string,
+    viewerId: string,
+    pagination: PaginationDto,
+  ): Promise<HttpResponse> {
+    await this.checkUserExistance(userId);
+
+    const followings = await this.followsRepository.findFollowings(
+      userId,
+      pagination.skip,
+      pagination.limit,
+    );
+
+    const followingIds = followings.map((f) => f.following.id);
+    const followingSet = await this.getFollowingSet(viewerId, followingIds);
+
+    const formattedFollowings = followings.map((f) => ({
+      ...f.following,
+      isFollowing: followingSet.has(f.following.id),
+    }));
+
+    return {
+      message: 'Following retrieved successfully',
+      data: formattedFollowings,
+    };
+  }
+
   // ============ Helpers ============ //
 
   async checkUserExistance(id: string) {
@@ -166,5 +221,15 @@ export class UsersService {
     followingId: string,
   ): Promise<boolean> {
     return !!(await this.followsRepository.find(followerId, followingId));
+  }
+
+  async getFollowingSet(
+    viewerId: string,
+    targetIds: string[],
+  ): Promise<Set<string>> {
+    if (!targetIds.length) return new Set();
+
+    const follows = await this.followsRepository.findMany(viewerId, targetIds);
+    return new Set(follows.map((f) => f.followingId));
   }
 }
