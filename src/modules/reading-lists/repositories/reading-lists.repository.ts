@@ -15,14 +15,25 @@ export class ReadingListsRepository {
     });
   }
 
-  async findAllByUserId(userId: string) {
+  async findAllByUserId(userId: string, ownerId?: string) {
+    const targetUserId = ownerId || userId;
+    const isViewingOwnLists = targetUserId === userId;
     return this.prisma.readingList.findMany({
       where: {
-        ownerId: userId,
+        ownerId: targetUserId,
+        ...(isViewingOwnLists ? {} : { isPublic: true }),
       },
       include: {
         _count: {
           select: { papers: true },
+        },
+        papers: {
+          take: 5,
+          include: {
+            paper: {
+              select: { categories: true },
+            },
+          },
         },
       },
       orderBy: {

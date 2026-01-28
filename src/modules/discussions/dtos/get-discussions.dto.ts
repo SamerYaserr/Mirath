@@ -52,4 +52,15 @@ export class GetDiscussionsDto {
   @IsOptional()
   @IsUUID('4', { message: 'Topic ID must be a valid UUID' })
   topicId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Author Id to filter discussions by',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    format: 'uuid',
+    type: String,
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'ID must be a valid UUID' })
+  authorId?: string;
 }

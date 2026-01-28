@@ -19,14 +19,21 @@ import { ProfilePhotoPipe } from 'src/common/pipes/profile-photo.pipe';
 import {
   ApiBearerAuth,
   ApiConsumes,
+  ApiExtraModels,
   ApiOperation,
   ApiResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { IdDto } from 'src/common/dto/id.dto';
 import { Query } from '@nestjs/common';
 
+// import { IdDto } from 'src/common/dto/id.dto';
+import { ProfileResDto } from './dto/profile.res.dto';
+import { HttpResponse } from 'src/common/types/api.types';
+
 @Controller('users')
+@ApiExtraModels(ProfileResDto)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
@@ -261,5 +268,41 @@ export class UsersController {
     @Query() pagination: PaginationDto,
   ) {
     return this.usersService.getFollowing(id, req.user!.id, pagination);
+  @ApiOperation({
+    summary: 'Get Profile Header Info',
+    description:
+      'Fetches static header info, statistics, and context-aware state (isMe, isFollowing) for a user profile.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile retrieved successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Profile retrieved successfully.' },
+        data: {
+          properties: {
+            profile: { $ref: getSchemaPath(ProfileResDto) },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User not found.',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: 'User not found',
+        error: 'Not Found',
+      },
+    },
+  })
+  @Get(':id/profile')
+  getProfile(
+    @Req() { user }: Request,
+    @Param() { id }: IdDto,
+  ): Promise<HttpResponse<{ profile: ProfileResDto }>> {
+    return this.usersService.getProfile(user!.id, id);
   }
 }
