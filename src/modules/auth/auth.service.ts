@@ -25,6 +25,7 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { CheckVerificationDto } from './dto/check-verification.dto';
+import { HttpResponse } from 'src/common/types/api.types';
 
 @Injectable()
 export class AuthService {
@@ -44,7 +45,7 @@ export class AuthService {
     );
   }
 
-  async signup(signupDto: SignupDto) {
+  async signup(signupDto: SignupDto): Promise<HttpResponse> {
     if (signupDto.password !== signupDto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
@@ -111,7 +112,14 @@ export class AuthService {
     return {
       message:
         'Signup successful. Please check your email for the verification code.',
-      userId: newUser.id,
+      data: {
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          username: newUser.username,
+          status: newUser.status,
+        },
+      },
     };
   }
 
