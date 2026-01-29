@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConsumes,
   ApiExtraModels,
   ApiOperation,
@@ -41,6 +42,48 @@ export class UsersController {
     summary: 'Complete user profile setup',
   })
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'User full name',
+          example: 'John Doe',
+          minLength: 2,
+          maxLength: 50,
+        },
+        levelOfEducation: {
+          type: 'string',
+          enum: ['HIGH_SCHOOL', 'UNDERGRADUATE', 'GRADUATE'],
+          description: 'User level of education',
+          example: 'HIGH_SCHOOL',
+        },
+        university: {
+          type: 'string',
+          description:
+            'University name (required for non-high school education levels)',
+          example: 'Harvard University',
+          nullable: true,
+          minLength: 2,
+          maxLength: 100,
+        },
+        interests: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'List of user interests. In multipart/form-data, this can be multiple fields or a comma-separated string.',
+          example: ['Technology', 'Sports', 'Music'],
+        },
+        profilePhoto: {
+          type: 'string',
+          format: 'binary',
+          description: 'User profile photo (JPG, JPEG, PNG, or WebP, max 30MB)',
+        },
+      },
+      required: ['name', 'levelOfEducation', 'interests'],
+    },
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Profile setup completed successfully',
