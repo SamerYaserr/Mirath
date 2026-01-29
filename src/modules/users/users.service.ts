@@ -195,6 +195,9 @@ export class UsersService {
     return {
       message: 'Following retrieved successfully',
       data: formattedFollowings,
+    };
+  }
+
   async getProfile(
     currentUserId: string,
     targetUserId: string,
@@ -247,6 +250,8 @@ export class UsersService {
 
     const follows = await this.followsRepository.findMany(viewerId, targetIds);
     return new Set(follows.map((f) => f.followingId));
+  }
+
   async _getFormattedProfile(userId: string): Promise<FormattedProfile> {
     const user = await this.usersRepository.findProfileById(userId);
     if (!user) throw new NotFoundException('User not found');

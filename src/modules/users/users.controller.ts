@@ -11,11 +11,9 @@ import {
   Req,
   UploadedFile,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { ProfileSetupDto } from './dto/profile-setup.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ProfilePhotoPipe } from 'src/common/pipes/profile-photo.pipe';
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -24,11 +22,12 @@ import {
   ApiResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
+
+import { UsersService } from './users.service';
+import { ProfileSetupDto } from './dto/profile-setup.dto';
+import { ProfilePhotoPipe } from 'src/common/pipes/profile-photo.pipe';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { IdDto } from 'src/common/dto/id.dto';
-import { Query } from '@nestjs/common';
-
-// import { IdDto } from 'src/common/dto/id.dto';
 import { ProfileResDto } from './dto/profile.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 
@@ -61,7 +60,6 @@ export class UsersController {
       },
     },
   })
-  // ----------------------------------------------- //
   @Post('profile/setup')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('profilePhoto'))
@@ -268,6 +266,9 @@ export class UsersController {
     @Query() pagination: PaginationDto,
   ) {
     return this.usersService.getFollowing(id, req.user!.id, pagination);
+  }
+
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get Profile Header Info',
     description:
