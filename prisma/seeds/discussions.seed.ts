@@ -24,6 +24,25 @@ export async function seedDiscussions(prisma: PrismaClient) {
       .arrayElements(papers, { min: 0, max: 3 })
       .map((p) => p.id);
 
+    // 1. Pre-generate votes data
+    const voters = faker.helpers.arrayElements(users, { min: 5, max: 20 });
+    const votesData = voters.map((v) => ({
+      userId: v.id,
+      type: faker.helpers.arrayElement([
+        VoteType.UP,
+        VoteType.UP,
+        VoteType.UP,
+        VoteType.DOWN,
+      ]),
+    }));
+
+    // 2. Calculate counts
+    const upvoteCount = votesData.filter((v) => v.type === VoteType.UP).length;
+    const downvoteCount = votesData.filter(
+      (v) => v.type === VoteType.DOWN,
+    ).length;
+
+    // 3. Create Discussion with correct counts
     const discussion = await prisma.discussion.create({
       data: {
         title: faker.lorem.sentence({ min: 4, max: 10 }),
@@ -32,12 +51,13 @@ export async function seedDiscussions(prisma: PrismaClient) {
         papers: {
           connect: linkedPapers.map((id) => ({ id })),
         },
-        voteScore: faker.number.int({ min: 0, max: 100 }), // initial score
+        upvoteCount,
+        downvoteCount,
         createdAt: faker.date.past({ years: 1 }),
       },
     });
 
-    // Add 1-4 Topics
+    // 4. Create Topics
     const topics = faker.helpers.arrayElements(interests, { min: 1, max: 4 });
     const topicData = topics.map((t) => ({
       discussionId: discussion.id,
@@ -45,19 +65,16 @@ export async function seedDiscussions(prisma: PrismaClient) {
     }));
     await prisma.discussionTopic.createMany({ data: topicData });
 
-    // Add 5-20 Votes per discussion
-    const voters = faker.helpers.arrayElements(users, { min: 5, max: 20 });
-    const voteData = voters.map((v) => ({
-      userId: v.id,
-      discussionId: discussion.id,
-      type: faker.helpers.arrayElement([
-        VoteType.UP,
-        VoteType.UP,
-        VoteType.UP,
-        VoteType.DOWN,
-      ]), // Bias towards Up
-    }));
-    await prisma.discussionVote.createMany({ data: voteData });
+    // 5. Save the votes to DB
+    if (votesData.length > 0) {
+      await prisma.discussionVote.createMany({
+        data: votesData.map((v) => ({
+          userId: v.userId,
+          discussionId: discussion.id,
+          type: v.type,
+        })),
+      });
+    }
 
     createdCount++;
   }

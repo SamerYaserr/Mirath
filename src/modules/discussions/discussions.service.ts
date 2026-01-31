@@ -137,9 +137,13 @@ export class DiscussionsService {
           type,
           tx,
         );
-        await this.discussionsRepository.updateVoteScore(
+        const isNowUp = type === VoteType.UP;
+        await this.discussionsRepository.updateVoteCounts(
           discussionId,
-          type === VoteType.UP ? 2 : -2,
+          {
+            upIncrement: isNowUp ? 1 : -1,
+            downIncrement: isNowUp ? -1 : 1,
+          },
           tx,
         );
       } else {
@@ -149,9 +153,12 @@ export class DiscussionsService {
           type,
           tx,
         );
-        await this.discussionsRepository.updateVoteScore(
+        await this.discussionsRepository.updateVoteCounts(
           discussionId,
-          type === VoteType.UP ? 1 : -1,
+          {
+            upIncrement: type === VoteType.UP ? 1 : 0,
+            downIncrement: type === VoteType.DOWN ? 1 : 0,
+          },
           tx,
         );
       }
@@ -173,9 +180,12 @@ export class DiscussionsService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.discussionsRepository.deleteVote(userId, discussionId, tx);
-      await this.discussionsRepository.updateVoteScore(
+      await this.discussionsRepository.updateVoteCounts(
         discussionId,
-        vote.type === VoteType.UP ? -1 : 1,
+        {
+          upIncrement: vote.type === VoteType.UP ? -1 : 0,
+          downIncrement: vote.type === VoteType.DOWN ? -1 : 0,
+        },
         tx,
       );
     });

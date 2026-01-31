@@ -271,12 +271,13 @@ model ReadingListPaper {
 }
 
 model Discussion {
-  id           String @id @default(uuid()) @db.Uuid
-  title        String
-  content      String @db.Text
-  voteScore    Int    @default(0)
-  commentCount Int    @default(0)
-  authorId     String @db.Uuid
+  id            String @id @default(uuid()) @db.Uuid
+  title         String
+  content       String @db.Text
+  upvoteCount   Int    @default(0)
+  downvoteCount Int    @default(0)
+  commentCount  Int    @default(0)
+  authorId      String @db.Uuid
 
   author   User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments Comment[]
@@ -288,19 +289,21 @@ model Discussion {
   updatedAt DateTime @updatedAt
 
   @@index([authorId])
-  @@index([voteScore])
+  @@index([upvoteCount])
+  @@index([commentCount])
   @@index([createdAt])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([content(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model Comment {
-  id           String  @id @default(uuid()) @db.Uuid
-  content      String  @db.Text
-  authorId     String  @db.Uuid
-  discussionId String  @db.Uuid
-  parentId     String? @db.Uuid
-  voteScore    Int     @default(0)
+  id            String  @id @default(uuid()) @db.Uuid
+  content       String  @db.Text
+  authorId      String  @db.Uuid
+  discussionId  String  @db.Uuid
+  parentId      String? @db.Uuid
+  upvoteCount   Int     @default(0)
+  downvoteCount Int     @default(0)
 
   author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   discussion Discussion    @relation(fields: [discussionId], references: [id], onDelete: Cascade)

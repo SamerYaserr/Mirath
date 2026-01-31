@@ -62,15 +62,24 @@ export class CommentsRepository {
     });
   }
 
-  async updateVoteScore(
+  async updateVoteCounts(
     id: string,
-    increment: number,
+    updates: { upIncrement?: number; downIncrement?: number },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
+    const data: Prisma.CommentUpdateInput = {};
+
+    if (updates.upIncrement) {
+      data.upvoteCount = { increment: updates.upIncrement };
+    }
+    if (updates.downIncrement) {
+      data.downvoteCount = { increment: updates.downIncrement };
+    }
+
     return client.comment.update({
       where: { id },
-      data: { voteScore: { increment } },
+      data,
     });
   }
 

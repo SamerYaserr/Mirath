@@ -38,7 +38,7 @@ export class SearchRepository {
           },
         },
       },
-      orderBy: { voteScore: 'desc' },
+      orderBy: { upvoteCount: 'desc' },
       skip,
       take,
     });

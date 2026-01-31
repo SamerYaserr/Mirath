@@ -77,7 +77,7 @@ export class DiscussionsRepository {
     if (authorId) whereClause.authorId = authorId;
     const orderByClause: Prisma.DiscussionOrderByWithRelationInput[] =
       sort === SortType.TOP
-        ? [{ voteScore: 'desc' }, { createdAt: 'desc' }]
+        ? [{ upvoteCount: 'desc' }, { createdAt: 'desc' }]
         : [{ createdAt: 'desc' }];
 
     return this.prisma.discussion.findMany({
@@ -184,15 +184,22 @@ export class DiscussionsRepository {
     });
   }
 
-  async updateVoteScore(
+  async updateVoteCounts(
     id: string,
-    increment: number,
+    updates: { upIncrement?: number; downIncrement?: number },
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
+    const data: Prisma.DiscussionUpdateInput = {};
+    if (updates.upIncrement) {
+      data.upvoteCount = { increment: updates.upIncrement };
+    }
+    if (updates.downIncrement) {
+      data.downvoteCount = { increment: updates.downIncrement };
+    }
     return client.discussion.update({
       where: { id },
-      data: { voteScore: { increment } },
+      data,
     });
   }
 

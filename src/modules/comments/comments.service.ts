@@ -43,16 +43,23 @@ export class CommentsService {
           type,
           tx,
         );
-        await this.commentsRepository.updateVoteScore(
+        const isNowUp = type === VoteType.UP;
+        await this.commentsRepository.updateVoteCounts(
           commentId,
-          type === VoteType.UP ? 2 : -2,
+          {
+            upIncrement: isNowUp ? 1 : -1,
+            downIncrement: isNowUp ? -1 : 1,
+          },
           tx,
         );
       } else {
         await this.commentsRepository.createVote(userId, commentId, type, tx);
-        await this.commentsRepository.updateVoteScore(
+        await this.commentsRepository.updateVoteCounts(
           commentId,
-          type === VoteType.UP ? 1 : -1,
+          {
+            upIncrement: type === VoteType.UP ? 1 : 0,
+            downIncrement: type === VoteType.DOWN ? 1 : 0,
+          },
           tx,
         );
       }
@@ -68,9 +75,12 @@ export class CommentsService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.commentsRepository.deleteVote(userId, commentId, tx);
-      await this.commentsRepository.updateVoteScore(
+      await this.commentsRepository.updateVoteCounts(
         commentId,
-        vote.type === VoteType.UP ? -1 : 1,
+        {
+          upIncrement: vote.type === VoteType.UP ? -1 : 0,
+          downIncrement: vote.type === VoteType.DOWN ? -1 : 0,
+        },
         tx,
       );
     });
