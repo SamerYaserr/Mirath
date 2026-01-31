@@ -20,7 +20,9 @@ export class DiscussionsRepository {
         title,
         content,
         authorId,
-        paperIds,
+        papers: {
+          connect: paperIds.map((id) => ({ id })),
+        },
         topics: {
           create: topicIds.map((interestId) => ({
             interestId,
@@ -40,6 +42,14 @@ export class DiscussionsRepository {
           },
           select: {
             type: true,
+          },
+        },
+        papers: {
+          select: {
+            id: true,
+            authors: true,
+            title: true,
+            abstract: true,
           },
         },
       },
@@ -90,6 +100,14 @@ export class DiscussionsRepository {
             type: true,
           },
         },
+        papers: {
+          select: {
+            id: true,
+            authors: true,
+            title: true,
+            abstract: true,
+          },
+        },
       },
     });
   }
@@ -110,6 +128,14 @@ export class DiscussionsRepository {
           },
           select: {
             type: true,
+          },
+        },
+        papers: {
+          select: {
+            id: true,
+            authors: true,
+            title: true,
+            abstract: true,
           },
         },
       },

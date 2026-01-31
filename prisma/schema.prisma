@@ -184,6 +184,7 @@ model Paper {
 
   savedPapers       SavedPaper[]
   readingListPapers ReadingListPaper[]
+  discussions       Discussion[]
 
   @@index([publishedAt])
   // Array Indexes (Exact Match)
@@ -276,12 +277,12 @@ model Discussion {
   voteScore    Int    @default(0)
   commentCount Int    @default(0)
   authorId     String @db.Uuid
-  paperIds     String[] @db.Uuid
 
   author   User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments Comment[]
   votes    DiscussionVote[]
   topics   DiscussionTopic[]
+  papers   Paper[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

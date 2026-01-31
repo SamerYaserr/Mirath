@@ -50,13 +50,20 @@ const discussionExample = {
   voteScore: 42,
   commentCount: 5,
   authorId: userExample.id,
-  paperIds: ['999e8400-e29b-41d4-a716-446655440999'],
   createdAt: '2023-11-15T10:00:00.000Z',
   updatedAt: '2023-11-15T10:00:00.000Z',
   hasVoted: true,
   userVoteType: 'UP',
   topics: [topicExample],
   author: userExample,
+  papers: [
+    {
+      id: '770e8400-e29b-41d4-a716-446655440000',
+      authors: ['Alice Smith', 'Bob Johnson'],
+      title: 'Advancements in AI',
+      abstract: 'This paper discusses recent advancements in AI...',
+    },
+  ],
 };
 
 const commentExample = {

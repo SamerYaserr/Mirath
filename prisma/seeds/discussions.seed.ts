@@ -29,7 +29,9 @@ export async function seedDiscussions(prisma: PrismaClient) {
         title: faker.lorem.sentence({ min: 4, max: 10 }),
         content: faker.lorem.paragraphs({ min: 2, max: 5 }),
         authorId: author.id,
-        paperIds: linkedPapers,
+        papers: {
+          connect: linkedPapers.map((id) => ({ id })),
+        },
         voteScore: faker.number.int({ min: 0, max: 100 }), // initial score
         createdAt: faker.date.past({ years: 1 }),
       },
