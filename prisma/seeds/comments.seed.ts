@@ -12,13 +12,13 @@ export async function seedComments(prisma: PrismaClient) {
 
   if (discussions.length === 0 || users.length === 0) return;
 
-  let totalComments = 0;
-
   for (const discussion of discussions) {
-    // Generate 5 to 15 comments per discussion
-    const commentCount = faker.number.int({ min: 5, max: 15 });
+    let discussionCommentCount = 0;
 
-    for (let i = 0; i < commentCount; i++) {
+    // Generate 5 to 15 comments per discussion
+    const targetCount = faker.number.int({ min: 5, max: 15 });
+
+    for (let i = 0; i < targetCount; i++) {
       const author = faker.helpers.arrayElement(users);
 
       const comment = await prisma.comment.create({
@@ -29,7 +29,7 @@ export async function seedComments(prisma: PrismaClient) {
           voteScore: faker.number.int({ min: 0, max: 20 }),
         },
       });
-      totalComments++;
+      discussionCommentCount++;
 
       // 30% chance of a reply
       if (faker.datatype.boolean({ probability: 0.3 })) {
@@ -42,7 +42,7 @@ export async function seedComments(prisma: PrismaClient) {
             parentId: comment.id,
           },
         });
-        totalComments++;
+        discussionCommentCount++;
       }
 
       // Add 0-5 votes per comment
@@ -54,6 +54,13 @@ export async function seedComments(prisma: PrismaClient) {
       }));
       await prisma.commentVote.createMany({ data: voteData });
     }
+
+    await prisma.discussion.update({
+      where: { id: discussion.id },
+      data: {
+        commentCount: { increment: discussionCommentCount },
+      },
+    });
   }
 
   logger.info('Comments seeding completed successfully');
