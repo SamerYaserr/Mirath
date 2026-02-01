@@ -31,6 +31,15 @@ export class ReadingListsService {
     };
   }
 
+  async getAllLists() {
+    const data = await this.readingListsRepository.findAll();
+    return {
+      message: 'All reading lists fetched successfully',
+      data,
+      size: data.length,
+    };
+  }
+
   async findOne(id: string, userId?: string) {
     const list = await this.readingListsRepository.findById(id);
     if (!list) {

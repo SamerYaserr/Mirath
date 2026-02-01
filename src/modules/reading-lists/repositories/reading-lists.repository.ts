@@ -31,6 +31,26 @@ export class ReadingListsRepository {
     });
   }
 
+  async findAll() {
+    return this.prisma.readingList.findMany({
+      include: {
+        _count: {
+          select: { papers: true },
+        },
+        owner: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   async findById(id: string) {
     return this.prisma.readingList.findUnique({
       where: { id },
