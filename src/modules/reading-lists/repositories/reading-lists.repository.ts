@@ -24,6 +24,14 @@ export class ReadingListsRepository {
         ...(isViewingOwnLists ? {} : { isPublic: true }),
       },
       include: {
+        owner: {
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            photoUrl: true,
+          },
+        },
         _count: {
           select: { papers: true },
         },
@@ -48,7 +56,17 @@ export class ReadingListsRepository {
       include: {
         papers: {
           include: {
-            paper: true,
+            paper: {
+              select: {
+                id: true,
+                title: true,
+                authors: true,
+                abstract: true,
+                categories: true,
+                publishedAt: true,
+                citation: true,
+              },
+            },
           },
         },
         owner: {
@@ -56,6 +74,7 @@ export class ReadingListsRepository {
             id: true,
             username: true,
             fullName: true,
+            photoUrl: true,
           },
         },
       },
