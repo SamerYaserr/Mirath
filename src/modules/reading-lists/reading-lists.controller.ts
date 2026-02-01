@@ -36,7 +36,7 @@ import { OwnerIdDto } from './dtos/owner-id.dto';
 export class ReadingListsController {
   constructor(private readonly readingListsService: ReadingListsService) {}
 
-  @Get()
+  @Get('me')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get reading lists',
@@ -89,6 +89,44 @@ export class ReadingListsController {
     const userId = req.user!['id'];
     const { ownerId } = q;
     return this.readingListsService.findAll(userId, ownerId);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get all reading lists in the database',
+    description: 'Fetch all reading lists available in the system.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'All reading lists.',
+    schema: {
+      example: {
+        message: 'Reading lists fetched successfully',
+        data: [
+          {
+            id: "5063158c-b696-4d7f-9737-85fdad1bf7ec",
+            title: "Biology 101 3",
+            description: "Voluptate ventosus coaegresco.",
+            isPublic: false,
+            ownerId: "8a63a83b-ba57-4388-ab30-e40822e93412",
+            createdAt: "2026-01-28T22:31:13.317Z",
+            updatedAt: "2026-01-28T22:31:13.317Z",
+            _count: {
+                papers: 7
+            },
+            owner: {
+                id: "8a63a83b-ba57-4388-ab30-e40822e93412",
+                username: "Nathan_Yundt32_49",
+                fullName: "Nathan Yundt"
+            }
+          },
+        ],
+      },
+    },
+  })
+  async getAllLists() {
+    return this.readingListsService.getAllLists();
   }
 
   @Post()
