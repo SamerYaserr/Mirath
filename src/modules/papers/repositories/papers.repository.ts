@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SavedPaper, Paper } from '@prisma/client';
+import { SavedPaper } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { winstonLogger } from '../../../config/logger.config';
@@ -74,10 +74,23 @@ export class PapersRepository {
     });
   }
 
-  async find(paperId: string): Promise<Paper | null> {
+  async find(paperId: string) {
+    // Don't return the fullText in the result if U don't need to
     return this.prisma.paper.findUnique({
       where: {
         id: paperId,
+      },
+      select: {
+        id: true,
+        citation: true,
+        title: true,
+        abstract: true,
+        authors: true,
+        categories: true,
+        publishedAt: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }

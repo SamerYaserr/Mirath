@@ -11,7 +11,10 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiExtraModels,
+  ApiNotFoundResponse,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -21,9 +24,11 @@ import type { Request } from 'express';
 import { PapersService } from './papers.service';
 import { SearchPaperDto } from './dto/search-paper.dto';
 import { IdDto } from 'src/common/dto/id.dto';
+import { PaperResDto, PaperResponseDto } from './dto/paper.res.dto';
 
 @ApiTags('Papers')
 @Controller('papers')
+@ApiExtraModels(PaperResDto)
 export class PapersController {
   constructor(private readonly papersService: PapersService) {}
 
@@ -113,5 +118,29 @@ export class PapersController {
   async search(@Req() req: Request, @Query() searchDto: SearchPaperDto) {
     const userId = req.user!.id;
     return this.papersService.search(userId, searchDto);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get paper by ID',
+    description:
+      'Retrieves the full details of a paper by its UUID, including citation, title, abstract, authors, categories, and content.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The UUID of the paper to retrieve',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Paper retrieved successfully',
+    type: PaperResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'No paper found with this id',
+  })
+  @Get(':id')
+  async find(@Param() { id }: IdDto) {
+    return this.papersService.find(id);
   }
 }
