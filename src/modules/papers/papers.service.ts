@@ -80,4 +80,13 @@ export class PapersService {
       size: papers.length,
     };
   }
+
+  async find(paperId: string): Promise<HttpResponse> {
+    const paper = await this.papersRepository.find(paperId);
+    if (!paper) throw new NotFoundException('No paper found with this id');
+
+    return {
+      data: paper,
+    };
+  }
 }
