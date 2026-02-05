@@ -93,7 +93,7 @@ export class PapersController {
   @ApiOperation({
     summary: 'Search papers',
     description:
-      'Performs a full-text fuzzy search on papers. Returns results in the standard HttpResponse format.',
+      'Performs a search on papers. Returns results in the standard HttpResponse format.',
   })
   @ApiResponse({
     status: 200,

@@ -58,6 +58,8 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
 
+  EXTERNAL_API_BASE_URL: z.string().min(1),
+
   SEED_PASSWORD: z
     .string()
     .min(8, 'Password must be at least 8 characters')
