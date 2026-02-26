@@ -25,4 +25,17 @@ export class InterestsRepository {
   async findById(id: string) {
     return await this.prisma.interest.findUnique({ where: { id } });
   }
+
+  async findByIds(topicIds: string[]) {
+    return await this.prisma.interest.findMany({
+      where: {
+        id: {
+          in: topicIds,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
 }
