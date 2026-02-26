@@ -12,26 +12,16 @@ import {
 } from './repositories/discussions.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
-import { CreateCommentDto } from './dtos/create-comment.dto';
 import { CreateDiscussionDto } from './dtos/create-discussion.dto';
 import { GetDiscussionsDto, SortType } from './dtos/get-discussions.dto';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
-import { UsersRepository } from '../users/repositories/users.repository';
-import { PapersRepository } from '../papers/repositories/papers.repository';
-import { CommentsRepository } from '../comments/repositories/comments.repository';
-import { DiscussionVotesRepository } from './repositories/discussion-votes.repository';
-import { InterestsRepository } from '../interests/repositories/interests.repository';
+import { CreateCommentDto } from './dtos/create-comment.dto';
 
 @Injectable()
 export class DiscussionsService {
   constructor(
-    private prisma: PrismaService,
-    private usersRepository: UsersRepository,
-    private papersRepository: PapersRepository,
-    private commentsRepository: CommentsRepository,
-    private interestsRepository: InterestsRepository,
     private discussionsRepository: DiscussionsRepository,
-    private discussionVotesRepository: DiscussionVotesRepository,
+    private prisma: PrismaService,
   ) {}
 
   async create(
@@ -67,7 +57,7 @@ export class DiscussionsService {
       authorId ? this.checkExisting([authorId], 'users') : Promise.resolve(),
     ]);
 
-    const discussions = await this.discussionsRepository.findMany(
+    const discussions = await this.discussionsRepository.findAll(
       userId,
       sort,
       skip,
@@ -129,7 +119,7 @@ export class DiscussionsService {
       throw new NotFoundException('No discussion found with this ID');
 
     await this.prisma.$transaction(async (tx) => {
-      const existingVote = await this.discussionVotesRepository.findOne(
+      const existingVote = await this.discussionsRepository.findVote(
         userId,
         discussionId,
         tx,
@@ -141,7 +131,7 @@ export class DiscussionsService {
             'You have already voted this way on this discussion.',
           );
 
-        await this.discussionVotesRepository.updateVoteType(
+        await this.discussionsRepository.updateVoteType(
           userId,
           discussionId,
           type,
@@ -157,8 +147,10 @@ export class DiscussionsService {
           tx,
         );
       } else {
-        await this.discussionVotesRepository.create(
-          { userId, discussionId, type },
+        await this.discussionsRepository.createVote(
+          userId,
+          discussionId,
+          type,
           tx,
         );
         await this.discussionsRepository.updateVoteCounts(
@@ -179,7 +171,7 @@ export class DiscussionsService {
     discussionId: string,
     userId: string,
   ): Promise<HttpResponse> {
-    const vote = await this.discussionVotesRepository.findOne(
+    const vote = await this.discussionsRepository.findVote(
       userId,
       discussionId,
     );
@@ -187,7 +179,7 @@ export class DiscussionsService {
       throw new BadRequestException('You have not voted for this discussion');
 
     await this.prisma.$transaction(async (tx) => {
-      await this.discussionVotesRepository.delete(userId, discussionId, tx);
+      await this.discussionsRepository.deleteVote(userId, discussionId, tx);
       await this.discussionsRepository.updateVoteCounts(
         discussionId,
         {
@@ -215,11 +207,10 @@ export class DiscussionsService {
       throw new NotFoundException('No discussion found with this ID');
 
     if (parentId) {
-      const parentComment = await this.commentsRepository.findById(parentId);
-
+      const parentComment =
+        await this.discussionsRepository.findComment(parentId);
       if (!parentComment)
         throw new NotFoundException('Parent comment not found');
-
       if (parentComment.discussionId !== discussionId)
         throw new BadRequestException(
           'Parent comment does not belong to this discussion',
@@ -227,16 +218,13 @@ export class DiscussionsService {
     }
 
     const comment = await this.prisma.$transaction(async (tx) => {
-      const newComment = await this.commentsRepository.create(
-        {
-          discussionId,
-          authorId: userId,
-          content,
-          parentId: parentId ?? null,
-        },
+      const newComment = await this.discussionsRepository.createComment(
+        discussionId,
+        userId,
+        content,
+        parentId,
         tx,
       );
-
       await this.discussionsRepository.updateCommentCount(discussionId, 1, tx);
       return newComment;
     });
@@ -255,7 +243,7 @@ export class DiscussionsService {
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
-    const comments = await this.commentsRepository.findDiscussionComments(
+    const comments = await this.discussionsRepository.findDiscussionComments(
       userId,
       discussionId,
     );
@@ -282,11 +270,11 @@ export class DiscussionsService {
   // --- helpers ---
   async checkExisting(ids: string[], type: string = 'topic') {
     let existing;
-
-    if (type === 'paper') existing = await this.papersRepository.findByIds(ids);
+    if (type === 'paper')
+      existing = await this.discussionsRepository.findExistingPapers(ids);
     else if (type === 'users')
-      existing = await this.usersRepository.findByIds(ids);
-    else existing = await this.interestsRepository.findByIds(ids);
+      existing = await this.discussionsRepository.findExistingUsers(ids);
+    else existing = await this.discussionsRepository.findExistingTopics(ids);
 
     if (existing.length !== ids.length) {
       const foundIds = existing.map((f) => f.id);

@@ -109,11 +109,4 @@ export class UsersRepository {
       },
     });
   }
-
-  async findByIds(ids: string[]) {
-    return this.prisma.user.findMany({
-      where: { id: { in: ids } },
-      select: { id: true },
-    });
-  }
 }

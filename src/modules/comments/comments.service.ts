@@ -8,14 +8,12 @@ import { VoteType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
 import { CommentsRepository } from './repositories/comments.repository';
-import { CommentVotesRepository } from './repositories/comment-votes.repository';
 
 @Injectable()
 export class CommentsService {
   constructor(
-    private prisma: PrismaService,
     private commentsRepository: CommentsRepository,
-    private commentVotesRepository: CommentVotesRepository,
+    private prisma: PrismaService,
   ) {}
 
   async vote(
@@ -27,7 +25,7 @@ export class CommentsService {
     if (!comment) throw new NotFoundException('No comment found with this ID');
 
     await this.prisma.$transaction(async (tx) => {
-      const existingVote = await this.commentVotesRepository.findOne(
+      const existingVote = await this.commentsRepository.findVote(
         userId,
         commentId,
         tx,
@@ -39,7 +37,7 @@ export class CommentsService {
             'You have already voted this way on this comment.',
           );
 
-        await this.commentVotesRepository.updateVoteType(
+        await this.commentsRepository.updateVoteType(
           userId,
           commentId,
           type,
@@ -55,11 +53,7 @@ export class CommentsService {
           tx,
         );
       } else {
-        await this.commentVotesRepository.create(
-          { userId, commentId, type },
-          tx,
-        );
-
+        await this.commentsRepository.createVote(userId, commentId, type, tx);
         await this.commentsRepository.updateVoteCounts(
           commentId,
           {
@@ -75,12 +69,12 @@ export class CommentsService {
   }
 
   async deleteVote(userId: string, commentId: string): Promise<HttpResponse> {
-    const vote = await this.commentVotesRepository.findOne(userId, commentId);
+    const vote = await this.commentsRepository.findVote(userId, commentId);
     if (!vote)
       throw new BadRequestException('You have not voted for this comment');
 
     await this.prisma.$transaction(async (tx) => {
-      await this.commentVotesRepository.delete(userId, commentId, tx);
+      await this.commentsRepository.deleteVote(userId, commentId, tx);
       await this.commentsRepository.updateVoteCounts(
         commentId,
         {
