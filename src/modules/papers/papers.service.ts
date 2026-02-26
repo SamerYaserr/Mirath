@@ -8,10 +8,24 @@ import { Prisma } from '@prisma/client';
 import { PapersRepository } from './repositories/papers.repository';
 import { SearchPaperDto } from './dto/search-paper.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { AppConfig } from 'src/config/configuration';
+import { firstValueFrom } from 'rxjs';
+import { winstonLogger as logger } from 'src/config/logger.config';
+
+type SearchReqBody = {
+  question: string;
+  limit: number;
+};
 
 @Injectable()
 export class PapersService {
-  constructor(private papersRepository: PapersRepository) {}
+  constructor(
+    private httpService: HttpService,
+    private configService: ConfigService<AppConfig, true>,
+    private papersRepository: PapersRepository,
+  ) {}
 
   async savePaper(paperId: string, userId: string): Promise<HttpResponse> {
     const paper = await this.papersRepository.find(paperId);
@@ -62,14 +76,28 @@ export class PapersService {
     const { q, page, limit } = searchDto;
     const offset = (page - 1) * limit;
 
-    const papers = await this.papersRepository.searchPapers(
-      userId,
-      q,
-      limit,
-      offset,
-    );
+    const [externalResult, ftsResult] = await Promise.allSettled([
+      this.searchExternal(q, limit),
+      this.papersRepository.searchPapers(userId, q, limit, offset),
+    ]);
 
-    if (papers.length > 0) this.papersRepository.createSearchHistory(userId, q);
+    let papers;
+
+    if (
+      externalResult.status === 'fulfilled' &&
+      externalResult.value.length > 0
+    ) {
+      // External Search done as intended\
+      papers = await this.papersRepository.findMany(externalResult.value);
+    } else {
+      if (externalResult.status === 'rejected')
+        logger.error('External search API failed', externalResult.reason);
+
+      papers = ftsResult.status === 'fulfilled' ? ftsResult.value : [];
+    }
+
+    if (papers.length > 0)
+      void this.papersRepository.createSearchHistory(userId, q);
 
     return {
       message:
@@ -88,5 +116,18 @@ export class PapersService {
     return {
       data: paper,
     };
+  }
+
+  // ============ Helpers ============ //
+
+  private async searchExternal(q: string, limit: number): Promise<string[]> {
+    const response = await firstValueFrom(
+      this.httpService.post<{ response: string[] }, SearchReqBody>(
+        `${this.configService.get('EXTERNAL_API_BASE_URL')}/search/papers`,
+        { question: q, limit },
+      ),
+    );
+
+    return response.data.response;
   }
 }

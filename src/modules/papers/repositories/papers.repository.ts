@@ -129,4 +129,8 @@ export class PapersRepository {
       },
     });
   }
+
+  async findMany(paperIds: string[]) {
+    return this.prisma.paper.findMany({ where: { id: { in: paperIds } } });
+  }
 }
