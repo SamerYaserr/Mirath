@@ -1,11 +1,42 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, VoteType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 
 @Injectable()
 export class CommentsRepository {
   constructor(private prisma: PrismaService) {}
+
+  async create(
+    data: Prisma.CommentUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return await client.comment.create({ data });
+  }
+
+  async findById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    return await client.comment.findUnique({ where: { id } });
+  }
+
+  async findDiscussionComments(userId: string, discussionId: string) {
+    return this.prisma.comment.findMany({
+      where: { discussionId },
+      include: {
+        author: true,
+        votes: {
+          where: {
+            userId,
+          },
+          select: {
+            type: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
 
   async findOne(id: string, userId: string) {
     return await this.prisma.comment.findUnique({
@@ -21,44 +52,6 @@ export class CommentsRepository {
           },
         },
       },
-    });
-  }
-
-  async findVote(
-    userId: string,
-    commentId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.findUnique({
-      where: {
-        userId_commentId: { userId, commentId },
-      },
-    });
-  }
-
-  async createVote(
-    userId: string,
-    commentId: string,
-    type: VoteType,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.create({
-      data: { userId, commentId, type },
-    });
-  }
-
-  async updateVoteType(
-    userId: string,
-    commentId: string,
-    type: VoteType,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.update({
-      where: { userId_commentId: { userId, commentId } },
-      data: { type },
     });
   }
 
@@ -80,17 +73,6 @@ export class CommentsRepository {
     return client.comment.update({
       where: { id },
       data,
-    });
-  }
-
-  async deleteVote(
-    userId: string,
-    commentId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.delete({
-      where: { userId_commentId: { userId, commentId } },
     });
   }
 }
