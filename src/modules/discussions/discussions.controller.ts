@@ -149,7 +149,7 @@ export class DiscussionsController {
   @Get()
   findAll(@Req() req: Request, @Query() q: GetDiscussionsDto) {
     const userId = req.user!.id;
-    return this.discussionsService.findAll(q, userId);
+    return this.discussionsService.findMany(q, userId);
   }
 
   @ApiOperation({
@@ -267,7 +267,7 @@ export class DiscussionsController {
   ) {
     const userId = req.user!.id;
     const { type } = voteTypeDto;
-    return this.discussionsService.vote(id, userId, type);
+    return this.discussionsService.vote({ discussionId: id, userId, type });
   }
 
   @ApiOperation({
@@ -345,7 +345,11 @@ export class DiscussionsController {
     @Body() createCommentDto: CreateCommentDto,
   ) {
     const userId = req.user!.id;
-    return this.discussionsService.createComment(userId, id, createCommentDto);
+    return this.discussionsService.createComment({
+      userId,
+      discussionId: id,
+      dto: createCommentDto,
+    });
   }
 
   @ApiOperation({

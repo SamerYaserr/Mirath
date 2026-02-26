@@ -3,6 +3,11 @@ import { Prisma } from '@prisma/client';
 
 import { SortType } from '../dtos/get-discussions.dto';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import {
+  DiscussionsFindManyArgs,
+  UpdateCommentCountArgs,
+  UpdateVoteCountsArgs,
+} from '../discussions.types';
 
 @Injectable()
 export class DiscussionsRepository {
@@ -56,14 +61,9 @@ export class DiscussionsRepository {
     });
   }
 
-  async findMany(
-    userId: string,
-    sort: SortType,
-    skip: number,
-    limit: number,
-    topicId?: string,
-    authorId?: string,
-  ) {
+  async findMany(args: DiscussionsFindManyArgs) {
+    const { topicId, authorId, sort, skip, limit, userId } = args;
+
     let whereClause: Prisma.DiscussionWhereInput = topicId
       ? {
           topics: {
@@ -75,6 +75,7 @@ export class DiscussionsRepository {
       : {};
 
     if (authorId) whereClause.authorId = authorId;
+
     const orderByClause: Prisma.DiscussionOrderByWithRelationInput[] =
       sort === SortType.TOP
         ? [{ upvoteCount: 'desc' }, { createdAt: 'desc' }]
@@ -147,8 +148,7 @@ export class DiscussionsRepository {
   }
 
   async updateVoteCounts(
-    id: string,
-    updates: { upIncrement?: number; downIncrement?: number },
+    { id, updates }: UpdateVoteCountsArgs,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
@@ -167,8 +167,7 @@ export class DiscussionsRepository {
   }
 
   async updateCommentCount(
-    id: string,
-    increment: number,
+    { id, increment }: UpdateCommentCountArgs,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
@@ -178,7 +177,3 @@ export class DiscussionsRepository {
     });
   }
 }
-
-export type DiscussionWithRelations = Awaited<
-  ReturnType<DiscussionsRepository['findOne']>
->;

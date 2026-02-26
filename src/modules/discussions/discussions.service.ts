@@ -7,20 +7,22 @@ import {
 import { VoteType } from '@prisma/client';
 
 import {
-  DiscussionsRepository,
+  CheckExistingType,
+  CreateCommentServiceArgs,
   DiscussionWithRelations,
-} from './repositories/discussions.repository';
+  VoteServiceArgs,
+} from './discussions.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
-import { CreateCommentDto } from './dtos/create-comment.dto';
 import { CreateDiscussionDto } from './dtos/create-discussion.dto';
 import { GetDiscussionsDto, SortType } from './dtos/get-discussions.dto';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { PapersRepository } from '../papers/repositories/papers.repository';
+import { DiscussionsRepository } from './repositories/discussions.repository';
 import { CommentsRepository } from '../comments/repositories/comments.repository';
-import { DiscussionVotesRepository } from './repositories/discussion-votes.repository';
 import { InterestsRepository } from '../interests/repositories/interests.repository';
+import { DiscussionVotesRepository } from './repositories/discussion-votes.repository';
 
 @Injectable()
 export class DiscussionsService {
@@ -59,22 +61,24 @@ export class DiscussionsService {
     };
   }
 
-  async findAll(q: GetDiscussionsDto, userId: string): Promise<HttpResponse> {
+  async findMany(q: GetDiscussionsDto, userId: string): Promise<HttpResponse> {
     const { sort = SortType.NEW, page = 1, limit = 10, topicId, authorId } = q;
     const skip = (page - 1) * limit;
+
     await Promise.all([
       topicId ? this.checkExisting([topicId]) : Promise.resolve(),
       authorId ? this.checkExisting([authorId], 'users') : Promise.resolve(),
     ]);
 
-    const discussions = await this.discussionsRepository.findMany(
+    const discussions = await this.discussionsRepository.findMany({
       userId,
       sort,
       skip,
       limit,
       topicId,
       authorId,
-    );
+    });
+
     const transformedDiscussions = discussions.map((discussion) => {
       return this.transformDiscussion(discussion);
     });
@@ -104,23 +108,24 @@ export class DiscussionsService {
       discussionId,
       userId,
     );
+
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
+
     if (discussion.authorId !== userId)
       throw new ForbiddenException(
         'You are only allowed to delete your discussions',
       );
 
     await this.discussionsRepository.deleteOne(discussionId);
-
     return { message: 'Discussion deleted successfully.' };
   }
 
-  async vote(
-    discussionId: string,
-    userId: string,
-    type: VoteType,
-  ): Promise<HttpResponse> {
+  async vote({
+    discussionId,
+    userId,
+    type,
+  }: VoteServiceArgs): Promise<HttpResponse> {
     const discussion = await this.discussionsRepository.findOne(
       discussionId,
       userId,
@@ -130,8 +135,7 @@ export class DiscussionsService {
 
     await this.prisma.$transaction(async (tx) => {
       const existingVote = await this.discussionVotesRepository.findOne(
-        userId,
-        discussionId,
+        { userId, discussionId },
         tx,
       );
 
@@ -142,17 +146,18 @@ export class DiscussionsService {
           );
 
         await this.discussionVotesRepository.updateVoteType(
-          userId,
-          discussionId,
-          type,
+          { userId, discussionId, type },
           tx,
         );
+
         const isNowUp = type === VoteType.UP;
         await this.discussionsRepository.updateVoteCounts(
-          discussionId,
           {
-            upIncrement: isNowUp ? 1 : -1,
-            downIncrement: isNowUp ? -1 : 1,
+            id: discussionId,
+            updates: {
+              upIncrement: isNowUp ? 1 : -1,
+              downIncrement: isNowUp ? -1 : 1,
+            },
           },
           tx,
         );
@@ -161,11 +166,14 @@ export class DiscussionsService {
           { userId, discussionId, type },
           tx,
         );
+
         await this.discussionsRepository.updateVoteCounts(
-          discussionId,
           {
-            upIncrement: type === VoteType.UP ? 1 : 0,
-            downIncrement: type === VoteType.DOWN ? 1 : 0,
+            id: discussionId,
+            updates: {
+              upIncrement: type === VoteType.UP ? 1 : 0,
+              downIncrement: type === VoteType.DOWN ? 1 : 0,
+            },
           },
           tx,
         );
@@ -179,20 +187,23 @@ export class DiscussionsService {
     discussionId: string,
     userId: string,
   ): Promise<HttpResponse> {
-    const vote = await this.discussionVotesRepository.findOne(
+    const vote = await this.discussionVotesRepository.findOne({
       userId,
       discussionId,
-    );
+    });
     if (!vote)
       throw new BadRequestException('You have not voted for this discussion');
 
     await this.prisma.$transaction(async (tx) => {
-      await this.discussionVotesRepository.delete(userId, discussionId, tx);
+      await this.discussionVotesRepository.delete({ userId, discussionId }, tx);
+
       await this.discussionsRepository.updateVoteCounts(
-        discussionId,
         {
-          upIncrement: vote.type === VoteType.UP ? -1 : 0,
-          downIncrement: vote.type === VoteType.DOWN ? -1 : 0,
+          id: discussionId,
+          updates: {
+            upIncrement: vote.type === VoteType.UP ? -1 : 0,
+            downIncrement: vote.type === VoteType.DOWN ? -1 : 0,
+          },
         },
         tx,
       );
@@ -201,12 +212,13 @@ export class DiscussionsService {
     return { message: 'Vote deleted successfully.' };
   }
 
-  async createComment(
-    userId: string,
-    discussionId: string,
-    dto: CreateCommentDto,
-  ): Promise<HttpResponse> {
+  async createComment({
+    dto,
+    discussionId,
+    userId,
+  }: CreateCommentServiceArgs): Promise<HttpResponse> {
     const { content, parentId = undefined } = dto;
+
     const discussion = await this.discussionsRepository.findOne(
       discussionId,
       userId,
@@ -237,7 +249,10 @@ export class DiscussionsService {
         tx,
       );
 
-      await this.discussionsRepository.updateCommentCount(discussionId, 1, tx);
+      await this.discussionsRepository.updateCommentCount(
+        { id: discussionId, increment: 1 },
+        tx,
+      );
       return newComment;
     });
 
@@ -280,13 +295,19 @@ export class DiscussionsService {
   }
 
   // --- helpers ---
-  async checkExisting(ids: string[], type: string = 'topic') {
+  async checkExisting(ids: string[], type: CheckExistingType = 'topic') {
     let existing;
 
-    if (type === 'paper') existing = await this.papersRepository.findByIds(ids);
-    else if (type === 'users')
-      existing = await this.usersRepository.findByIds(ids);
-    else existing = await this.interestsRepository.findByIds(ids);
+    switch (type) {
+      case 'paper':
+        existing = await this.papersRepository.findByIds(ids);
+        break;
+      case 'users':
+        existing = await this.usersRepository.findByIds(ids);
+        break;
+      default:
+        existing = await this.interestsRepository.findByIds(ids);
+    }
 
     if (existing.length !== ids.length) {
       const foundIds = existing.map((f) => f.id);
