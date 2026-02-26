@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, VoteType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 
@@ -55,44 +55,6 @@ export class CommentsRepository {
     });
   }
 
-  async findVote(
-    userId: string,
-    commentId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.findUnique({
-      where: {
-        userId_commentId: { userId, commentId },
-      },
-    });
-  }
-
-  async createVote(
-    userId: string,
-    commentId: string,
-    type: VoteType,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.create({
-      data: { userId, commentId, type },
-    });
-  }
-
-  async updateVoteType(
-    userId: string,
-    commentId: string,
-    type: VoteType,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.update({
-      where: { userId_commentId: { userId, commentId } },
-      data: { type },
-    });
-  }
-
   async updateVoteCounts(
     id: string,
     updates: { upIncrement?: number; downIncrement?: number },
@@ -111,17 +73,6 @@ export class CommentsRepository {
     return client.comment.update({
       where: { id },
       data,
-    });
-  }
-
-  async deleteVote(
-    userId: string,
-    commentId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.commentVote.delete({
-      where: { userId_commentId: { userId, commentId } },
     });
   }
 }
