@@ -1,7 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VoteType } from '@prisma/client';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { AuthorResDto } from '../../../discussions/dto/responses/author.res.dto';
+import { AuthorResDto } from './author.res.dto';
 import { CommentResDto } from './created-comment.res.dto';
 
 export class DetailedCommentResDto extends CommentResDto {

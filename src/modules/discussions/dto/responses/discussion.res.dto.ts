@@ -1,9 +1,53 @@
 import { VoteType } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
 import { AuthorResDto } from './author.res.dto';
-import { TopicResDto } from './topic.res.dto';
-import { PaperSummaryResDto } from './paper-summary.res.dto';
+
+class PaperSummaryResDto {
+  @ApiProperty({
+    description: 'Unique identifier of the paper',
+    example: '770e8400-e29b-41d4-a716-446655440000',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'List of paper authors',
+    type: [String],
+    example: ['Alice Smith', 'Bob Johnson'],
+  })
+  authors: string[];
+
+  @ApiProperty({
+    description: 'Title of the paper',
+    example: 'Advancements in AI',
+  })
+  title: string;
+
+  @ApiProperty({
+    description: 'Abstract of the paper',
+    example: 'This paper discusses recent advancements in AI...',
+  })
+  abstract: string;
+}
+
+class TopicResDto {
+  @ApiProperty({
+    description: 'Unique identifier of the topic',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Name of the topic',
+    example: 'Machine Learning',
+  })
+  name: string;
+
+  @ApiProperty({
+    description: 'Whether the topic was user-created',
+    example: false,
+  })
+  custom: boolean;
+}
 
 export class DiscussionResDto {
   @ApiProperty({

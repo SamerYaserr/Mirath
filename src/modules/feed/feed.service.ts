@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FeedRepository } from './repositories/feed.repository';
-import { FeedQueryDto } from './dto/FeedQuery.dto';
-import { RecommendationQueryDto } from './dto/RecommendationQuery.dto';
+import { FeedQueryDto } from './dto/requests/FeedQuery.req.dto';
+import { RecommendationQueryDto } from './dto/requests/RecommendationQuery.req.dto';
 import { HttpResponse } from '../../common/types/api.types';
 
 @Injectable()

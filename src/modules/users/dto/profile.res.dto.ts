@@ -10,7 +10,7 @@ export type FormattedProfileWithMeta = Partial<User> & {
   isFollowing: boolean;
 };
 
-class InterestResDto {
+class SummarizedInterestResDto {
   @ApiProperty({ example: '1f1b22e3-aa0a-4769-8816-ab88f21e4ed6' })
   id: string;
 
@@ -88,8 +88,8 @@ export class ProfileResDto {
   })
   isFollowing: boolean;
 
-  @ApiProperty({ type: [InterestResDto] })
-  interests: InterestResDto[];
+  @ApiProperty({ type: [SummarizedInterestResDto] })
+  interests: SummarizedInterestResDto[];
 
   @ApiProperty({ type: [FieldOfStudyResDto] })
   fieldsOfStudy: FieldOfStudyResDto[];
