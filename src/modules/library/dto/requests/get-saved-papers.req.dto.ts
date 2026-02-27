@@ -7,7 +7,7 @@ export enum SortOrder {
   DESC = 'desc',
 }
 
-export class GetSavedPapersDto {
+export class GetSavedPapersReqDto {
   @ApiPropertyOptional({
     description: 'Page number for pagination',
     default: 1,

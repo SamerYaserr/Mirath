@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { SavedPaper } from '@prisma/client';
+import { SavedPaper, Paper, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+
+type SavedPaperWithPaper = SavedPaper & {
+  paper: Paper;
+};
 
 @Injectable()
 export class SavedPapersRepository {
@@ -29,6 +33,27 @@ export class SavedPapersRepository {
           userId,
         },
       },
+    });
+  }
+
+  async findAll(
+    userId: string,
+    skip: number,
+    limit: number,
+    sort: string,
+  ): Promise<SavedPaperWithPaper[]> {
+    return this.prisma.savedPaper.findMany({
+      where: {
+        userId,
+      },
+      include: {
+        paper: true,
+      },
+      orderBy: {
+        createdAt: sort as Prisma.SortOrder,
+      },
+      skip,
+      take: limit,
     });
   }
 }
