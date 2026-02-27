@@ -15,31 +15,50 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiExtraModels,
+  ApiNotFoundResponse,
   ApiOperation,
+  ApiParam,
   ApiResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
 import { UsersService } from './users.service';
-import { ProfileSetupDto } from './dto/profile-setup.dto';
+import { ProfileSetupReqDto } from './dto/requests/profile-setup.req.dto';
 import { ProfilePhotoPipe } from 'src/common/pipes/profile-photo.pipe';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { IdDto } from 'src/common/dto/id.dto';
-import { ProfileResDto } from './dto/profile.res.dto';
+import { ProfileResDto } from './dto/responses/profile.res.dto';
+import { FollowUserResDto } from './dto/responses/follow-user.res.dto';
+import { SetupProfileResDto } from './dto/responses/setup-profile.res.dto';
+import { MyProfileResDto } from './dto/responses/my-profile.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 
+@ApiTags('Users')
+@ApiBearerAuth()
 @Controller('users')
-@ApiExtraModels(ProfileResDto)
+@ApiExtraModels(
+  ProfileResDto,
+  FollowUserResDto,
+  SetupProfileResDto,
+  MyProfileResDto,
+)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
-  @ApiBearerAuth()
+  @Post('profile/setup')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('profilePhoto'))
   @ApiOperation({
     summary: 'Complete user profile setup',
+    description:
+      'Completes the profile setup for a newly registered user. Only one setup is allowed after signup.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -86,184 +105,116 @@ export class UsersController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Profile setup completed successfully',
-    example: {
-      message: 'Profile setup completed successfully',
-      data: {
-        id: 'aab521c1-564a-4783-a4aa-f694ee49f290',
-        email: 'john.doe@example.com',
-        username: 'johndoe123',
-        fullName: 'John Doe',
-        photoUrl: 'https://example.com',
-        status: 'ACTIVE',
-        levelOfEducation: 'Graduate',
-        university: 'Harvard University',
-        createdAt: '2025-12-10T10:30:00.000Z',
-        updatedAt: '2025-12-10T10:35:00.000Z',
+    description: 'Profile setup completed successfully.',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Profile setup completed successfully.',
+        },
+        data: { $ref: getSchemaPath(SetupProfileResDto) },
       },
     },
   })
-  @Post('profile/setup')
-  @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('profilePhoto'))
-  // Only one profile setup allowed after signup
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   setupProfile(
     @Req() req: Request,
-    @Body() dto: ProfileSetupDto,
+    @Body() dto: ProfileSetupReqDto,
     @UploadedFile(ProfilePhotoPipe) profilePhoto: Express.Multer.File,
   ) {
     return this.usersService.setupProfile(req.user!.id, profilePhoto, dto);
   }
 
   @Get('me')
-  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get current user profile',
     description:
-      "Retrieves the currently authenticated user's full profile, including interests, fields of study, number of following and followers`.",
+      "Retrieves the currently authenticated user's full profile, including interests, fields of study, number of following and followers.",
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'User profile retrieved successfully',
+    description: 'User profile retrieved successfully.',
     schema: {
-      example: {
-        message: 'User profile retrieved successfully',
-        data: {
-          id: 'aab521c1-564a-4783-a4aa-f694ee49f290',
-          username: 'johndoe123',
-          email: 'john.doe@example.com',
-          fullName: 'John Doe',
-          photoUrl:
-            'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
-          bio: 'Passionate researcher and software engineer specializing in AI.',
-          birthDate: '1998-05-15T00:00:00.000Z',
-          country: 'Canada',
-          levelOfEducation: 'GRADUATE',
-          university: 'University of Toronto',
-          role: 'USER',
-          status: 'ACTIVE',
-          isEmailVisible: true,
-          isPremium: false,
-          createdAt: '2024-01-10T08:30:00.000Z',
-          updatedAt: '2025-01-12T10:45:00.000Z',
-          interests: [
-            {
-              id: 'uuid',
-              name: 'Technology',
-            },
-            {
-              id: '1f1b22e3-aa0a-4769-8816-ab88f21e4ed6',
-              name: 'Chemistry',
-            },
-          ],
-          fieldsOfStudy: [
-            {
-              id: 'uuid',
-              name: 'Computer Science',
-            },
-          ],
-          followersCount: 1,
-          followingCount: 0,
+      properties: {
+        message: {
+          type: 'string',
+          example: 'User profile retrieved successfully.',
         },
+        data: { $ref: getSchemaPath(MyProfileResDto) },
       },
     },
   })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   getMyProfile(@Req() req: Request) {
     return this.usersService.getMyProfile(req.user!.id);
   }
 
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Follow user',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'User followed successfully',
-    schema: {
-      example: {
-        message: 'User followed successfully',
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'You cannot follow yourself',
-    schema: {
-      example: {
-        message: 'You cannot follow yourself',
-        error: 'Bad Request',
-        statusCode: 400,
-      },
-    },
-  })
   @Post(':id/follow')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Follow a user',
+    description: 'Follows the specified user.',
+  })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User followed successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'User followed successfully.' },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'You cannot follow yourself.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   follow(@Req() req: Request, @Param() { id }: IdDto) {
     return this.usersService.follow(req.user!.id, id);
   }
 
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Unfollow user',
-  })
-  @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
-    description: 'User unfollowed successfully',
-    schema: {
-      example: {
-        message: 'User unfollowed successfully',
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'You cannot unfollow yourself',
-    schema: {
-      example: {
-        message: 'You cannot unfollow yourself',
-        error: 'Bad Request',
-        statusCode: 400,
-      },
-    },
-  })
   @Delete(':id/follow')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Unfollow a user',
+    description: 'Unfollows the specified user.',
+  })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'User unfollowed successfully.',
+  })
+  @ApiBadRequestResponse({ description: 'You cannot unfollow yourself.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   unfollow(@Req() req: Request, @Param() { id }: IdDto) {
     return this.usersService.unfollow(req.user!.id, id);
   }
 
-  @ApiBearerAuth()
+  @Get(':id/followers')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get user followers',
+    description:
+      'Retrieves a paginated list of followers for the specified user.',
   })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Followers retrieved successfully',
+    description: 'Followers retrieved successfully.',
     schema: {
-      example: {
-        message: 'Followers retrieved successfully',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Followers retrieved successfully.',
+        },
         data: {
-          followers: [
-            {
-              id: 'uuid',
-              username: 'johndoe123',
-              fullName: 'John Doe',
-              photoUrl:
-                'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
-              bio: 'Passionate researcher and software engineer specializing in AI.',
-              role: 'USER',
-              status: 'ACTIVE',
-              isPremium: false,
-              isFollowing: true,
-            },
-          ],
+          type: 'array',
+          items: { $ref: getSchemaPath(FollowUserResDto) },
         },
       },
     },
   })
-  @Get(':id/followers')
-  @HttpCode(HttpStatus.OK)
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   getFollowers(
     @Req() req: Request,
     @Param() { id }: IdDto,
@@ -272,37 +223,32 @@ export class UsersController {
     return this.usersService.getFollowers(id, req.user!.id, pagination);
   }
 
-  @ApiBearerAuth()
+  @Get(':id/following')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get user following',
+    description:
+      'Retrieves a paginated list of users the specified user is following.',
   })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Following retrieved successfully',
+    description: 'Following retrieved successfully.',
     schema: {
-      example: {
-        message: 'Following retrieved successfully',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Following retrieved successfully.',
+        },
         data: {
-          following: [
-            {
-              id: 'uuid',
-              username: 'johndoe123',
-              fullName: 'John Doe',
-              photoUrl:
-                'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
-              bio: 'Passionate researcher and software engineer specializing in AI.',
-              role: 'USER',
-              status: 'ACTIVE',
-              isPremium: false,
-              isFollowing: true,
-            },
-          ],
+          type: 'array',
+          items: { $ref: getSchemaPath(FollowUserResDto) },
         },
       },
     },
   })
-  @Get(':id/following')
-  @HttpCode(HttpStatus.OK)
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   getFollowing(
     @Req() req: Request,
     @Param() { id }: IdDto,
@@ -311,12 +257,13 @@ export class UsersController {
     return this.usersService.getFollowing(id, req.user!.id, pagination);
   }
 
-  @ApiBearerAuth()
+  @Get(':id/profile')
   @ApiOperation({
-    summary: 'Get Profile Header Info',
+    summary: 'Get profile header info',
     description:
       'Fetches static header info, statistics, and context-aware state (isMe, isFollowing) for a user profile.',
   })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Profile retrieved successfully.',
@@ -324,6 +271,7 @@ export class UsersController {
       properties: {
         message: { type: 'string', example: 'Profile retrieved successfully.' },
         data: {
+          type: 'object',
           properties: {
             profile: { $ref: getSchemaPath(ProfileResDto) },
           },
@@ -331,18 +279,8 @@ export class UsersController {
       },
     },
   })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'User not found.',
-    schema: {
-      example: {
-        statusCode: 404,
-        message: 'User not found',
-        error: 'Not Found',
-      },
-    },
-  })
-  @Get(':id/profile')
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   getProfile(
     @Req() { user }: Request,
     @Param() { id }: IdDto,

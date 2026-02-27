@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProfileSetupDto } from './dto/profile-setup.dto';
+import { ProfileSetupReqDto } from './dto/requests/profile-setup.req.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UsersRepository } from './repositories/users.repository';
@@ -16,7 +16,7 @@ import { UserInterestsRepository } from '../interests/repositories/user-interest
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { FollowsRepository } from './repositories/follows.repository';
 import { FormattedProfile } from './user.types';
-import { ProfileResDto } from './dto/profile.res.dto';
+import { ProfileResDto } from './dto/responses/profile.res.dto';
 
 @Injectable()
 export class UsersService {
@@ -32,7 +32,7 @@ export class UsersService {
   async setupProfile(
     userId: string,
     profilePhoto: Express.Multer.File,
-    dto: ProfileSetupDto,
+    dto: ProfileSetupReqDto,
   ): Promise<HttpResponse> {
     const existingInterests = await this.interestsRepository.findMany({
       where: { name: { in: dto.interests } },
