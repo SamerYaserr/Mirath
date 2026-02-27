@@ -14,8 +14,11 @@ import {
 } from './discussions.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
-import { CreateDiscussionDto } from './dtos/create-discussion.dto';
-import { GetDiscussionsDto, SortType } from './dtos/get-discussions.dto';
+import { CreateDiscussionDto } from './dto/requests/create-discussion.req.dto';
+import {
+  GetDiscussionsDto,
+  SortType,
+} from './dto/requests/get-discussions.req.dto';
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { PapersRepository } from '../papers/repositories/papers.repository';
@@ -46,13 +49,13 @@ export class DiscussionsService {
       this.checkExisting(paperIds, 'paper'),
     ]);
 
-    const discussion = await this.discussionsRepository.create(
+    const discussion = await this.discussionsRepository.create({
       title,
       content,
       topicIds,
       paperIds,
-      userId,
-    );
+      authorId: userId,
+    });
     const transformedDiscussions = this.transformDiscussion(discussion);
 
     return {

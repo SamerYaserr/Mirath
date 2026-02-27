@@ -1,7 +1,7 @@
 import { VoteType } from '@prisma/client';
-import { SortType } from './dtos/get-discussions.dto';
+import { SortType } from './dto/requests/get-discussions.req.dto';
 import { DiscussionsRepository } from './repositories/discussions.repository';
-import { CreateCommentDto } from './dtos/create-comment.dto';
+import { CreateCommentDto } from './dto/requests/create-comment.req.dto';
 
 export type CheckExistingType = 'topic' | 'paper' | 'users';
 

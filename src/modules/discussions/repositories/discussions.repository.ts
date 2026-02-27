@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { SortType } from '../dtos/get-discussions.dto';
+import { SortType } from '../dto/requests/get-discussions.req.dto';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import {
   DiscussionsFindManyArgs,
@@ -13,13 +13,16 @@ import {
 export class DiscussionsRepository {
   constructor(private prisma: PrismaService) {}
 
-  create(
-    title: string,
-    content: string,
-    topicIds: string[],
-    paperIds: string[],
-    authorId: string,
-  ) {
+  create({
+    title,
+    content,
+    authorId,
+    paperIds,
+    topicIds,
+  }: Prisma.DiscussionUncheckedCreateInput & {
+    paperIds: string[];
+    topicIds: string[];
+  }) {
     return this.prisma.discussion.create({
       data: {
         title,

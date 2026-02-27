@@ -12,78 +12,29 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiExtraModels,
   ApiOperation,
   ApiResponse,
   ApiParam,
   ApiBody,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { IdDto } from 'src/common/dto/id.dto';
-import { VoteTypeDto } from '../../common/dto/vote-type.dto';
 import { DiscussionsService } from './discussions.service';
-import { CreateCommentDto } from './dtos/create-comment.dto';
-import { GetDiscussionsDto } from './dtos/get-discussions.dto';
-import { CreateDiscussionDto } from './dtos/create-discussion.dto';
-
-const userExample = {
-  id: 'a1b2c3d4-e5f6-4a5b-b5c6-d7e8f9a0b1c2',
-  username: 'johndoe',
-  fullName: 'John Doe',
-  photoUrl: 'https://example.com/avatar.jpg',
-  bio: 'AI Researcher',
-  role: 'USER',
-  isPremium: false,
-};
-
-const topicExample = {
-  id: '123e4567-e89b-12d3-a456-426614174000',
-  name: 'Machine Learning',
-  custom: false,
-};
-
-const discussionExample = {
-  id: '550e8400-e29b-41d4-a716-446655440000',
-  title: 'The Future of Large Language Models',
-  content: 'I believe we are reaching a plateau...',
-  upvoteCount: 25,
-  downvoteCount: 3,
-  commentCount: 5,
-  authorId: userExample.id,
-  createdAt: '2023-11-15T10:00:00.000Z',
-  updatedAt: '2023-11-15T10:00:00.000Z',
-  hasVoted: true,
-  userVoteType: 'UP',
-  topics: [topicExample],
-  author: userExample,
-  papers: [
-    {
-      id: '770e8400-e29b-41d4-a716-446655440000',
-      authors: ['Alice Smith', 'Bob Johnson'],
-      title: 'Advancements in AI',
-      abstract: 'This paper discusses recent advancements in AI...',
-    },
-  ],
-};
-
-const commentExample = {
-  id: '770e8400-e29b-41d4-a716-446655440777',
-  content: 'This is a great point!',
-  upvoteCount: 10,
-  downvoteCount: 0,
-  authorId: userExample.id,
-  discussionId: discussionExample.id,
-  parentId: null,
-  createdAt: '2023-11-15T12:00:00.000Z',
-  updatedAt: '2023-11-15T12:00:00.000Z',
-  hasVoted: false,
-  userVoteType: undefined,
-  author: userExample,
-};
+import { VoteTypeDto } from '../../common/dto/vote-type.dto';
+import { DetailedCommentResDto } from './dto/responses/comment.res.dto';
+import { CommentResDto } from './dto/responses/created-comment.res.dto';
+import { DiscussionResDto } from './dto/responses/discussion.res.dto';
+import { CreateCommentDto } from './dto/requests/create-comment.req.dto';
+import { GetDiscussionsDto } from './dto/requests/get-discussions.req.dto';
+import { CreateDiscussionDto } from './dto/requests/create-discussion.req.dto';
 
 @ApiTags('Discussions')
 @ApiBearerAuth()
+@ApiExtraModels(DiscussionResDto, DetailedCommentResDto, CommentResDto)
 @Controller('discussions')
 export class DiscussionsController {
   constructor(private readonly discussionsService: DiscussionsService) {}
@@ -98,9 +49,9 @@ export class DiscussionsController {
     status: HttpStatus.CREATED,
     description: 'Discussion created successfully',
     schema: {
-      example: {
-        message: 'discussion created successfully',
-        data: discussionExample,
+      properties: {
+        message: { type: 'string', example: 'discussion created successfully' },
+        data: { $ref: getSchemaPath(DiscussionResDto) },
       },
     },
   })
@@ -131,10 +82,16 @@ export class DiscussionsController {
     status: HttpStatus.OK,
     description: 'Successfully retrieved discussions',
     schema: {
-      example: {
-        message: 'Discussions retrieved successfully',
-        size: 1,
-        data: [discussionExample],
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Discussions retrieved successfully',
+        },
+        size: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(DiscussionResDto) },
+        },
       },
     },
   })
@@ -166,9 +123,12 @@ export class DiscussionsController {
     status: HttpStatus.OK,
     description: 'Discussion retrieved successfully',
     schema: {
-      example: {
-        message: 'Discussion retrieved successfully',
-        data: discussionExample,
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Discussion retrieved successfully',
+        },
+        data: { $ref: getSchemaPath(DiscussionResDto) },
       },
     },
   })
@@ -319,9 +279,9 @@ export class DiscussionsController {
     status: HttpStatus.CREATED,
     description: 'Comment posted successfully',
     schema: {
-      example: {
-        message: 'Comment posted successfully.',
-        data: commentExample,
+      properties: {
+        message: { type: 'string', example: 'Comment posted successfully.' },
+        data: { $ref: getSchemaPath(CommentResDto) },
       },
     },
   })
@@ -367,10 +327,13 @@ export class DiscussionsController {
     status: HttpStatus.OK,
     description: 'Comments retrieved successfully',
     schema: {
-      example: {
-        message: 'Comments retrieved successfully',
-        size: 1,
-        data: [commentExample],
+      properties: {
+        message: { type: 'string', example: 'Comments retrieved successfully' },
+        size: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(DetailedCommentResDto) },
+        },
       },
     },
   })
