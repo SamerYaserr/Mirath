@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { UpdateVoteCounts } from '../comments.types';
 
 @Injectable()
 export class CommentsRepository {
@@ -56,19 +57,17 @@ export class CommentsRepository {
   }
 
   async updateVoteCounts(
-    id: string,
-    updates: { upIncrement?: number; downIncrement?: number },
+    { id, updates }: UpdateVoteCounts,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
     const data: Prisma.CommentUpdateInput = {};
 
-    if (updates.upIncrement) {
+    if (updates.upIncrement)
       data.upvoteCount = { increment: updates.upIncrement };
-    }
-    if (updates.downIncrement) {
+
+    if (updates.downIncrement)
       data.downvoteCount = { increment: updates.downIncrement };
-    }
 
     return client.comment.update({
       where: { id },

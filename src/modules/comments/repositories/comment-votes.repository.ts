@@ -1,15 +1,15 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
-import { Prisma, VoteType } from '@prisma/client';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { CommentVotesPK, UpdateCommentVoteType } from '../comments.types';
 
 @Injectable()
 export class CommentVotesRepository {
   constructor(private prisma: PrismaService) {}
 
   async findOne(
-    userId: string,
-    commentId: string,
+    { userId, commentId }: CommentVotesPK,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
@@ -29,9 +29,7 @@ export class CommentVotesRepository {
   }
 
   async updateVoteType(
-    userId: string,
-    commentId: string,
-    type: VoteType,
+    { userId, commentId, type }: UpdateCommentVoteType,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
@@ -42,8 +40,7 @@ export class CommentVotesRepository {
   }
 
   async delete(
-    userId: string,
-    commentId: string,
+    { userId, commentId }: CommentVotesPK,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
