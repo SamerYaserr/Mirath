@@ -3,16 +3,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, SavedPaper } from '@prisma/client';
 
 import { PapersRepository } from './repositories/papers.repository';
-import { SearchPaperDto } from './dto/search-paper.dto';
+import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { AppConfig } from 'src/config/configuration';
 import { firstValueFrom } from 'rxjs';
 import { winstonLogger as logger } from 'src/config/logger.config';
+import { SearchHistoryRepository } from '../search/repositories/search-history.repository';
+import { SavedPapersRepository } from './repositories/saved-papers.repository';
 
 type SearchReqBody = {
   question: string;
@@ -25,14 +27,22 @@ export class PapersService {
     private httpService: HttpService,
     private configService: ConfigService<AppConfig, true>,
     private papersRepository: PapersRepository,
+    private savedPapersRepository: SavedPapersRepository,
+    private searchHistoryRepository: SearchHistoryRepository,
   ) {}
 
-  async savePaper(paperId: string, userId: string): Promise<HttpResponse> {
+  async savePaper(
+    paperId: string,
+    userId: string,
+  ): Promise<HttpResponse<SavedPaper>> {
     const paper = await this.papersRepository.find(paperId);
     if (!paper) throw new NotFoundException('No paper found with this id');
 
     try {
-      const savedPaper = await this.papersRepository.create(paperId, userId);
+      const savedPaper = await this.savedPapersRepository.create(
+        paperId,
+        userId,
+      );
       return {
         message: 'Paper saved successfully',
         data: savedPaper,
@@ -51,12 +61,12 @@ export class PapersService {
   async deleteSavedPaper(
     paperId: string,
     userId: string,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<null>> {
     const paper = await this.papersRepository.find(paperId);
     if (!paper) throw new NotFoundException('No paper found with this id');
 
     try {
-      await this.papersRepository.deleteSaved(paperId, userId);
+      await this.savedPapersRepository.delete(paperId, userId);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -71,7 +81,7 @@ export class PapersService {
 
   async search(
     userId: string,
-    searchDto: SearchPaperDto,
+    searchDto: SearchPaperReqDto,
   ): Promise<HttpResponse> {
     const { q, page, limit } = searchDto;
     const offset = (page - 1) * limit;
@@ -96,8 +106,7 @@ export class PapersService {
       papers = ftsResult.status === 'fulfilled' ? ftsResult.value : [];
     }
 
-    if (papers.length > 0)
-      void this.papersRepository.createSearchHistory(userId, q);
+    if (papers.length > 0) void this.searchHistoryRepository.create(userId, q);
 
     return {
       message:

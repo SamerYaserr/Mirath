@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { winstonLogger } from '../../../config/logger.config';
 
 @Injectable()
 export class SearchHistoryRepository {
@@ -27,12 +28,21 @@ export class SearchHistoryRepository {
     });
   }
 
-  async create(userId: string, query: string) {
-    return this.prisma.searchHistory.create({
-      data: {
+  async create(userId: string, query: string): Promise<void> {
+    try {
+      await this.prisma.searchHistory.create({
+        data: {
+          userId,
+          query,
+          createdAt: new Date(),
+        },
+      });
+    } catch (error) {
+      winstonLogger.warn('Failed to save SearchHistory', {
         userId,
         query,
-      },
-    });
+        error: error instanceof Error ? error.message : error,
+      });
+    }
   }
 }

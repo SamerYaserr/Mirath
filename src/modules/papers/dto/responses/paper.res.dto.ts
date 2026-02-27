@@ -102,11 +102,3 @@ export class PaperResDto {
     return dto;
   }
 }
-
-export class PaperResponseDto {
-  @ApiProperty({
-    description: 'Paper data',
-    type: PaperResDto,
-  })
-  data: PaperResDto;
-}

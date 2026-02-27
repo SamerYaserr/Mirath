@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { SavedPaper } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { winstonLogger } from '../../../config/logger.config';
 
 export interface SearchResult {
   id: string;
@@ -50,30 +48,6 @@ export class PapersRepository {
     return results;
   }
 
-  async createSearchHistory(userId: string, query: string): Promise<void> {
-    try {
-      await this.prisma.searchHistory.create({
-        data: {
-          userId,
-          query,
-          createdAt: new Date(),
-        },
-      });
-    } catch (error) {
-      winstonLogger.warn('Failed to save SearchHistory', {
-        userId,
-        query,
-        error: error instanceof Error ? error.message : error,
-      });
-    }
-  }
-
-  async create(paperId: string, userId: string): Promise<SavedPaper> {
-    return this.prisma.savedPaper.create({
-      data: { paperId, userId },
-    });
-  }
-
   async find(paperId: string) {
     // Don't return the fullText in the result if U don't need to
     return this.prisma.paper.findUnique({
@@ -91,28 +65,6 @@ export class PapersRepository {
         content: true,
         createdAt: true,
         updatedAt: true,
-      },
-    });
-  }
-
-  async findSaved(paperId: string, userId: string): Promise<SavedPaper | null> {
-    return this.prisma.savedPaper.findUnique({
-      where: {
-        userId_paperId: { paperId, userId },
-      },
-    });
-  }
-
-  async deleteSaved(
-    paperId: string,
-    userId: string,
-  ): Promise<SavedPaper | null> {
-    return this.prisma.savedPaper.delete({
-      where: {
-        userId_paperId: {
-          paperId,
-          userId,
-        },
       },
     });
   }
