@@ -26,15 +26,15 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service';
-import { SignupDto } from './dto/signup.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { GoogleAuthDto } from './dto/google-auth.dto';
-import { LoginDto } from './dto/login.dto';
-import { ForgetPasswordDto } from './dto/forget-password.dto';
-import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { CheckVerificationDto } from './dto/check-verification.dto';
+import { SignupReqDto } from './dto/requests/signup.req.dto';
+import { VerifyEmailReqDto } from './dto/requests/verify-email.req.dto';
+import { ResendVerificationReqDto } from './dto/requests/resend-verification.req.dto';
+import { GoogleAuthReqDto } from './dto/requests/google-auth.req.dto';
+import { LoginReqDto } from './dto/requests/login.req.dto';
+import { ForgetPasswordReqDto } from './dto/requests/forget-password.req.dto';
+import { VerifyResetCodeReqDto } from './dto/requests/verify-reset-code.req.dto';
+import { ResetPasswordReqDto } from './dto/requests/reset-password.req.dto';
+import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Authentication')
@@ -52,7 +52,7 @@ export class AuthController {
     description:
       'Creates a new user in pending state and sends an OTP verification email.',
   })
-  @ApiBody({ type: SignupDto })
+  @ApiBody({ type: SignupReqDto })
   @ApiResponse({
     status: 201,
     description: 'User successfully created. OTP sent.',
@@ -73,8 +73,8 @@ export class AuthController {
     description: 'Validation failed or passwords do not match.',
   })
   @ApiConflictResponse({ description: 'Email or Username already exists.' })
-  async signup(@Body() signupDto: SignupDto) {
-    return this.authService.signup(signupDto);
+  async signup(@Body() signupReqDto: SignupReqDto) {
+    return this.authService.signup(signupReqDto);
   }
 
   @Public()
@@ -84,7 +84,7 @@ export class AuthController {
     summary: 'Verify email address',
     description: 'Validates OTP, activates account, returns tokens.',
   })
-  @ApiBody({ type: VerifyEmailDto })
+  @ApiBody({ type: VerifyEmailReqDto })
   @ApiResponse({
     status: 200,
     description: 'Email successfully verified.',
@@ -94,11 +94,11 @@ export class AuthController {
   })
   @ApiBadRequestResponse({ description: 'Invalid or Expired OTP.' })
   async verifyEmail(
-    @Body() verifyEmailDto: VerifyEmailDto,
+    @Body() verifyEmailReqDto: VerifyEmailReqDto,
     @Res({ passthrough: true }) res: Response,
   ) {
     const { accessToken, refreshToken } =
-      await this.authService.verifyEmail(verifyEmailDto);
+      await this.authService.verifyEmail(verifyEmailReqDto);
 
     this.setRefreshTokenCookie(res, refreshToken);
 
@@ -112,12 +112,12 @@ export class AuthController {
     summary: 'Resend Verification OTP',
     description: 'Resends OTP. Limited to 5/hour.',
   })
-  @ApiBody({ type: ResendVerificationDto })
+  @ApiBody({ type: ResendVerificationReqDto })
   @ApiResponse({ status: 200, description: 'New verification email sent.' })
   async resendVerification(
-    @Body() resendVerificationDto: ResendVerificationDto,
+    @Body() resendVerificationReqDto: ResendVerificationReqDto,
   ) {
-    return this.authService.resendVerification(resendVerificationDto);
+    return this.authService.resendVerification(resendVerificationReqDto);
   }
 
   @Public()
@@ -136,7 +136,7 @@ export class AuthController {
       4. **Backend:** Verifies the token, creates/logs in the user, and sets the HttpOnly Refresh Token cookie.
     `,
   })
-  @ApiBody({ type: GoogleAuthDto })
+  @ApiBody({ type: GoogleAuthReqDto })
   @ApiResponse({
     status: 200,
     description: 'Authentication successful.',
@@ -156,10 +156,11 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid Google Token' })
   @ApiForbiddenResponse({ description: 'Account suspended' })
   async googleAuth(
-    @Body() googleAuthDto: GoogleAuthDto,
+    @Body() googleAuthReqDto: GoogleAuthReqDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.authenticateWithGoogle(googleAuthDto);
+    const result =
+      await this.authService.authenticateWithGoogle(googleAuthReqDto);
 
     this.setRefreshTokenCookie(res, result.refreshToken);
 
@@ -177,7 +178,7 @@ export class AuthController {
     summary: 'Login',
     description: 'Authenticate user with email/username and password',
   })
-  @ApiBody({ type: LoginDto })
+  @ApiBody({ type: LoginReqDto })
   @ApiResponse({
     status: 200,
     description: 'Login successful',
@@ -202,10 +203,10 @@ export class AuthController {
     description: 'Account not verified or suspended',
   })
   async login(
-    @Body() loginDto: LoginDto,
+    @Body() loginReqDto: LoginReqDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginReqDto);
     const { message, user, accessToken, refreshToken } = result;
 
     this.setRefreshTokenCookie(res, refreshToken);
@@ -247,7 +248,7 @@ export class AuthController {
       "Sends a 6-digit OTP to the user's email -if exists- for password reset. Returns a generic success message regardless of whether the email exists to prevent user enumeration.",
   })
   @ApiBody({
-    type: ForgetPasswordDto,
+    type: ForgetPasswordReqDto,
   })
   @ApiResponse({
     status: 200,
@@ -258,8 +259,8 @@ export class AuthController {
     status: 400,
     description: 'Bad Request - Invalid email format',
   })
-  forgetPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
-    const { email } = forgetPasswordDto;
+  forgetPassword(@Body() forgetPasswordReqDto: ForgetPasswordReqDto) {
+    const { email } = forgetPasswordReqDto;
 
     return this.authService.forgetPassword(email);
   }
@@ -273,7 +274,7 @@ export class AuthController {
       "Verifies the 6-digit OTP sent to the user's email for password reset. Upon successful verification, returns a short-lived reset token that can be used to set a new password.",
   })
   @ApiBody({
-    type: VerifyResetCodeDto,
+    type: VerifyResetCodeReqDto,
   })
   @ApiResponse({
     status: 200,
@@ -290,8 +291,8 @@ export class AuthController {
     description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
   })
   @HttpCode(HttpStatus.OK)
-  verifyResetCode(@Body() verifyResetCodeDto: VerifyResetCodeDto) {
-    const { email, otp } = verifyResetCodeDto;
+  verifyResetCode(@Body() verifyResetCodeReqDto: VerifyResetCodeReqDto) {
+    const { email, otp } = verifyResetCodeReqDto;
 
     return this.authService.verifyResetCode(email, otp);
   }
@@ -306,7 +307,7 @@ export class AuthController {
   })
   @ApiBody({
     description: 'Reset token and new password details',
-    type: ResetPasswordDto,
+    type: ResetPasswordReqDto,
   })
   @ApiResponse({
     status: 200,
@@ -328,8 +329,8 @@ export class AuthController {
     description:
       'Forbidden - Reset token is not valid, not for password reset, or user not found',
   })
-  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    const { resetToken, password, confirmPassword } = resetPasswordDto;
+  resetPassword(@Body() resetPasswordReqDto: ResetPasswordReqDto) {
+    const { resetToken, password, confirmPassword } = resetPasswordReqDto;
 
     return this.authService.resetPassword(
       resetToken,
@@ -394,7 +395,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     description:
       'Checks the account status (Verified) for a specific email address.',
   })
-  @ApiBody({ type: CheckVerificationDto })
+  @ApiBody({ type: CheckVerificationReqDto })
   @ApiResponse({
     status: 200,
     description: 'Status retrieved successfully.',
@@ -407,9 +408,9 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   })
   @ApiNotFoundResponse({ description: 'User not found.' })
   async checkVerificationStatus(
-    @Body() checkVerificationDto: CheckVerificationDto,
+    @Body() checkVerificationReqDto: CheckVerificationReqDto,
   ) {
-    return this.authService.checkVerificationStatus(checkVerificationDto);
+    return this.authService.checkVerificationStatus(checkVerificationReqDto);
   }
 
   @Get('check-setup')

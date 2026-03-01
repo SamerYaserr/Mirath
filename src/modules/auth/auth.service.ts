@@ -13,18 +13,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
-import { SignupDto } from './dto/signup.dto';
+import { SignupReqDto } from './dto/requests/signup.req.dto';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { MailService } from '../mail/mail.service';
 import { winstonLogger } from 'src/config/logger.config';
 import { TokenService } from './utils/token.service';
 import { RefreshTokenRepository } from './repositories/refreshToken.repository';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { GoogleAuthDto } from './dto/google-auth.dto';
-import { LoginDto } from './dto/login.dto';
-import { CheckVerificationDto } from './dto/check-verification.dto';
+import { VerifyEmailReqDto } from './dto/requests/verify-email.req.dto';
+import { ResendVerificationReqDto } from './dto/requests/resend-verification.req.dto';
+import { GoogleAuthReqDto } from './dto/requests/google-auth.req.dto';
+import { LoginReqDto } from './dto/requests/login.req.dto';
+import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 
 @Injectable()
@@ -45,19 +45,19 @@ export class AuthService {
     );
   }
 
-  async signup(signupDto: SignupDto): Promise<HttpResponse> {
-    if (signupDto.password !== signupDto.confirmPassword) {
+  async signup(signupReqDto: SignupReqDto): Promise<HttpResponse> {
+    if (signupReqDto.password !== signupReqDto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
 
     const existingUser = await this.usersRepository.findByEmailOrUsername(
-      signupDto.email,
-      signupDto.username,
+      signupReqDto.email,
+      signupReqDto.username,
     );
     if (existingUser) {
       if (
-        existingUser.email === signupDto.email &&
-        existingUser.username === signupDto.username
+        existingUser.email === signupReqDto.email &&
+        existingUser.username === signupReqDto.username
       ) {
         switch (existingUser.status) {
           case UserStatus.PENDING_VERIFICATION:
@@ -83,19 +83,19 @@ export class AuthService {
         }
       }
 
-      if (existingUser.email === signupDto.email) {
+      if (existingUser.email === signupReqDto.email) {
         throw new ConflictException('Email is already in use');
       }
-      if (existingUser.username === signupDto.username) {
+      if (existingUser.username === signupReqDto.username) {
         throw new ConflictException('Username is already in use');
       }
     }
 
-    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
+    const hashedPassword = await bcrypt.hash(signupReqDto.password, 10);
 
     const newUser = await this.usersRepository.create({
-      email: signupDto.email,
-      username: signupDto.username,
+      email: signupReqDto.email,
+      username: signupReqDto.username,
       password: hashedPassword,
       status: UserStatus.PENDING_VERIFICATION,
     });
@@ -123,8 +123,10 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(verifyEmailDto: VerifyEmailDto) {
-    const user = await this.usersRepository.findByEmail(verifyEmailDto.email);
+  async verifyEmail(verifyEmailReqDto: VerifyEmailReqDto) {
+    const user = await this.usersRepository.findByEmail(
+      verifyEmailReqDto.email,
+    );
     if (!user) throw new BadRequestException('Invalid request');
 
     const otpRecord = await this.otpRepository.findPendingOtp(
@@ -134,7 +136,10 @@ export class AuthService {
 
     if (!otpRecord) throw new BadRequestException('Invalid or expired OTP');
 
-    const isMatch = await bcrypt.compare(verifyEmailDto.otp, otpRecord.otpCode);
+    const isMatch = await bcrypt.compare(
+      verifyEmailReqDto.otp,
+      otpRecord.otpCode,
+    );
     if (!isMatch) {
       throw new BadRequestException('Invalid or expired OTP');
     }
@@ -150,9 +155,9 @@ export class AuthService {
     return this.createSession(updatedUser, 'Email verified successfully');
   }
 
-  async resendVerification(resendVerificationDto: ResendVerificationDto) {
+  async resendVerification(resendVerificationReqDto: ResendVerificationReqDto) {
     const user = await this.usersRepository.findByEmail(
-      resendVerificationDto.email,
+      resendVerificationReqDto.email,
     );
     if (!user) throw new BadRequestException('User not found');
     if (user.status === UserStatus.ACTIVE)
@@ -181,7 +186,7 @@ export class AuthService {
     return { message: 'Verification code resent successfully' };
   }
 
-  async authenticateWithGoogle(googleAuthDto: GoogleAuthDto) {
+  async authenticateWithGoogle(googleAuthReqDto: GoogleAuthReqDto) {
     let ticket: LoginTicket | undefined;
     try {
       const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
@@ -192,7 +197,7 @@ export class AuthService {
       }
 
       ticket = await this.googleClient.verifyIdToken({
-        idToken: googleAuthDto.idToken,
+        idToken: googleAuthReqDto.idToken,
         audience: googleClientId,
       });
     } catch (error) {
@@ -277,10 +282,10 @@ export class AuthService {
     return this.createSession(user, 'Account created successfully with Google');
   }
 
-  async login(loginDto: LoginDto) {
-    winstonLogger.info(`Login attempt for: ${loginDto.emailOrUsername}`);
+  async login(loginReqDto: LoginReqDto) {
+    winstonLogger.info(`Login attempt for: ${loginReqDto.emailOrUsername}`);
 
-    const { emailOrUsername, password } = loginDto;
+    const { emailOrUsername, password } = loginReqDto;
     const isEmail = emailOrUsername.includes('@');
 
     const user = await this.usersRepository.findByEmailOrUsername(
@@ -434,9 +439,11 @@ export class AuthService {
     return { message: 'Password reset successfully.' };
   }
 
-  async checkVerificationStatus(checkVerificationDto: CheckVerificationDto) {
+  async checkVerificationStatus(
+    checkVerificationReqDto: CheckVerificationReqDto,
+  ) {
     const user = await this.usersRepository.findByEmail(
-      checkVerificationDto.email,
+      checkVerificationReqDto.email,
     );
 
     if (!user) {

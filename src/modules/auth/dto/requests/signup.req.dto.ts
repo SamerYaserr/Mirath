@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class SignupDto {
+export class SignupReqDto {
   @ApiProperty({
     description: 'The unique email address of the user',
     example: 'student@university.edu',

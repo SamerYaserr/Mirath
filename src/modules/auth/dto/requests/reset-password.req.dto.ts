@@ -6,7 +6,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class ResetPasswordDto {
+export class ResetPasswordReqDto {
   @ApiProperty({
     description:
       'The token sent to the user to verify the password reset request',
