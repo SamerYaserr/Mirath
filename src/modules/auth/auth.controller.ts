@@ -37,6 +37,16 @@ import { ResetPasswordReqDto } from './dto/requests/reset-password.req.dto';
 import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
+import { SignupResDto } from './dto/responses/signup.res.dto';
+import { VerifyEmailResDto } from './dto/responses/verify-email.res.dto';
+import { GoogleAuthResDto } from './dto/responses/google-auth.res.dto';
+import { LoginResDto } from './dto/responses/login.res.dto';
+import { CheckVerificationResDto } from './dto/responses/check-verification.res.dto';
+import { CheckSetupResDto } from './dto/responses/check-setup.res.dto';
+import { VerifyResetCodeResDto } from './dto/responses/verify-reset-code.res.dto';
+import { RefreshTokenResDto } from './dto/responses/refresh-token.res.dto';
+import { MessageResDto } from '../../common/dto/message.res.dto';
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -56,24 +66,13 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description: 'User successfully created. OTP sent.',
-    schema: {
-      example: {
-        message:
-          'Signup successful. Please check your email for the verification code.',
-        user: {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          email: 'user@example.com',
-          username: 'user123',
-          status: 'PENDING_VERIFICATION',
-        },
-      },
-    },
+    type: SignupResDto,
   })
   @ApiBadRequestResponse({
     description: 'Validation failed or passwords do not match.',
   })
   @ApiConflictResponse({ description: 'Email or Username already exists.' })
-  async signup(@Body() signupReqDto: SignupReqDto) {
+  async signup(@Body() signupReqDto: SignupReqDto): Promise<SignupResDto> {
     return this.authService.signup(signupReqDto);
   }
 
@@ -88,15 +87,13 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Email successfully verified.',
-    schema: {
-      example: { accessToken: 'eyJhbGciOi...' },
-    },
+    type: VerifyEmailResDto,
   })
   @ApiBadRequestResponse({ description: 'Invalid or Expired OTP.' })
   async verifyEmail(
     @Body() verifyEmailReqDto: VerifyEmailReqDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<VerifyEmailResDto> {
     const { accessToken, refreshToken } =
       await this.authService.verifyEmail(verifyEmailReqDto);
 
@@ -113,10 +110,14 @@ export class AuthController {
     description: 'Resends OTP. Limited to 5/hour.',
   })
   @ApiBody({ type: ResendVerificationReqDto })
-  @ApiResponse({ status: 200, description: 'New verification email sent.' })
+  @ApiResponse({
+    status: 200,
+    description: 'New verification email sent.',
+    type: MessageResDto,
+  })
   async resendVerification(
     @Body() resendVerificationReqDto: ResendVerificationReqDto,
-  ) {
+  ): Promise<MessageResDto> {
     return this.authService.resendVerification(resendVerificationReqDto);
   }
 
@@ -140,35 +141,20 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Authentication successful.',
-    schema: {
-      example: {
-        message: 'Authentication successful',
-        user: {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          email: 'user@example.com',
-          username: 'user123',
-          photoUrl: 'https://example.com/photo.jpg',
-          status: 'active',
-        },
-      },
-    },
+    type: GoogleAuthResDto,
   })
   @ApiUnauthorizedResponse({ description: 'Invalid Google Token' })
   @ApiForbiddenResponse({ description: 'Account suspended' })
   async googleAuth(
     @Body() googleAuthReqDto: GoogleAuthReqDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
-    const result =
+  ): Promise<GoogleAuthResDto> {
+    const { message, user, accessToken, refreshToken } =
       await this.authService.authenticateWithGoogle(googleAuthReqDto);
 
-    this.setRefreshTokenCookie(res, result.refreshToken);
+    this.setRefreshTokenCookie(res, refreshToken);
 
-    return {
-      message: result.message,
-      user: result.user,
-      accessToken: result.accessToken,
-    };
+    return { message, user, accessToken };
   }
 
   @Public()
@@ -182,19 +168,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Login successful',
-    schema: {
-      example: {
-        message: 'Login successful',
-        user: {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          email: 'user@example.com',
-          username: 'user123',
-          photoUrl: 'https://example.com/photo.jpg',
-          status: 'active',
-        },
-        accessToken: 'eyJhbGciOi...',
-      },
-    },
+    type: LoginResDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
@@ -205,17 +179,13 @@ export class AuthController {
   async login(
     @Body() loginReqDto: LoginReqDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.authService.login(loginReqDto);
-    const { message, user, accessToken, refreshToken } = result;
+  ): Promise<LoginResDto> {
+    const { message, user, accessToken, refreshToken } =
+      await this.authService.login(loginReqDto);
 
     this.setRefreshTokenCookie(res, refreshToken);
 
-    return {
-      message,
-      user,
-      accessToken,
-    };
+    return { message, user, accessToken };
   }
 
   @Post('logout')
@@ -228,8 +198,12 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Successfully logged out.',
+    type: MessageResDto,
   })
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<MessageResDto> {
     const refreshToken = req.cookies?.['refreshToken'];
 
     await this.authService.logout(refreshToken);
@@ -254,12 +228,15 @@ export class AuthController {
     status: 200,
     description:
       'OTP request processed successfully. A verification code has been sent if the email exists.',
+    type: MessageResDto,
   })
   @ApiResponse({
     status: 400,
     description: 'Bad Request - Invalid email format',
   })
-  forgetPassword(@Body() forgetPasswordReqDto: ForgetPasswordReqDto) {
+  forgetPassword(
+    @Body() forgetPasswordReqDto: ForgetPasswordReqDto,
+  ): Promise<MessageResDto> {
     const { email } = forgetPasswordReqDto;
 
     return this.authService.forgetPassword(email);
@@ -280,18 +257,15 @@ export class AuthController {
     status: 200,
     description:
       'OTP verified successfully. Returns a short-lived reset token.',
-    schema: {
-      example: {
-        resetToken: 'd8f9b6a1-2c3d-4e5f-9876-abcdef123456',
-      },
-    },
+    type: VerifyResetCodeResDto,
   })
   @ApiResponse({
     status: 400,
     description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
   })
-  @HttpCode(HttpStatus.OK)
-  verifyResetCode(@Body() verifyResetCodeReqDto: VerifyResetCodeReqDto) {
+  verifyResetCode(
+    @Body() verifyResetCodeReqDto: VerifyResetCodeReqDto,
+  ): Promise<VerifyResetCodeResDto> {
     const { email, otp } = verifyResetCodeReqDto;
 
     return this.authService.verifyResetCode(email, otp);
@@ -313,11 +287,7 @@ export class AuthController {
     status: 200,
     description:
       'Password reset successfully. User is logged out from all devices.',
-    schema: {
-      example: {
-        message: 'Password has been reset successfully.',
-      },
-    },
+    type: MessageResDto,
   })
   @ApiResponse({
     status: 400,
@@ -329,7 +299,9 @@ export class AuthController {
     description:
       'Forbidden - Reset token is not valid, not for password reset, or user not found',
   })
-  resetPassword(@Body() resetPasswordReqDto: ResetPasswordReqDto) {
+  resetPassword(
+    @Body() resetPasswordReqDto: ResetPasswordReqDto,
+  ): Promise<MessageResDto> {
     const { resetToken, password, confirmPassword } = resetPasswordReqDto;
 
     return this.authService.resetPassword(
@@ -354,12 +326,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Tokens refreshed successfully.',
-    schema: {
-      example: {
-        message: 'Tokens refreshed successfully.',
-        accessToken: 'eyJhbGciOi...',
-      },
-    },
+    type: RefreshTokenResDto,
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid, missing, or expired refresh token.',
@@ -367,7 +334,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<RefreshTokenResDto> {
     const token = req.cookies?.['refreshToken'];
 
     if (!token) {
@@ -399,17 +366,12 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Status retrieved successfully.',
-    schema: {
-      example: {
-        isVerified: true,
-        status: 'ACTIVE',
-      },
-    },
+    type: CheckVerificationResDto,
   })
   @ApiNotFoundResponse({ description: 'User not found.' })
   async checkVerificationStatus(
     @Body() checkVerificationReqDto: CheckVerificationReqDto,
-  ) {
+  ): Promise<CheckVerificationResDto> {
     return this.authService.checkVerificationStatus(checkVerificationReqDto);
   }
 
@@ -424,19 +386,14 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Setup status retrieved.',
-    schema: {
-      example: {
-        isSetupCompleted: false,
-        status: 'ONBOARDING',
-      },
-    },
+    type: CheckSetupResDto,
   })
-  async checkSetupStatus(@Req() req: Request) {
+  async checkSetupStatus(@Req() req: Request): Promise<CheckSetupResDto> {
     const userId = req.user!.id;
     return this.authService.checkSetupStatus(userId);
   }
 
-  private setRefreshTokenCookie(res: Response, token: string) {
+  private setRefreshTokenCookie(res: Response, token: string): void {
     const refreshDays = this.configService.get<number>(
       'JWT_REFRESH_EXPIRATION_DAYS',
       7,
@@ -451,7 +408,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     });
   }
 
-  private clearRefreshTokenCookie(res: Response) {
+  private clearRefreshTokenCookie(res: Response): void {
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: this.configService.get<string>('NODE_ENV') === 'production',

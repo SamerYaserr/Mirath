@@ -25,7 +25,18 @@ import { ResendVerificationReqDto } from './dto/requests/resend-verification.req
 import { GoogleAuthReqDto } from './dto/requests/google-auth.req.dto';
 import { LoginReqDto } from './dto/requests/login.req.dto';
 import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
-import { HttpResponse } from 'src/common/types/api.types';
+
+import {
+  AuthSessionResult,
+  CheckSetupResult,
+  CheckVerificationResult,
+  ForgetPasswordResult,
+  ResendVerificationResult,
+  ResetPasswordResult,
+  RotateRefreshTokenResult,
+  VerifyResetCodeResult,
+  SignupResult,
+} from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -45,7 +56,7 @@ export class AuthService {
     );
   }
 
-  async signup(signupReqDto: SignupReqDto): Promise<HttpResponse> {
+  async signup(signupReqDto: SignupReqDto): Promise<SignupResult> {
     if (signupReqDto.password !== signupReqDto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
@@ -123,7 +134,9 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(verifyEmailReqDto: VerifyEmailReqDto) {
+  async verifyEmail(
+    verifyEmailReqDto: VerifyEmailReqDto,
+  ): Promise<AuthSessionResult> {
     const user = await this.usersRepository.findByEmail(
       verifyEmailReqDto.email,
     );
@@ -155,7 +168,9 @@ export class AuthService {
     return this.createSession(updatedUser, 'Email verified successfully');
   }
 
-  async resendVerification(resendVerificationReqDto: ResendVerificationReqDto) {
+  async resendVerification(
+    resendVerificationReqDto: ResendVerificationReqDto,
+  ): Promise<ResendVerificationResult> {
     const user = await this.usersRepository.findByEmail(
       resendVerificationReqDto.email,
     );
@@ -186,16 +201,18 @@ export class AuthService {
     return { message: 'Verification code resent successfully' };
   }
 
-  async authenticateWithGoogle(googleAuthReqDto: GoogleAuthReqDto) {
+  async authenticateWithGoogle(
+    googleAuthReqDto: GoogleAuthReqDto,
+  ): Promise<AuthSessionResult> {
     let ticket: LoginTicket | undefined;
-    try {
-      const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-      if (!googleClientId) {
-        throw new InternalServerErrorException(
-          'Google Client ID is not configured',
-        );
-      }
+    const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!googleClientId) {
+      throw new InternalServerErrorException(
+        'Google Client ID is not configured',
+      );
+    }
 
+    try {
       ticket = await this.googleClient.verifyIdToken({
         idToken: googleAuthReqDto.idToken,
         audience: googleClientId,
@@ -282,7 +299,7 @@ export class AuthService {
     return this.createSession(user, 'Account created successfully with Google');
   }
 
-  async login(loginReqDto: LoginReqDto) {
+  async login(loginReqDto: LoginReqDto): Promise<AuthSessionResult> {
     winstonLogger.info(`Login attempt for: ${loginReqDto.emailOrUsername}`);
 
     const { emailOrUsername, password } = loginReqDto;
@@ -331,19 +348,23 @@ export class AuthService {
 
     await this.refreshTokenRepository.countActiveAndDeleteOldestToken(user.id);
     winstonLogger.info(`User ${emailOrUsername} logged in successfully`);
-    return await this.createSession(user, 'Logged in successfully');
+    return this.createSession(user, 'Logged in successfully');
   }
 
-  async logout(refreshToken: string) {
-    let payload = await this.tokenService.verifyRefreshToken(refreshToken);
-    await this.refreshTokenRepository.deleteBySessionId(payload.sid);
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const payload = await this.tokenService.verifyRefreshToken(refreshToken);
+      await this.refreshTokenRepository.deleteBySessionId(payload.sid);
 
-    winstonLogger.info(
-      `Session ${payload.sid} logged out/revoked successfully`,
-    );
+      winstonLogger.info(
+        `Session ${payload.sid} logged out/revoked successfully`,
+      );
+    } catch (error) {
+      winstonLogger.warn('Logout called with invalid or missing refresh token');
+    }
   }
 
-  async forgetPassword(email: string) {
+  async forgetPassword(email: string): Promise<ForgetPasswordResult> {
     const user = await this.usersRepository.findByEmail(email);
     if (user) {
       await this.otpRepository.invalidatePendingOtps(
@@ -366,7 +387,10 @@ export class AuthService {
     };
   }
 
-  async verifyResetCode(email: string, otp: string) {
+  async verifyResetCode(
+    email: string,
+    otp: string,
+  ): Promise<VerifyResetCodeResult> {
     const user = await this.usersRepository.findByEmail(email);
     if (!user) throw new BadRequestException('Invalid or expired OTP');
 
@@ -407,7 +431,7 @@ export class AuthService {
     resetToken: string,
     password: string,
     confirmPassword: string,
-  ) {
+  ): Promise<ResetPasswordResult> {
     if (password !== confirmPassword)
       throw new BadRequestException('Passwords do not match');
 
@@ -441,7 +465,7 @@ export class AuthService {
 
   async checkVerificationStatus(
     checkVerificationReqDto: CheckVerificationReqDto,
-  ) {
+  ): Promise<CheckVerificationResult> {
     const user = await this.usersRepository.findByEmail(
       checkVerificationReqDto.email,
     );
@@ -458,19 +482,19 @@ export class AuthService {
     };
   }
 
-  async checkSetupStatus(userId: string) {
+  async checkSetupStatus(userId: string): Promise<CheckSetupResult> {
     const user = await this.usersRepository.findById(userId);
-    const isSetupCompleted = user!.status === UserStatus.ACTIVE;
+    if (!user) throw new NotFoundException('User not found');
+
+    const isSetupCompleted = user.status === UserStatus.ACTIVE;
 
     return {
       isSetupCompleted,
-      status: user!.status,
+      status: user.status,
     };
   }
 
-  async rotateRefreshToken(
-    token: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async rotateRefreshToken(token: string): Promise<RotateRefreshTokenResult> {
     let jti: string;
 
     try {
@@ -532,7 +556,7 @@ export class AuthService {
     userId: string,
     email: string,
     purpose: OtpPurpose,
-  ) {
+  ): Promise<void> {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const hashedOtp = await bcrypt.hash(otp, 10);
@@ -553,7 +577,10 @@ export class AuthService {
     await this.mailService.sendOtpEmail(email, otp);
   }
 
-  private async createSession(user: User, message: string) {
+  private async createSession(
+    user: User,
+    message: string,
+  ): Promise<AuthSessionResult> {
     const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
 
     const sessionId = uuidv4();
