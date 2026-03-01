@@ -57,10 +57,6 @@ export class AuthService {
   }
 
   async signup(signupReqDto: SignupReqDto): Promise<SignupResult> {
-    if (signupReqDto.password !== signupReqDto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
-
     const existingUser = await this.usersRepository.findByEmailOrUsername(
       signupReqDto.email,
       signupReqDto.username,
@@ -430,11 +426,7 @@ export class AuthService {
   async resetPassword(
     resetToken: string,
     password: string,
-    confirmPassword: string,
   ): Promise<ResetPasswordResult> {
-    if (password !== confirmPassword)
-      throw new BadRequestException('Passwords do not match');
-
     const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
     if (!verifiedToken || !verifiedToken.forPasswordReset)
       throw new ForbiddenException('Reset token is invalid or expired');

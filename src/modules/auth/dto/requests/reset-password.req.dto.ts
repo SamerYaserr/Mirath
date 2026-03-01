@@ -6,6 +6,8 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+import { Match } from 'src/common/decorators/match.decorator';
+
 export class ResetPasswordReqDto {
   @ApiProperty({
     description:
@@ -39,5 +41,8 @@ export class ResetPasswordReqDto {
   @IsStrongPassword()
   @IsNotEmpty()
   @IsString()
+  @Match('password', {
+    message: 'Passwords must match',
+  })
   confirmPassword!: string;
 }

@@ -302,13 +302,9 @@ export class AuthController {
   resetPassword(
     @Body() resetPasswordReqDto: ResetPasswordReqDto,
   ): Promise<MessageResDto> {
-    const { resetToken, password, confirmPassword } = resetPasswordReqDto;
+    const { resetToken, password } = resetPasswordReqDto;
 
-    return this.authService.resetPassword(
-      resetToken,
-      password,
-      confirmPassword,
-    );
+    return this.authService.resetPassword(resetToken, password);
   }
 
   @Public()

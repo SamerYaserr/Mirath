@@ -9,6 +9,8 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+import { Match } from 'src/common/decorators/match.decorator';
+
 export class SignupReqDto {
   @ApiProperty({
     description: 'The unique email address of the user',
@@ -56,5 +58,8 @@ export class SignupReqDto {
   })
   @IsString()
   @IsNotEmpty()
+  @Match('password', {
+    message: 'Passwords do not match',
+  })
   confirmPassword: string;
 }
