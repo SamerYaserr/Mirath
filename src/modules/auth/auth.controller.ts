@@ -237,9 +237,7 @@ export class AuthController {
   forgetPassword(
     @Body() forgetPasswordReqDto: ForgetPasswordReqDto,
   ): Promise<MessageResDto> {
-    const { email } = forgetPasswordReqDto;
-
-    return this.authService.forgetPassword(email);
+    return this.authService.forgetPassword(forgetPasswordReqDto);
   }
 
   @Public()
@@ -266,9 +264,7 @@ export class AuthController {
   verifyResetCode(
     @Body() verifyResetCodeReqDto: VerifyResetCodeReqDto,
   ): Promise<VerifyResetCodeResDto> {
-    const { email, otp } = verifyResetCodeReqDto;
-
-    return this.authService.verifyResetCode(email, otp);
+    return this.authService.verifyResetCode(verifyResetCodeReqDto);
   }
 
   @Public()
@@ -302,9 +298,7 @@ export class AuthController {
   resetPassword(
     @Body() resetPasswordReqDto: ResetPasswordReqDto,
   ): Promise<MessageResDto> {
-    const { resetToken, password } = resetPasswordReqDto;
-
-    return this.authService.resetPassword(resetToken, password);
+    return this.authService.resetPassword(resetPasswordReqDto);
   }
 
   @Public()

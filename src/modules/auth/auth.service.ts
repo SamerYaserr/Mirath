@@ -37,6 +37,9 @@ import {
   VerifyResetCodeResult,
   SignupResult,
 } from './auth.types';
+import { ForgetPasswordReqDto } from './dto/requests/forget-password.req.dto';
+import { VerifyResetCodeReqDto } from './dto/requests/verify-reset-code.req.dto';
+import { ResetPasswordReqDto } from './dto/requests/reset-password.req.dto';
 
 @Injectable()
 export class AuthService {
@@ -360,7 +363,10 @@ export class AuthService {
     }
   }
 
-  async forgetPassword(email: string): Promise<ForgetPasswordResult> {
+  async forgetPassword(
+    forgetPasswordReqDto: ForgetPasswordReqDto,
+  ): Promise<ForgetPasswordResult> {
+    const { email } = forgetPasswordReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (user) {
       await this.otpRepository.invalidatePendingOtps(
@@ -384,9 +390,9 @@ export class AuthService {
   }
 
   async verifyResetCode(
-    email: string,
-    otp: string,
+    verifyResetCodeReqDto: VerifyResetCodeReqDto,
   ): Promise<VerifyResetCodeResult> {
+    const { email, otp } = verifyResetCodeReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (!user) throw new BadRequestException('Invalid or expired OTP');
 
@@ -424,9 +430,9 @@ export class AuthService {
   }
 
   async resetPassword(
-    resetToken: string,
-    password: string,
+    resetPasswordReqDto: ResetPasswordReqDto,
   ): Promise<ResetPasswordResult> {
+    const { resetToken, password } = resetPasswordReqDto;
     const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
     if (!verifiedToken || !verifiedToken.forPasswordReset)
       throw new ForbiddenException('Reset token is invalid or expired');
