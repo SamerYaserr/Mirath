@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Min } from 'class-validator';
 
-export class SearchHistoryQueryDto {
+export class SearchHistoryQueryReqDto {
   @ApiPropertyOptional({
     description: 'Maximum number of search history entries to return',
     default: 10,

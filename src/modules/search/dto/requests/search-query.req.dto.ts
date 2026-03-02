@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class SearchQueryDto {
+export class SearchQueryReqDto {
   @ApiProperty({
     description: 'The search query string',
     example: 'machine learning',

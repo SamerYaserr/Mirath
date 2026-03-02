@@ -12,7 +12,7 @@ export class SearchService {
   ) {}
 
   async deleteSearchQuery(id: string, userId: string): Promise<HttpResponse> {
-    await this.checkSearchQueryExistance(id, userId);
+    await this.checkSearchQueryExistence(id, userId);
     await this.searchHistoryRepo.deleteById(id);
 
     return {
@@ -32,6 +32,7 @@ export class SearchService {
     const searchHistory = await this.searchHistoryRepo.find(userId, limit);
 
     return {
+      message: 'Search history retrieved successfully',
       size: searchHistory.length,
       data: searchHistory,
     };
@@ -125,7 +126,7 @@ export class SearchService {
 
   // ========== Helpers ========== //
 
-  private async checkSearchQueryExistance(id: string, userId: string) {
+  private async checkSearchQueryExistence(id: string, userId: string) {
     if (!(await this.searchHistoryRepo.exist(id, userId)))
       throw new NotFoundException('No search query found with this id');
   }
