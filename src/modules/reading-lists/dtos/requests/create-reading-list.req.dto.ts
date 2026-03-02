@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class CreateReadingListDto {
+export class CreateReadingListReqDto {
   @ApiProperty({
     description: 'Title of the reading list',
     example: 'Machine Learning Favorites',

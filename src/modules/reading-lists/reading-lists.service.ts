@@ -4,9 +4,11 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
-import { ReadingListsRepository } from './repositories/reading-lists.repository';
-import { CreateReadingListDto } from './dtos/create-reading-list.dto';
 import { Prisma } from '@prisma/client';
+
+import { HttpResponse } from 'src/common/types/api.types';
+import { ReadingListsRepository } from './repositories/reading-lists.repository';
+import { CreateReadingListReqDto } from './dtos/requests/create-reading-list.req.dto';
 
 @Injectable()
 export class ReadingListsService {
@@ -14,15 +16,24 @@ export class ReadingListsService {
     private readonly readingListsRepository: ReadingListsRepository,
   ) {}
 
-  async create(userId: string, data: CreateReadingListDto) {
-    const list = await this.readingListsRepository.create(userId, data);
+  async create(
+    userId: string,
+    data: CreateReadingListReqDto,
+  ): Promise<HttpResponse> {
+    const list = await this.readingListsRepository.create({
+      title: data.title,
+      description: data.description ?? null,
+      isPublic: data.isPublic ?? true,
+      ownerId: userId,
+    });
+
     return {
       message: 'The reading list has been successfully created.',
       data: list,
     };
   }
 
-  async findAll(userId: string, ownerId?: string) {
+  async findAll(userId: string, ownerId?: string): Promise<HttpResponse> {
     const lists = await this.readingListsRepository.findAllByUserId(
       userId,
       ownerId,
@@ -49,7 +60,7 @@ export class ReadingListsService {
     };
   }
 
-  async getAllLists() {
+  async getAllLists(): Promise<HttpResponse> {
     const data = await this.readingListsRepository.findAll();
     return {
       message: 'All reading lists fetched successfully',
@@ -58,7 +69,7 @@ export class ReadingListsService {
     };
   }
 
-  async findOne(id: string, userId?: string) {
+  async findOne(id: string, userId?: string): Promise<HttpResponse> {
     const list = await this.readingListsRepository.findById(id);
     if (!list) {
       throw new NotFoundException('Reading list not found');
@@ -76,15 +87,18 @@ export class ReadingListsService {
     };
   }
 
-  async addPaper(id: string, paperId: string, userId: string) {
+  async addPaper(
+    id: string,
+    paperId: string,
+    userId: string,
+  ): Promise<HttpResponse> {
     try {
-      const list = await this.readingListsRepository.findById(id);
-      if (!list) {
+      const record = await this.readingListsRepository.findOwner(id);
+      if (!record) {
         throw new NotFoundException('Reading list not found');
       }
 
-      const isOwner = await this.readingListsRepository.isOwner(id, userId);
-      if (!isOwner) {
+      if (record.ownerId !== userId) {
         throw new ForbiddenException(
           'You can only modify your own reading lists',
         );
@@ -111,13 +125,17 @@ export class ReadingListsService {
     }
   }
 
-  async removePaper(id: string, paperId: string, userId: string) {
-    const list = await this.readingListsRepository.findById(id);
-    if (!list) {
+  async removePaper(
+    id: string,
+    paperId: string,
+    userId: string,
+  ): Promise<HttpResponse> {
+    const record = await this.readingListsRepository.findOwner(id);
+    if (!record) {
       throw new NotFoundException('Reading list not found');
     }
-    const isOwner = await this.readingListsRepository.isOwner(id, userId);
-    if (!isOwner) {
+
+    if (record.ownerId !== userId) {
       throw new ForbiddenException(
         'You can only modify your own reading lists',
       );
@@ -125,6 +143,9 @@ export class ReadingListsService {
 
     try {
       await this.readingListsRepository.removePaper(id, paperId);
+      return {
+        message: 'Paper removed from the reading list successfully',
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -134,8 +155,5 @@ export class ReadingListsService {
       }
       throw error;
     }
-    return {
-      message: 'Paper removed from the reading list successfully',
-    };
   }
 }

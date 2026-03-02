@@ -1,13 +1,13 @@
-import { IsString, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class AddPaperDto {
+export class AddPaperReqDto {
   @ApiProperty({
     description: 'ID of the paper to add',
     example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
+    format: 'uuid',
   })
-  @IsString()
   @IsNotEmpty()
-  @IsUUID()
+  @IsUUID('4', { message: 'paperId must be a valid UUID' })
   paperId: string;
 }
