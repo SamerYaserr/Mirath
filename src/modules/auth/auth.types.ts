@@ -29,20 +29,8 @@ export interface SignupResult {
   };
 }
 
-export interface ForgetPasswordResult {
-  message: string;
-}
-
 export interface VerifyResetCodeResult {
   resetToken: string;
-}
-
-export interface ResetPasswordResult {
-  message: string;
-}
-
-export interface ResendVerificationResult {
-  message: string;
 }
 
 export interface CheckVerificationResult {

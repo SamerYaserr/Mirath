@@ -72,7 +72,7 @@ export class AuthController {
     description: 'Validation failed or passwords do not match.',
   })
   @ApiConflictResponse({ description: 'Email or Username already exists.' })
-  async signup(@Body() signupReqDto: SignupReqDto): Promise<SignupResDto> {
+  async signup(@Body() signupReqDto: SignupReqDto) {
     return this.authService.signup(signupReqDto);
   }
 
@@ -93,7 +93,7 @@ export class AuthController {
   async verifyEmail(
     @Body() verifyEmailReqDto: VerifyEmailReqDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<VerifyEmailResDto> {
+  ) {
     const { accessToken, refreshToken } =
       await this.authService.verifyEmail(verifyEmailReqDto);
 
@@ -117,7 +117,7 @@ export class AuthController {
   })
   async resendVerification(
     @Body() resendVerificationReqDto: ResendVerificationReqDto,
-  ): Promise<MessageResDto> {
+  ) {
     return this.authService.resendVerification(resendVerificationReqDto);
   }
 
@@ -148,7 +148,7 @@ export class AuthController {
   async googleAuth(
     @Body() googleAuthReqDto: GoogleAuthReqDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<GoogleAuthResDto> {
+  ) {
     const { message, user, accessToken, refreshToken } =
       await this.authService.authenticateWithGoogle(googleAuthReqDto);
 
@@ -179,7 +179,7 @@ export class AuthController {
   async login(
     @Body() loginReqDto: LoginReqDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<LoginResDto> {
+  ) {
     const { message, user, accessToken, refreshToken } =
       await this.authService.login(loginReqDto);
 
@@ -200,10 +200,7 @@ export class AuthController {
     description: 'Successfully logged out.',
     type: MessageResDto,
   })
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<MessageResDto> {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.['refreshToken'];
 
     await this.authService.logout(refreshToken);
@@ -234,9 +231,7 @@ export class AuthController {
     status: 400,
     description: 'Bad Request - Invalid email format',
   })
-  forgetPassword(
-    @Body() forgetPasswordReqDto: ForgetPasswordReqDto,
-  ): Promise<MessageResDto> {
+  forgetPassword(@Body() forgetPasswordReqDto: ForgetPasswordReqDto) {
     return this.authService.forgetPassword(forgetPasswordReqDto);
   }
 
@@ -261,9 +256,7 @@ export class AuthController {
     status: 400,
     description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
   })
-  verifyResetCode(
-    @Body() verifyResetCodeReqDto: VerifyResetCodeReqDto,
-  ): Promise<VerifyResetCodeResDto> {
+  verifyResetCode(@Body() verifyResetCodeReqDto: VerifyResetCodeReqDto) {
     return this.authService.verifyResetCode(verifyResetCodeReqDto);
   }
 
@@ -295,9 +288,7 @@ export class AuthController {
     description:
       'Forbidden - Reset token is not valid, not for password reset, or user not found',
   })
-  resetPassword(
-    @Body() resetPasswordReqDto: ResetPasswordReqDto,
-  ): Promise<MessageResDto> {
+  resetPassword(@Body() resetPasswordReqDto: ResetPasswordReqDto) {
     return this.authService.resetPassword(resetPasswordReqDto);
   }
 
@@ -324,7 +315,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<RefreshTokenResDto> {
+  ) {
     const token = req.cookies?.['refreshToken'];
 
     if (!token) {
@@ -361,7 +352,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiNotFoundResponse({ description: 'User not found.' })
   async checkVerificationStatus(
     @Body() checkVerificationReqDto: CheckVerificationReqDto,
-  ): Promise<CheckVerificationResDto> {
+  ) {
     return this.authService.checkVerificationStatus(checkVerificationReqDto);
   }
 
@@ -378,12 +369,12 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     description: 'Setup status retrieved.',
     type: CheckSetupResDto,
   })
-  async checkSetupStatus(@Req() req: Request): Promise<CheckSetupResDto> {
+  async checkSetupStatus(@Req() req: Request) {
     const userId = req.user!.id;
     return this.authService.checkSetupStatus(userId);
   }
 
-  private setRefreshTokenCookie(res: Response, token: string): void {
+  private setRefreshTokenCookie(res: Response, token: string) {
     const refreshDays = this.configService.get<number>(
       'JWT_REFRESH_EXPIRATION_DAYS',
       7,
@@ -398,7 +389,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
     });
   }
 
-  private clearRefreshTokenCookie(res: Response): void {
+  private clearRefreshTokenCookie(res: Response) {
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: this.configService.get<string>('NODE_ENV') === 'production',

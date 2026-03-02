@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
+import { HttpResponse } from 'src/common/types/api.types';
 import { SignupReqDto } from './dto/requests/signup.req.dto';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { OtpRepository } from './repositories/otp.repository';
@@ -30,9 +31,6 @@ import {
   AuthSessionResult,
   CheckSetupResult,
   CheckVerificationResult,
-  ForgetPasswordResult,
-  ResendVerificationResult,
-  ResetPasswordResult,
   RotateRefreshTokenResult,
   VerifyResetCodeResult,
   SignupResult,
@@ -169,7 +167,7 @@ export class AuthService {
 
   async resendVerification(
     resendVerificationReqDto: ResendVerificationReqDto,
-  ): Promise<ResendVerificationResult> {
+  ): Promise<HttpResponse> {
     const user = await this.usersRepository.findByEmail(
       resendVerificationReqDto.email,
     );
@@ -365,7 +363,7 @@ export class AuthService {
 
   async forgetPassword(
     forgetPasswordReqDto: ForgetPasswordReqDto,
-  ): Promise<ForgetPasswordResult> {
+  ): Promise<HttpResponse> {
     const { email } = forgetPasswordReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (user) {
@@ -431,7 +429,7 @@ export class AuthService {
 
   async resetPassword(
     resetPasswordReqDto: ResetPasswordReqDto,
-  ): Promise<ResetPasswordResult> {
+  ): Promise<HttpResponse> {
     const { resetToken, password } = resetPasswordReqDto;
     const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
     if (!verifiedToken || !verifiedToken.forPasswordReset)
