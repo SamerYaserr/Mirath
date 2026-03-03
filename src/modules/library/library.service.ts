@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { SortOrder } from './dto/requests/get-saved-papers.req.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { SavedPapersRepository } from '../papers/repositories/saved-papers.repository';
+import { SavedPapersResDto } from './dto/responses/saved-paper-summary.res.dto';
 
 @Injectable()
 export class LibraryService {
@@ -22,6 +23,9 @@ export class LibraryService {
       sort,
     );
 
-    return { size: papers.length, data: papers };
+    return {
+      size: papers.length,
+      data: papers.map((paper) => SavedPapersResDto.fromEntity(paper)),
+    };
   }
 }

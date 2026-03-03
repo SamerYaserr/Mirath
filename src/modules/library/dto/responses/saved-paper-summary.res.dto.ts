@@ -40,4 +40,14 @@ export class SavedPapersResDto {
     },
   })
   paper: Record<string, unknown>;
+
+  static fromEntity(entity: Record<string, any>): SavedPapersResDto {
+    const dto = new SavedPapersResDto();
+    dto.id = entity.id;
+    dto.userId = entity.userId;
+    dto.paperId = entity.paperId;
+    dto.createdAt = entity.createdAt;
+    dto.paper = entity.paper;
+    return dto;
+  }
 }
