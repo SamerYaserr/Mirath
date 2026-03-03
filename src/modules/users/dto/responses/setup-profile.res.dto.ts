@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { User } from '@prisma/client';
 
 export class SetupProfileResDto {
   @ApiProperty({
@@ -58,4 +59,29 @@ export class SetupProfileResDto {
 
   @ApiProperty({ format: 'date-time', example: '2025-12-10T10:35:00.000Z' })
   updatedAt: Date;
+
+  static fromEntity(
+    user: Omit<User, 'password' | 'providerId'>,
+  ): SetupProfileResDto {
+    const dto = new SetupProfileResDto();
+
+    dto.id = user.id;
+    dto.username = user.username;
+    dto.email = user.email;
+    dto.fullName = user.fullName;
+    dto.photoUrl = user.photoUrl;
+    dto.bio = user.bio;
+    dto.birthDate = user.birthDate;
+    dto.country = user.country;
+    dto.levelOfEducation = user.levelOfEducation;
+    dto.university = user.university;
+    dto.role = user.role;
+    dto.status = user.status;
+    dto.isEmailVisible = user.isEmailVisible;
+    dto.isPremium = user.isPremium;
+    dto.createdAt = user.createdAt;
+    dto.updatedAt = user.updatedAt;
+
+    return dto;
+  }
 }

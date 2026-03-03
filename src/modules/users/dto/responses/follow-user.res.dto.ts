@@ -1,4 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { User } from '@prisma/client';
+
+type FollowUserEntity = Pick<
+  User,
+  | 'id'
+  | 'username'
+  | 'fullName'
+  | 'photoUrl'
+  | 'bio'
+  | 'role'
+  | 'status'
+  | 'isPremium'
+>;
 
 export class FollowUserResDto {
   @ApiProperty({
@@ -10,8 +23,8 @@ export class FollowUserResDto {
   @ApiProperty({ example: 'johndoe123' })
   username: string;
 
-  @ApiProperty({ example: 'John Doe' })
-  fullName: string;
+  @ApiProperty({ example: 'John Doe', nullable: true })
+  fullName: string | null;
 
   @ApiProperty({
     example: 'https://res.cloudinary.com/demo/image/upload/v1/profile.jpg',
@@ -39,4 +52,23 @@ export class FollowUserResDto {
     example: true,
   })
   isFollowing: boolean;
+
+  static fromEntity(
+    user: FollowUserEntity,
+    isFollowing: boolean,
+  ): FollowUserResDto {
+    const dto = new FollowUserResDto();
+
+    dto.id = user.id;
+    dto.username = user.username;
+    dto.fullName = user.fullName;
+    dto.photoUrl = user.photoUrl;
+    dto.bio = user.bio;
+    dto.role = user.role;
+    dto.status = user.status;
+    dto.isPremium = user.isPremium;
+    dto.isFollowing = isFollowing;
+
+    return dto;
+  }
 }
