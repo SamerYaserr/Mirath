@@ -1,3 +1,4 @@
+import { Interest } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class InterestResDto {
@@ -19,15 +20,13 @@ export class InterestResDto {
   })
   custom: boolean;
 
-  @ApiProperty({
-    description: 'Timestamp when the interest was created',
-    example: '2025-12-10T10:30:00.000Z',
-  })
-  createdAt: Date;
+  static fromEntity(interest: Interest): InterestResDto {
+    const dto = new InterestResDto();
 
-  @ApiProperty({
-    description: 'Timestamp when the interest was last updated',
-    example: '2025-12-10T10:30:00.000Z',
-  })
-  updatedAt: Date;
+    dto.id = interest.id;
+    dto.name = interest.name;
+    dto.custom = interest.custom;
+
+    return dto;
+  }
 }
