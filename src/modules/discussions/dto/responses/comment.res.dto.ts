@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { AuthorResDto } from './author.res.dto';
 import { CommentResDto } from './created-comment.res.dto';
+import { CommentWithRelations } from 'src/modules/comments/comments.types';
 
 export class DetailedCommentResDto extends CommentResDto {
   @ApiProperty({
@@ -22,4 +23,17 @@ export class DetailedCommentResDto extends CommentResDto {
     type: AuthorResDto,
   })
   author: AuthorResDto;
+
+  static fromDetailedEntity(
+    comment: CommentWithRelations,
+  ): DetailedCommentResDto {
+    const { votes, ...rest } = comment!;
+    const userVote = votes[0];
+
+    return Object.assign(new DetailedCommentResDto(), {
+      ...rest,
+      hasVoted: !!userVote,
+      userVoteType: userVote?.type,
+    });
+  }
 }

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Comment } from '@prisma/client';
 
 export class CommentResDto {
   @ApiProperty({
@@ -55,4 +56,10 @@ export class CommentResDto {
     example: '2024-01-15T12:00:00.000Z',
   })
   updatedAt: Date;
+
+  static fromEntity(comment: Comment): CommentResDto {
+    return Object.assign(new CommentResDto(), {
+      ...comment,
+    });
+  }
 }

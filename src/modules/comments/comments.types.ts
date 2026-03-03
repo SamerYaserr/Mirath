@@ -1,4 +1,5 @@
 import { VoteType } from '@prisma/client';
+import { CommentsRepository } from './repositories/comments.repository';
 
 export type UpdateVoteCounts = {
   id: string;
@@ -19,3 +20,7 @@ export type CommentVotesPK = {
 export type UpdateCommentVoteType = {
   type: VoteType;
 } & CommentVotesPK;
+
+export type CommentWithRelations = Awaited<
+  ReturnType<CommentsRepository['findOne']>
+>;

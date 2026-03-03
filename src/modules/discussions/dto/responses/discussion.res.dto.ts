@@ -136,7 +136,7 @@ export class DiscussionResDto {
   })
   updatedAt: Date;
 
-  static fromEntity(discussion: DiscussionWithRelations) {
+  static fromEntity(discussion: DiscussionWithRelations): DiscussionResDto {
     const { votes, topics, ...base } = discussion;
 
     const userVote = votes[0];

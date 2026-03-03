@@ -8,6 +8,15 @@ import { UpdateVoteCounts } from '../comments.types';
 export class CommentsRepository {
   constructor(private prisma: PrismaService) {}
 
+  private readonly authorSelectCard: Prisma.UserSelect = {
+    id: true,
+    bio: true,
+    fullName: true,
+    username: true,
+    photoUrl: true,
+    isPremium: true,
+  };
+
   async create(
     data: Prisma.CommentUncheckedCreateInput,
     tx?: Prisma.TransactionClient,
@@ -25,7 +34,9 @@ export class CommentsRepository {
     return this.prisma.comment.findMany({
       where: { discussionId },
       include: {
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         votes: {
           where: {
             userId,
@@ -43,7 +54,9 @@ export class CommentsRepository {
     return await this.prisma.comment.findUnique({
       where: { id },
       include: {
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         votes: {
           where: {
             userId,

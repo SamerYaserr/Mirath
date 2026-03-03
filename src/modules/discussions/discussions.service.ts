@@ -18,7 +18,6 @@ import {
   GetDiscussionsDto,
   SortType,
 } from './dto/requests/get-discussions.req.dto';
-import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { PapersRepository } from '../papers/repositories/papers.repository';
 import { DiscussionsRepository } from './repositories/discussions.repository';
@@ -26,6 +25,8 @@ import { CommentsRepository } from '../comments/repositories/comments.repository
 import { InterestsRepository } from '../interests/repositories/interests.repository';
 import { DiscussionVotesRepository } from './repositories/discussion-votes.repository';
 import { DiscussionResDto } from './dto/responses/discussion.res.dto';
+import { CommentResDto } from './dto/responses/created-comment.res.dto';
+import { DetailedCommentResDto } from './dto/responses/comment.res.dto';
 
 @Injectable()
 export class DiscussionsService {
@@ -257,7 +258,10 @@ export class DiscussionsService {
       return newComment;
     });
 
-    return { message: 'Comment posted successfully.', data: comment };
+    return {
+      message: 'Comment posted successfully.',
+      data: CommentResDto.fromEntity(comment),
+    };
   }
 
   async getDiscussionComments(
@@ -276,17 +280,9 @@ export class DiscussionsService {
       discussionId,
     );
 
-    const transformedComment = comments.map((comment) => {
-      const userVote = comment!.votes[0];
-      const { votes, ...rest } = comment!;
-
-      return {
-        ...rest,
-        hasVoted: !!userVote,
-        userVoteType: userVote?.type || undefined,
-        author: excludeUserSensitiveFields(comment!.author),
-      };
-    });
+    const transformedComment = comments.map((c) =>
+      DetailedCommentResDto.fromDetailedEntity(c),
+    );
 
     return {
       message: 'Comments retrieved successfully',
