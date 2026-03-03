@@ -2,12 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class SavedPapersResDto {
   @ApiProperty({
-    description: 'Saved paper record UUID',
-    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  })
-  id: string;
-
-  @ApiProperty({
     description: 'The ID of the user who saved the paper',
     example: 'user-id-123',
   })
@@ -43,7 +37,6 @@ export class SavedPapersResDto {
 
   static fromEntity(entity: Record<string, any>): SavedPapersResDto {
     const dto = new SavedPapersResDto();
-    dto.id = entity.id;
     dto.userId = entity.userId;
     dto.paperId = entity.paperId;
     dto.createdAt = entity.createdAt;
