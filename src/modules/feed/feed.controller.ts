@@ -9,10 +9,10 @@ import {
 import {
   ApiBearerAuth,
   ApiExtraModels,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
-  ApiUnauthorizedResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -52,7 +52,6 @@ export class FeedController {
       },
     },
   })
-  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async getRecent(@Req() req: Request, @Query() query: FeedQueryDto) {
     const userId = req.user!.id;
     return this.feedService.getRecent(userId, query);
@@ -83,7 +82,7 @@ export class FeedController {
       },
     },
   })
-  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'User not found' })
   async getRecommendations(
     @Req() req: Request,
     @Query() query: RecommendationQueryDto,

@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { PaperCard } from '../../feed.types';
+
 export class FeedPaperResDto {
   @ApiProperty({
     description: 'Unique identifier of the paper',
@@ -45,4 +47,18 @@ export class FeedPaperResDto {
     example: true,
   })
   isSaved: boolean;
+
+  static fromEntity(paper: PaperCard & { isSaved: boolean }): FeedPaperResDto {
+    const dto = new FeedPaperResDto();
+
+    dto.id = paper.id!;
+    dto.title = paper.title!;
+    dto.authors = paper.authors!;
+    dto.isSaved = paper.isSaved!;
+    dto.abstract = paper.abstract!;
+    dto.categories = paper.categories!;
+    dto.publishedAt = paper.publishedAt!;
+
+    return dto;
+  }
 }
