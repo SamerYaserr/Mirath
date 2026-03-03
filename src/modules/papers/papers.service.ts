@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, SavedPaper } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import { PapersRepository } from './repositories/papers.repository';
 import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
@@ -15,6 +15,9 @@ import { firstValueFrom } from 'rxjs';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import { SearchHistoryRepository } from '../search/repositories/search-history.repository';
 import { SavedPapersRepository } from './repositories/saved-papers.repository';
+import { SearchResultResDto } from './dto/responses/search-result.res.dto';
+import { SavedPaperResDto } from './dto/responses/saved-paper.res.dto';
+import { PaperResDto } from './dto/responses/paper.res.dto';
 
 type SearchReqBody = {
   question: string;
@@ -34,7 +37,7 @@ export class PapersService {
   async savePaper(
     paperId: string,
     userId: string,
-  ): Promise<HttpResponse<SavedPaper>> {
+  ): Promise<HttpResponse<SavedPaperResDto>> {
     const paper = await this.papersRepository.find(paperId);
     if (!paper) throw new NotFoundException('No paper found with this id');
 
@@ -45,7 +48,7 @@ export class PapersService {
       );
       return {
         message: 'Paper saved successfully',
-        data: savedPaper,
+        data: SavedPaperResDto.fromEntity(savedPaper),
       };
     } catch (error) {
       if (
@@ -82,7 +85,7 @@ export class PapersService {
   async search(
     userId: string,
     searchDto: SearchPaperReqDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<SearchResultResDto[]>> {
     const { q, page, limit } = searchDto;
     const offset = (page - 1) * limit;
 
@@ -113,17 +116,17 @@ export class PapersService {
         papers.length > 0
           ? 'Search results retrieved successfully'
           : 'No results found',
-      data: papers,
+      data: papers.map((paper) => SearchResultResDto.fromEntity(paper)),
       size: papers.length,
     };
   }
 
-  async find(paperId: string): Promise<HttpResponse> {
+  async find(paperId: string): Promise<HttpResponse<PaperResDto>> {
     const paper = await this.papersRepository.find(paperId);
     if (!paper) throw new NotFoundException('No paper found with this id');
 
     return {
-      data: paper,
+      data: PaperResDto.fromEntity(paper),
     };
   }
 

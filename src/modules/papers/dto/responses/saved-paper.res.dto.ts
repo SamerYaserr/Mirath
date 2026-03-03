@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { SavedPaper } from '@prisma/client';
 
 export class SavedPaperResDto {
   @ApiProperty({
@@ -24,4 +25,12 @@ export class SavedPaperResDto {
     example: '2025-12-10T10:30:00.000Z',
   })
   createdAt: Date;
+
+  static fromEntity(savedPaper: SavedPaper): SavedPaperResDto {
+    const dto = new SavedPaperResDto();
+    dto.userId = savedPaper.userId;
+    dto.paperId = savedPaper.paperId;
+    dto.createdAt = savedPaper.createdAt;
+    return dto;
+  }
 }

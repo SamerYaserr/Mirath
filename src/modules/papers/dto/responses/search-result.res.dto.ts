@@ -30,4 +30,14 @@ export class SearchResultResDto {
     example: true,
   })
   isSaved: boolean;
+
+  static fromEntity(searchResult: Record<string, any>): SearchResultResDto {
+    const dto = new SearchResultResDto();
+    dto.id = searchResult.id;
+    dto.title = searchResult.title;
+    dto.isSaved = searchResult.isSaved;
+    dto.abstract = searchResult.abstract;
+    dto.publishedAt = searchResult.publishedAt;
+    return dto;
+  }
 }

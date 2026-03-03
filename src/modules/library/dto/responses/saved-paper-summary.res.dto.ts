@@ -35,12 +35,12 @@ export class SavedPapersResDto {
   })
   paper: Record<string, unknown>;
 
-  static fromEntity(entity: Record<string, any>): SavedPapersResDto {
+  static fromEntity(savedPaper: Record<string, any>): SavedPapersResDto {
     const dto = new SavedPapersResDto();
-    dto.userId = entity.userId;
-    dto.paperId = entity.paperId;
-    dto.createdAt = entity.createdAt;
-    dto.paper = entity.paper;
+    dto.userId = savedPaper.userId;
+    dto.paperId = savedPaper.paperId;
+    dto.createdAt = savedPaper.createdAt;
+    dto.paper = savedPaper.paper;
     return dto;
   }
 }

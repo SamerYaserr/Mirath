@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Paper } from '@prisma/client';
 
 export interface PaperData {
   id: string;
@@ -85,19 +86,19 @@ export class PaperResDto {
   })
   updatedAt: Date;
 
-  static fromDomain(data: PaperData): PaperResDto {
+  static fromEntity(entity: Omit<Paper, 'fullText'>): PaperResDto {
     const dto = new PaperResDto();
 
-    dto.id = data.id;
-    dto.citation = data.citation;
-    dto.title = data.title;
-    dto.abstract = data.abstract;
-    dto.authors = data.authors;
-    dto.categories = data.categories;
-    dto.publishedAt = data.publishedAt;
-    dto.content = data.content;
-    dto.createdAt = data.createdAt;
-    dto.updatedAt = data.updatedAt;
+    dto.id = entity.id;
+    dto.citation = entity.citation;
+    dto.title = entity.title;
+    dto.abstract = entity.abstract;
+    dto.authors = entity.authors;
+    dto.categories = entity.categories;
+    dto.publishedAt = entity.publishedAt;
+    dto.content = entity.content as Record<string, unknown>;
+    dto.createdAt = entity.createdAt;
+    dto.updatedAt = entity.updatedAt;
 
     return dto;
   }
