@@ -6,7 +6,7 @@ import { CreateCommentDto } from './dto/requests/create-comment.req.dto';
 export type CheckExistingType = 'topic' | 'paper' | 'users';
 
 export type DiscussionWithRelations = Awaited<
-  ReturnType<DiscussionsRepository['findOne']>
+  ReturnType<DiscussionsRepository['create']>
 >;
 
 export type DiscussionsFindManyArgs = {

@@ -13,7 +13,23 @@ import {
 export class DiscussionsRepository {
   constructor(private prisma: PrismaService) {}
 
-  create({
+  private readonly authorSelectCard: Prisma.UserSelect = {
+    id: true,
+    bio: true,
+    fullName: true,
+    username: true,
+    photoUrl: true,
+    isPremium: true,
+  };
+
+  private readonly paperSelectCard: Prisma.PaperSelect = {
+    id: true,
+    authors: true,
+    title: true,
+    abstract: true,
+  };
+
+  async create({
     title,
     content,
     authorId,
@@ -23,7 +39,7 @@ export class DiscussionsRepository {
     paperIds: string[];
     topicIds: string[];
   }) {
-    return this.prisma.discussion.create({
+    return await this.prisma.discussion.create({
       data: {
         title,
         content,
@@ -38,7 +54,9 @@ export class DiscussionsRepository {
         },
       },
       include: {
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         topics: {
           include: {
             interest: true,
@@ -53,12 +71,7 @@ export class DiscussionsRepository {
           },
         },
         papers: {
-          select: {
-            id: true,
-            authors: true,
-            title: true,
-            abstract: true,
-          },
+          select: this.paperSelectCard,
         },
       },
     });
@@ -95,7 +108,9 @@ export class DiscussionsRepository {
             interest: true,
           },
         },
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         votes: {
           where: {
             userId,
@@ -105,12 +120,7 @@ export class DiscussionsRepository {
           },
         },
         papers: {
-          select: {
-            id: true,
-            authors: true,
-            title: true,
-            abstract: true,
-          },
+          select: this.paperSelectCard,
         },
       },
     });
@@ -120,7 +130,9 @@ export class DiscussionsRepository {
     return await this.prisma.discussion.findUnique({
       where: { id },
       include: {
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         topics: {
           include: {
             interest: true,
@@ -135,12 +147,7 @@ export class DiscussionsRepository {
           },
         },
         papers: {
-          select: {
-            id: true,
-            authors: true,
-            title: true,
-            abstract: true,
-          },
+          select: this.paperSelectCard,
         },
       },
     });

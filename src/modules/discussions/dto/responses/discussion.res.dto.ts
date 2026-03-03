@@ -1,6 +1,7 @@
 import { VoteType } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AuthorResDto } from './author.res.dto';
+import { DiscussionWithRelations } from '../../discussions.types';
 
 class PaperSummaryResDto {
   @ApiProperty({
@@ -134,4 +135,17 @@ export class DiscussionResDto {
     example: '2024-01-15T10:00:00.000Z',
   })
   updatedAt: Date;
+
+  static fromEntity(discussion: DiscussionWithRelations) {
+    const { votes, topics, ...base } = discussion;
+
+    const userVote = votes[0];
+
+    return Object.assign(new DiscussionResDto(), {
+      ...base,
+      topics: topics.map((t) => t.interest),
+      hasVoted: !!userVote,
+      userVoteType: userVote?.type,
+    });
+  }
 }

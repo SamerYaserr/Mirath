@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { LevelOfEducation, Role, UserStatus } from '@prisma/client';
 
 export class AuthorResDto {
   @ApiProperty({
@@ -13,12 +12,6 @@ export class AuthorResDto {
     example: 'johndoe',
   })
   username: string;
-
-  @ApiProperty({
-    description: 'User email address',
-    example: 'johndoe@example.com',
-  })
-  email: string;
 
   @ApiPropertyOptional({
     description: 'Full name of the user',
@@ -41,70 +34,9 @@ export class AuthorResDto {
   })
   bio: string | null;
 
-  @ApiPropertyOptional({
-    description: 'Date of birth',
-    nullable: true,
-    example: '1995-06-15',
-  })
-  birthDate: Date | null;
-
-  @ApiPropertyOptional({
-    description: 'Country of the user',
-    nullable: true,
-    example: 'Egypt',
-  })
-  country: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Level of education',
-    nullable: true,
-    enum: LevelOfEducation,
-    example: LevelOfEducation.GRADUATE,
-  })
-  levelOfEducation: LevelOfEducation | null;
-
-  @ApiPropertyOptional({
-    description: 'University name',
-    nullable: true,
-    example: 'Cairo University',
-  })
-  university: string | null;
-
-  @ApiProperty({
-    description: 'User role',
-    enum: Role,
-    example: Role.USER,
-  })
-  role: Role;
-
-  @ApiProperty({
-    description: 'Account status',
-    enum: UserStatus,
-    example: UserStatus.ACTIVE,
-  })
-  status: UserStatus;
-
-  @ApiProperty({
-    description: 'Whether the user email is publicly visible',
-    example: false,
-  })
-  isEmailVisible: boolean;
-
   @ApiProperty({
     description: 'Whether the user has a premium subscription',
     example: false,
   })
   isPremium: boolean;
-
-  @ApiProperty({
-    description: 'Account creation date',
-    example: '2024-01-15T10:00:00.000Z',
-  })
-  createdAt: Date;
-
-  @ApiProperty({
-    description: 'Last update date',
-    example: '2024-01-15T10:00:00.000Z',
-  })
-  updatedAt: Date;
 }

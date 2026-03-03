@@ -9,7 +9,6 @@ import { VoteType } from '@prisma/client';
 import {
   CheckExistingType,
   CreateCommentServiceArgs,
-  DiscussionWithRelations,
   VoteServiceArgs,
 } from './discussions.types';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,6 +25,7 @@ import { DiscussionsRepository } from './repositories/discussions.repository';
 import { CommentsRepository } from '../comments/repositories/comments.repository';
 import { InterestsRepository } from '../interests/repositories/interests.repository';
 import { DiscussionVotesRepository } from './repositories/discussion-votes.repository';
+import { DiscussionResDto } from './dto/responses/discussion.res.dto';
 
 @Injectable()
 export class DiscussionsService {
@@ -44,6 +44,7 @@ export class DiscussionsService {
     userId: string,
   ): Promise<HttpResponse> {
     const { title, content, topicIds, paperIds = [] } = dto;
+
     await Promise.all([
       this.checkExisting(topicIds),
       this.checkExisting(paperIds, 'paper'),
@@ -56,11 +57,10 @@ export class DiscussionsService {
       paperIds,
       authorId: userId,
     });
-    const transformedDiscussions = this.transformDiscussion(discussion);
 
     return {
       message: 'discussion created successfully',
-      data: transformedDiscussions,
+      data: DiscussionResDto.fromEntity(discussion),
     };
   }
 
@@ -82,8 +82,8 @@ export class DiscussionsService {
       authorId,
     });
 
-    const transformedDiscussions = discussions.map((discussion) => {
-      return this.transformDiscussion(discussion);
+    const transformedDiscussions = discussions.map((d) => {
+      return DiscussionResDto.fromEntity(d);
     });
 
     return {
@@ -98,11 +98,9 @@ export class DiscussionsService {
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
-    const transformedDiscussions = this.transformDiscussion(discussion);
-
     return {
       message: 'Discussion retrieved successfully',
-      data: transformedDiscussions,
+      data: DiscussionResDto.fromEntity(discussion),
     };
   }
 
@@ -320,18 +318,5 @@ export class DiscussionsService {
         `Invalid ${type} ID(s): ${invalidIds.join(', ')}`,
       );
     }
-  }
-
-  private transformDiscussion(discussion: DiscussionWithRelations) {
-    const userVote = discussion!.votes[0];
-    const { votes, ...rest } = discussion!;
-
-    return {
-      ...rest,
-      hasVoted: !!userVote,
-      userVoteType: userVote?.type || undefined,
-      topics: discussion!.topics.map((t) => t.interest),
-      author: excludeUserSensitiveFields(discussion!.author),
-    };
   }
 }
