@@ -9,6 +9,13 @@ import { Prisma } from '@prisma/client';
 import { HttpResponse } from 'src/common/types/api.types';
 import { ReadingListsRepository } from './repositories/reading-lists.repository';
 import { CreateReadingListReqDto } from './dtos/requests/create-reading-list.req.dto';
+import { CreatedListResDto } from './dtos/responses/create-reading-list.res.dto';
+import {
+  GetAllSystemReadingListsResDto,
+  GetUserReadingListsResDto,
+} from './dtos/responses/get-all-lists.res.dto';
+import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
+import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 
 @Injectable()
 export class ReadingListsService {
@@ -19,7 +26,7 @@ export class ReadingListsService {
   async create(
     userId: string,
     data: CreateReadingListReqDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<CreatedListResDto>> {
     const list = await this.readingListsRepository.create({
       title: data.title,
       description: data.description ?? null,
@@ -29,29 +36,20 @@ export class ReadingListsService {
 
     return {
       message: 'The reading list has been successfully created.',
-      data: list,
+      data: CreatedListResDto.fromList(list),
     };
   }
 
-  async findAll(userId: string, ownerId?: string): Promise<HttpResponse> {
+  async findAll(
+    userId: string,
+    ownerId?: string,
+  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
     const lists = await this.readingListsRepository.findAllByUserId(
       userId,
       ownerId,
     );
 
-    const data = lists.map((list) => {
-      const categories = list.papers.flatMap((p) => p.paper.categories || []);
-
-      const uniqueCategories = [...new Set(categories)];
-      const previewTags = uniqueCategories.slice(0, 3);
-
-      const { papers, ...listWithoutPapers } = list;
-
-      return {
-        ...listWithoutPapers,
-        previewTags,
-      };
-    });
+    const data = lists.map(GetUserReadingListsResDto.fromList);
 
     return {
       message: 'Reading lists fetched successfully',
@@ -60,8 +58,9 @@ export class ReadingListsService {
     };
   }
 
-  async getAllLists(): Promise<HttpResponse> {
-    const data = await this.readingListsRepository.findAll();
+  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
+    const lists = await this.readingListsRepository.findAll();
+    const data = lists.map(GetAllSystemReadingListsResDto.fromList);
     return {
       message: 'All reading lists fetched successfully',
       data,
@@ -69,7 +68,10 @@ export class ReadingListsService {
     };
   }
 
-  async findOne(id: string, userId?: string): Promise<HttpResponse> {
+  async findOne(
+    id: string,
+    userId?: string,
+  ): Promise<HttpResponse<FindOneReadingListResDto>> {
     const list = await this.readingListsRepository.findById(id);
     if (!list) {
       throw new NotFoundException('Reading list not found');
@@ -83,7 +85,7 @@ export class ReadingListsService {
 
     return {
       message: 'Reading list fetched successfully',
-      data: list,
+      data: FindOneReadingListResDto.fromList(list),
     };
   }
 
@@ -91,7 +93,7 @@ export class ReadingListsService {
     id: string,
     paperId: string,
     userId: string,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<AddedPaperResDto>> {
     try {
       const record = await this.readingListsRepository.findOwner(id);
       if (!record) {
@@ -110,7 +112,7 @@ export class ReadingListsService {
       );
       return {
         message: 'Paper saved successfully',
-        data: addedPaper,
+        data: AddedPaperResDto.fromRecord(addedPaper),
       };
     } catch (error) {
       if (

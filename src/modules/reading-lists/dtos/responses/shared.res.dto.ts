@@ -1,4 +1,9 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  OwnerSource,
+  PaperSource,
+  ReadingListPaperRecord,
+} from '../../reading-list.types';
 
 export class OwnerResDto {
   @ApiProperty({ example: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq' })
@@ -7,11 +12,20 @@ export class OwnerResDto {
   @ApiProperty({ example: 'jdoe_research' })
   username: string;
 
-  @ApiPropertyOptional({ example: 'John Doe' })
-  fullName?: string;
+  @ApiProperty({ example: 'John Doe', nullable: true })
+  fullName: string | null;
 
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
-  photoUrl?: string;
+  @ApiProperty({ example: 'https://example.com/avatar.jpg', nullable: true })
+  photoUrl: string | null;
+
+  static fromOwner(owner: OwnerSource): OwnerResDto {
+    const dto = new OwnerResDto();
+    dto.id = owner.id;
+    dto.username = owner.username;
+    dto.fullName = owner.fullName;
+    dto.photoUrl = owner.photoUrl;
+    return dto;
+  }
 }
 
 export class PaperDetailResDto {
@@ -24,7 +38,9 @@ export class PaperDetailResDto {
   @ApiProperty({ example: ['J. Schmidhuber'] })
   authors: string[];
 
-  @ApiProperty({ example: 'This paper provides an overview of deep learning...' })
+  @ApiProperty({
+    example: 'This paper provides an overview of deep learning...',
+  })
   abstract: string;
 
   @ApiProperty({ example: ['AI', 'Deep Learning'] })
@@ -35,6 +51,18 @@ export class PaperDetailResDto {
 
   @ApiProperty({ example: 'Citation 2025' })
   citation: string;
+
+  static fromPaper(paper: PaperSource): PaperDetailResDto {
+    const dto = new PaperDetailResDto();
+    dto.id = paper.id;
+    dto.title = paper.title;
+    dto.authors = paper.authors;
+    dto.abstract = paper.abstract;
+    dto.categories = paper.categories;
+    dto.publishedAt = paper.publishedAt;
+    dto.citation = paper.citation;
+    return dto;
+  }
 }
 
 export class ReadingListPaperResDto {
@@ -46,4 +74,12 @@ export class ReadingListPaperResDto {
 
   @ApiProperty({ type: PaperDetailResDto })
   paper: PaperDetailResDto;
+
+  static fromRecord(record: ReadingListPaperRecord): ReadingListPaperResDto {
+    const dto = new ReadingListPaperResDto();
+    dto.readingListId = record.readingListId;
+    dto.paperId = record.paperId;
+    dto.paper = PaperDetailResDto.fromPaper(record.paper);
+    return dto;
+  }
 }

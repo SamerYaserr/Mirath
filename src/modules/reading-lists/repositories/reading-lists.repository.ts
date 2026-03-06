@@ -56,6 +56,7 @@ export class ReadingListsRepository {
             id: true,
             username: true,
             fullName: true,
+            photoUrl: true,
           },
         },
       },

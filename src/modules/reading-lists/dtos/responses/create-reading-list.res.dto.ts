@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CreatedListSource } from '../../reading-list.types';
 
 export class CreatedListResDto {
   @ApiProperty({ example: 'c1a9d9f1-4b21-4b99-8d22-347799777555' })
@@ -8,7 +9,7 @@ export class CreatedListResDto {
   title: string;
 
   @ApiPropertyOptional({ example: 'A collection of papers on ML.' })
-  description?: string;
+  description: string | null;
 
   @ApiProperty({ example: true })
   isPublic: boolean;
@@ -21,4 +22,16 @@ export class CreatedListResDto {
 
   @ApiProperty({ example: '2026-01-19T18:39:07.379Z' })
   updatedAt: Date;
+
+  static fromList(list: CreatedListSource): CreatedListResDto {
+    const dto = new CreatedListResDto();
+    dto.id = list.id;
+    dto.title = list.title;
+    dto.description = list.description;
+    dto.isPublic = list.isPublic;
+    dto.ownerId = list.ownerId;
+    dto.createdAt = list.createdAt;
+    dto.updatedAt = list.updatedAt;
+    return dto;
+  }
 }

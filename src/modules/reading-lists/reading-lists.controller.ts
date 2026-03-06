@@ -39,10 +39,19 @@ import {
 import { CreatedListResDto } from './dtos/responses/create-reading-list.res.dto';
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
 import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
+import {
+  OwnerResDto,
+  PaperDetailResDto,
+  ReadingListPaperResDto,
+} from './dtos/responses/shared.res.dto';
+import { HttpResponse } from 'src/common/types/api.types';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
 @ApiExtraModels(
+  OwnerResDto,
+  PaperDetailResDto,
+  ReadingListPaperResDto,
   GetUserReadingListsResDto,
   GetAllSystemReadingListsResDto,
   CreatedListResDto,
@@ -90,8 +99,11 @@ export class ReadingListsController {
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  async findAll(@Req() req: Request, @Query() q: ReadingListOwnerIdReqDto) {
-    const userId = req.user!['id'];
+  async findAll(
+    @Req() req: Request,
+    @Query() q: ReadingListOwnerIdReqDto,
+  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
+    const userId = req.user!.id;
     const { ownerId } = q;
     return this.readingListsService.findAll(userId, ownerId);
   }
@@ -119,7 +131,7 @@ export class ReadingListsController {
       },
     },
   })
-  async getAllLists() {
+  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
     return this.readingListsService.getAllLists();
   }
 
@@ -144,8 +156,8 @@ export class ReadingListsController {
   async create(
     @Req() req: Request,
     @Body() createReadingListReqDto: CreateReadingListReqDto,
-  ) {
-    const userId = req.user!['id'];
+  ): Promise<HttpResponse<CreatedListResDto>> {
+    const userId = req.user!.id;
     return this.readingListsService.create(userId, createReadingListReqDto);
   }
 
@@ -170,8 +182,11 @@ export class ReadingListsController {
   @ApiForbiddenResponse({
     description: 'Access to private reading list denied.',
   })
-  async findOne(@Param() { id }: IdDto, @Req() req: Request) {
-    const userId = req.user!['id'];
+  async findOne(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse<FindOneReadingListResDto>> {
+    const userId = req.user!.id;
     return this.readingListsService.findOne(id, userId);
   }
 
@@ -184,10 +199,7 @@ export class ReadingListsController {
     description: 'The paper has been added to the list.',
     schema: {
       properties: {
-        message: {
-          type: 'string',
-          example: 'Paper saved successfully',
-        },
+        message: { type: 'string', example: 'Paper saved successfully' },
         data: { $ref: getSchemaPath(AddedPaperResDto) },
       },
     },
@@ -204,8 +216,8 @@ export class ReadingListsController {
     @Param() { id }: IdDto,
     @Body() addPaperReqDto: AddPaperReqDto,
     @Req() req: Request,
-  ) {
-    const userId = req.user!['id'];
+  ): Promise<HttpResponse<AddedPaperResDto>> {
+    const userId = req.user!.id;
     return this.readingListsService.addPaper(
       id,
       addPaperReqDto.paperId,
@@ -238,8 +250,8 @@ export class ReadingListsController {
   async removePaper(
     @Param() { id, paperId }: DeletePaperReqDto,
     @Req() req: Request,
-  ) {
-    const userId = req.user!['id'];
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
     return this.readingListsService.removePaper(id, paperId, userId);
   }
 }
