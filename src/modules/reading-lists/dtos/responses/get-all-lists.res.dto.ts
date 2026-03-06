@@ -6,7 +6,7 @@ export class PaperCountResDto {
   papers: number;
 }
 
-export class GetAllReadingListAdminResDto {
+export class GetAllSystemReadingListsResDto {
   @ApiProperty({ example: '5063158c-b696-4d7f-9737-85fdad1bf7ec' })
   id: string;
 
@@ -41,7 +41,7 @@ export class GetAllReadingListAdminResDto {
   owner: OwnerResDto;
 }
 
-export class GetAllReadingListResDto {
+export class GetUserReadingListsResDto {
   @ApiProperty({ example: 'c1a9d9f1-4b21-4b99-8d22-347799777555' })
   id: string;
 

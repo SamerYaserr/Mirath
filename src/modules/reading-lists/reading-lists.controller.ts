@@ -33,8 +33,8 @@ import { AddPaperReqDto } from './dtos/requests/add-paper.req.dto';
 import { DeletePaperReqDto } from './dtos/requests/delete-paper.req.dto';
 import { ReadingListOwnerIdReqDto } from './dtos/requests/owner-id.req.dto';
 import {
-  GetAllReadingListAdminResDto,
-  GetAllReadingListResDto,
+  GetAllSystemReadingListsResDto,
+  GetUserReadingListsResDto,
 } from './dtos/responses/get-all-lists.res.dto';
 import { CreatedListResDto } from './dtos/responses/create-reading-list.res.dto';
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
@@ -43,8 +43,8 @@ import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
 @ApiExtraModels(
-  GetAllReadingListResDto,
-  GetAllReadingListAdminResDto,
+  GetUserReadingListsResDto,
+  GetAllSystemReadingListsResDto,
   CreatedListResDto,
   FindOneReadingListResDto,
   AddedPaperResDto,
@@ -84,7 +84,7 @@ export class ReadingListsController {
         size: { type: 'number', example: 1 },
         data: {
           type: 'array',
-          items: { $ref: getSchemaPath(GetAllReadingListResDto) },
+          items: { $ref: getSchemaPath(GetUserReadingListsResDto) },
         },
       },
     },
@@ -114,7 +114,7 @@ export class ReadingListsController {
         size: { type: 'number', example: 1 },
         data: {
           type: 'array',
-          items: { $ref: getSchemaPath(GetAllReadingListAdminResDto) },
+          items: { $ref: getSchemaPath(GetAllSystemReadingListsResDto) },
         },
       },
     },
