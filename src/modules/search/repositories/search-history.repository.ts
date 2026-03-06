@@ -6,11 +6,11 @@ export class SearchHistoryRepository {
   constructor(private prisma: PrismaService) {}
 
   async deleteById(id: string) {
-    return await this.prisma.searchHistory.delete({ where: { id } });
+    return this.prisma.searchHistory.delete({ where: { id } });
   }
 
   async delete(userId: string) {
-    return await this.prisma.searchHistory.deleteMany({ where: { userId } });
+    return this.prisma.searchHistory.deleteMany({ where: { userId } });
   }
 
   async exist(id: string, userId: string): Promise<boolean> {
@@ -21,7 +21,7 @@ export class SearchHistoryRepository {
   }
 
   async find(userId: string, take: number) {
-    return await this.prisma.searchHistory.findMany({
+    return this.prisma.searchHistory.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take,

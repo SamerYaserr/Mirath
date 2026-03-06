@@ -45,7 +45,7 @@ export class SearchService {
     return {
       message: 'Search history retrieved successfully',
       size: searchHistory.length,
-      data: searchHistory,
+      data: searchHistory.map(SearchHistoryEntryResDto.fromRecord),
     };
   }
 
@@ -67,11 +67,11 @@ export class SearchService {
 
     return {
       message: 'Global search results retrieved successfully',
-      data: {
-        discussions: this.mapDiscussions(discussions, userId),
-        readingLists: this.mapReadingLists(readingLists, userId),
-        researchers: this.mapResearchers(researchers),
-      },
+      data: GlobalSearchResDto.fromParts(
+        discussions.map((d) => DiscussionSearchResDto.fromResult(d, userId)),
+        readingLists.map((l) => ReadingListSearchResDto.fromResult(l, userId)),
+        researchers.map(ResearcherSearchResDto.fromResult),
+      ),
     };
   }
 
@@ -82,7 +82,7 @@ export class SearchService {
     limit: number,
   ): Promise<HttpResponse<DiscussionSearchResDto[]>> {
     const skip = (page - 1) * limit;
-    const discussions = await this.searchRepository.searchDiscussions(
+    const results = await this.searchRepository.searchDiscussions(
       userId,
       query,
       skip,
@@ -91,7 +91,7 @@ export class SearchService {
 
     return {
       message: 'Discussion search results retrieved successfully',
-      data: this.mapDiscussions(discussions, userId),
+      data: results.map((d) => DiscussionSearchResDto.fromResult(d, userId)),
     };
   }
 
@@ -102,7 +102,7 @@ export class SearchService {
     limit: number,
   ): Promise<HttpResponse<ReadingListSearchResDto[]>> {
     const skip = (page - 1) * limit;
-    const lists = await this.searchRepository.searchReadingLists(
+    const results = await this.searchRepository.searchReadingLists(
       userId,
       query,
       skip,
@@ -111,7 +111,7 @@ export class SearchService {
 
     return {
       message: 'Reading List search results retrieved successfully',
-      data: this.mapReadingLists(lists, userId),
+      data: results.map((l) => ReadingListSearchResDto.fromResult(l, userId)),
     };
   }
 
@@ -122,7 +122,7 @@ export class SearchService {
     limit: number,
   ): Promise<HttpResponse<ResearcherSearchResDto[]>> {
     const skip = (page - 1) * limit;
-    const users = await this.searchRepository.searchResearchers(
+    const results = await this.searchRepository.searchResearchers(
       currentUserId,
       query,
       skip,
@@ -131,7 +131,7 @@ export class SearchService {
 
     return {
       message: 'Researcher search results retrieved successfully',
-      data: this.mapResearchers(users),
+      data: results.map(ResearcherSearchResDto.fromResult),
     };
   }
 
@@ -140,53 +140,5 @@ export class SearchService {
   private async checkSearchQueryExistence(id: string, userId: string) {
     if (!(await this.searchHistoryRepo.exist(id, userId)))
       throw new NotFoundException('No search query found with this id');
-  }
-
-  // Data Mappers to ensure UI-friendly structure
-
-  private mapDiscussions(
-    discussions: Awaited<ReturnType<SearchRepository['searchDiscussions']>>,
-    currentUserId: string,
-  ) {
-    return discussions.map((d) => ({
-      ...d,
-      tags: d.topics.map((t) => t.interest.name),
-      topics: undefined,
-      author: {
-        ...d.author,
-        isMe: d.author.id === currentUserId,
-        isFollowing: d.author.followers.length > 0,
-        followers: undefined,
-      },
-    }));
-  }
-
-  private mapReadingLists(
-    lists: Awaited<ReturnType<SearchRepository['searchReadingLists']>>,
-    currentUserId: string,
-  ) {
-    return lists.map((l) => ({
-      ...l,
-      paperCount: l._count.papers,
-      isSaved: l.savedReadingLists?.length > 0 || false,
-      owner: {
-        ...l.owner,
-        isMe: l.owner.id === currentUserId,
-        isFollowing: l.owner.followers.length > 0,
-        followers: undefined,
-      },
-      _count: undefined,
-      savedReadingLists: undefined,
-    }));
-  }
-
-  private mapResearchers(
-    users: Awaited<ReturnType<SearchRepository['searchResearchers']>>,
-  ) {
-    return users.map((u) => ({
-      ...u,
-      isFollowing: u.followers.length > 0,
-      followers: undefined,
-    }));
   }
 }

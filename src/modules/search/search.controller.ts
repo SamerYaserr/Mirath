@@ -23,7 +23,10 @@ import { IdDto } from 'src/common/dto/id.dto';
 import { SearchService } from './search.service';
 import { SearchHistoryQueryReqDto } from './dto/requests/search-history-query.req.dto';
 import { SearchQueryReqDto } from './dto/requests/search-query.req.dto';
-import { SearchHistoryEntryResDto } from './dto/responses/shared.res.dto';
+import {
+  SearchHistoryEntryResDto,
+  SearchUserResDto,
+} from './dto/responses/shared.res.dto';
 import { GlobalSearchResDto } from './dto/responses/search-global.res.dto';
 import { DiscussionSearchResDto } from './dto/responses/search-discussions.res.dto';
 import { ReadingListSearchResDto } from './dto/responses/search-reading-lists.res.dto';
@@ -33,6 +36,7 @@ import { HttpResponse } from 'src/common/types/api.types';
 @ApiTags('Search')
 @ApiBearerAuth()
 @ApiExtraModels(
+  SearchUserResDto,
   SearchHistoryEntryResDto,
   GlobalSearchResDto,
   DiscussionSearchResDto,

@@ -1,4 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ResearcherResult } from '../../search.types';
+
+import { LevelOfEducation } from '@prisma/client';
 
 export class ResearcherSearchResDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174003' })
@@ -24,4 +27,24 @@ export class ResearcherSearchResDto {
 
   @ApiProperty({ example: false })
   isFollowing: boolean;
+
+  @ApiPropertyOptional({
+    enum: LevelOfEducation,
+    example: LevelOfEducation.GRADUATE,
+  })
+  levelOfEducation?: LevelOfEducation | null;
+
+  static fromResult(result: ResearcherResult): ResearcherSearchResDto {
+    const dto = new ResearcherSearchResDto();
+    dto.id = result.id;
+    dto.fullName = result.fullName;
+    dto.username = result.username;
+    dto.bio = result.bio;
+    dto.university = result.university;
+    dto.country = result.country;
+    dto.photoUrl = result.photoUrl;
+    dto.isFollowing = result.followers.length > 0;
+    dto.levelOfEducation = result.levelOfEducation;
+    return dto;
+  }
 }

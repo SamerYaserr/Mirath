@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SearchHistoryRecord, UserSource } from '../../search.types';
 
-// Shared author shape used in discussions and reading lists
 export class SearchUserResDto {
   @ApiProperty({ example: 'user-uuid' })
   id: string;
@@ -19,9 +19,19 @@ export class SearchUserResDto {
 
   @ApiProperty({ example: true })
   isFollowing: boolean;
+
+  static fromSource(user: UserSource, currentUserId: string): SearchUserResDto {
+    const dto = new SearchUserResDto();
+    dto.id = user.id;
+    dto.fullName = user.fullName;
+    dto.username = user.username;
+    dto.photoUrl = user.photoUrl;
+    dto.isMe = user.id === currentUserId;
+    dto.isFollowing = user.followers.length > 0;
+    return dto;
+  }
 }
 
-// Search history entry
 export class SearchHistoryEntryResDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   id: string;
@@ -34,4 +44,13 @@ export class SearchHistoryEntryResDto {
 
   @ApiProperty({ example: '2026-01-12T10:00:00.000Z' })
   createdAt: Date;
+
+  static fromRecord(record: SearchHistoryRecord): SearchHistoryEntryResDto {
+    const dto = new SearchHistoryEntryResDto();
+    dto.id = record.id;
+    dto.query = record.query;
+    dto.userId = record.userId;
+    dto.createdAt = record.createdAt;
+    return dto;
+  }
 }

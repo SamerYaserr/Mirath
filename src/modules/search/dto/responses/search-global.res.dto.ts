@@ -12,4 +12,16 @@ export class GlobalSearchResDto {
 
   @ApiProperty({ type: [ResearcherSearchResDto] })
   researchers: ResearcherSearchResDto[];
+
+  static fromParts(
+    discussions: DiscussionSearchResDto[],
+    readingLists: ReadingListSearchResDto[],
+    researchers: ResearcherSearchResDto[],
+  ): GlobalSearchResDto {
+    const dto = new GlobalSearchResDto();
+    dto.discussions = discussions;
+    dto.readingLists = readingLists;
+    dto.researchers = researchers;
+    return dto;
+  }
 }
