@@ -137,7 +137,10 @@ export class SearchService {
 
   // ========== Helpers ========== //
 
-  private async checkSearchQueryExistence(id: string, userId: string) {
+  private async checkSearchQueryExistence(
+    id: string,
+    userId: string,
+  ): Promise<void> {
     if (!(await this.searchHistoryRepo.exist(id, userId)))
       throw new NotFoundException('No search query found with this id');
   }

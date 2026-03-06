@@ -33,9 +33,6 @@ export class ReadingListSearchResDto {
   @ApiProperty({ example: '2024-01-15T08:00:00.000Z' })
   createdAt: Date;
 
-  @ApiProperty({ example: '8a63a83b-ba57-4388-ab30-e40822e93412' })
-  ownerId: string;
-
   static fromResult(
     result: ReadingListResult,
     currentUserId: string,
@@ -48,8 +45,7 @@ export class ReadingListSearchResDto {
     dto.isPublic = result.isPublic;
     dto.createdAt = result.createdAt;
     dto.paperCount = result._count.papers;
-    dto.isSaved = result.savedReadingLists?.length > 0;
-    dto.ownerId = result.owner?.id;
+    dto.isSaved = result.savedReadingLists.length > 0;
     dto.owner = SearchUserResDto.fromSource(result.owner, currentUserId);
     return dto;
   }
