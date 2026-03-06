@@ -45,7 +45,7 @@ export class OtpRepository {
     purpose: OtpPurpose,
     since: Date,
   ): Promise<number> {
-    return await this.prisma.otpVerification.count({
+    return this.prisma.otpVerification.count({
       where: {
         userId,
         purpose,

@@ -56,7 +56,7 @@ export class RefreshTokenRepository {
   }
 
   async findById(tokenId: string) {
-    return await this.prisma.refreshToken.findUnique({
+    return this.prisma.refreshToken.findUnique({
       where: { id: tokenId },
     });
   }
@@ -67,7 +67,7 @@ export class RefreshTokenRepository {
     expireAt: Date,
     sessionId: string,
   ) {
-    return await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.refreshToken.delete({ where: { id: tokenId } });
       return await tx.refreshToken.create({
         data: {
