@@ -53,7 +53,7 @@ import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 export class ReadingListsController {
   constructor(private readonly readingListsService: ReadingListsService) {}
 
-  @Get('me')
+  @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get reading lists',
@@ -96,7 +96,7 @@ export class ReadingListsController {
     return this.readingListsService.findAll(userId, ownerId);
   }
 
-  @Get()
+  @Get('all')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all reading lists in the database',
