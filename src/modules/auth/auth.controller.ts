@@ -113,7 +113,7 @@ export class AuthController {
           type: 'string',
           example: 'Email verified successfully.',
         },
-        data: { $ref: getSchemaPath(AccessTokenResDto) },
+        data: { type: 'object', $ref: getSchemaPath(AccessTokenResDto) },
       },
     },
   })
@@ -187,7 +187,7 @@ export class AuthController {
           type: 'string',
           example: 'Logged in successfully',
         },
-        data: { $ref: getSchemaPath(LoginDataResDto) },
+        data: { type: 'object', $ref: getSchemaPath(LoginDataResDto) },
       },
     },
   })
@@ -222,7 +222,7 @@ export class AuthController {
           type: 'string',
           example: 'Logged in successfully',
         },
-        data: { $ref: getSchemaPath(LoginDataResDto) },
+        data: { type: 'object', $ref: getSchemaPath(LoginDataResDto) },
       },
     },
   })
@@ -321,7 +321,7 @@ export class AuthController {
           type: 'string',
           example: 'OTP verified successfully.',
         },
-        data: { $ref: getSchemaPath(ResetTokenResDto) },
+        data: { type: 'object', $ref: getSchemaPath(ResetTokenResDto) },
       },
     },
   })
@@ -395,7 +395,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
           type: 'string',
           example: 'Tokens refreshed successfully.',
         },
-        data: { $ref: getSchemaPath(AccessTokenResDto) },
+        data: { type: 'object', $ref: getSchemaPath(AccessTokenResDto) },
       },
     },
   })
@@ -443,7 +443,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
           type: 'string',
           example: 'Verification status retrieved successfully.',
         },
-        data: { $ref: getSchemaPath(CheckVerificationResDto) },
+        data: { type: 'object', $ref: getSchemaPath(CheckVerificationResDto) },
       },
     },
   })
@@ -474,7 +474,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
           type: 'string',
           example: 'Setup status retrieved successfully.',
         },
-        data: { $ref: getSchemaPath(CheckSetupResDto) },
+        data: { type: 'object', $ref: getSchemaPath(CheckSetupResDto) },
       },
     },
   })
