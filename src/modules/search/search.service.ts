@@ -3,6 +3,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { HttpResponse } from 'src/common/types/api.types';
 import { SearchHistoryRepository } from './repositories/search-history.repository';
 import { SearchRepository } from './repositories/search.repository';
+import { SearchHistoryEntryResDto } from './dto/responses/shared.res.dto';
+import { GlobalSearchResDto } from './dto/responses/search-global.res.dto';
+import { DiscussionSearchResDto } from './dto/responses/search-discussions.res.dto';
+import { ReadingListSearchResDto } from './dto/responses/search-reading-lists.res.dto';
+import { ResearcherSearchResDto } from './dto/responses/search-researchers.res.dto';
 
 @Injectable()
 export class SearchService {
@@ -11,7 +16,10 @@ export class SearchService {
     private searchRepository: SearchRepository,
   ) {}
 
-  async deleteSearchQuery(id: string, userId: string): Promise<HttpResponse> {
+  async deleteSearchQuery(
+    id: string,
+    userId: string,
+  ): Promise<HttpResponse<null>> {
     await this.checkSearchQueryExistence(id, userId);
     await this.searchHistoryRepo.deleteById(id);
 
@@ -20,7 +28,7 @@ export class SearchService {
     };
   }
 
-  async deleteAll(userId: string): Promise<HttpResponse> {
+  async deleteAll(userId: string): Promise<HttpResponse<null>> {
     await this.searchHistoryRepo.delete(userId);
 
     return {
@@ -28,7 +36,10 @@ export class SearchService {
     };
   }
 
-  async getSearchHistory(userId: string, limit: number): Promise<HttpResponse> {
+  async getSearchHistory(
+    userId: string,
+    limit: number,
+  ): Promise<HttpResponse<SearchHistoryEntryResDto[]>> {
     const searchHistory = await this.searchHistoryRepo.find(userId, limit);
 
     return {
@@ -43,7 +54,7 @@ export class SearchService {
     query: string,
     page: number,
     limit: number,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<GlobalSearchResDto>> {
     const skip = (page - 1) * limit;
 
     const [discussions, readingLists, researchers] = await Promise.all([
@@ -69,7 +80,7 @@ export class SearchService {
     query: string,
     page: number,
     limit: number,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<DiscussionSearchResDto[]>> {
     const skip = (page - 1) * limit;
     const discussions = await this.searchRepository.searchDiscussions(
       userId,
@@ -89,7 +100,7 @@ export class SearchService {
     query: string,
     page: number,
     limit: number,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<ReadingListSearchResDto[]>> {
     const skip = (page - 1) * limit;
     const lists = await this.searchRepository.searchReadingLists(
       userId,
@@ -109,7 +120,7 @@ export class SearchService {
     query: string,
     page: number,
     limit: number,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<ResearcherSearchResDto[]>> {
     const skip = (page - 1) * limit;
     const users = await this.searchRepository.searchResearchers(
       currentUserId,

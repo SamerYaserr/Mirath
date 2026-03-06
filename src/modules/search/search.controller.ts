@@ -28,6 +28,7 @@ import { GlobalSearchResDto } from './dto/responses/search-global.res.dto';
 import { DiscussionSearchResDto } from './dto/responses/search-discussions.res.dto';
 import { ReadingListSearchResDto } from './dto/responses/search-reading-lists.res.dto';
 import { ResearcherSearchResDto } from './dto/responses/search-researchers.res.dto';
+import { HttpResponse } from 'src/common/types/api.types';
 
 @ApiTags('Search')
 @ApiBearerAuth()
@@ -56,7 +57,10 @@ export class SearchController {
     description:
       'Search history not found or does not belong to the current user',
   })
-  deleteSearchQuery(@Param() { id }: IdDto, @Req() req: Request) {
+  deleteSearchQuery(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse<null>> {
     return this.searchService.deleteSearchQuery(id, req.user!.id);
   }
 
@@ -69,7 +73,7 @@ export class SearchController {
     status: HttpStatus.NO_CONTENT,
     description: 'Search history deleted successfully',
   })
-  deleteAll(@Req() req: Request) {
+  deleteAll(@Req() req: Request): Promise<HttpResponse<null>> {
     return this.searchService.deleteAll(req.user!.id);
   }
 
@@ -98,7 +102,7 @@ export class SearchController {
   getSearchHistory(
     @Req() req: Request,
     @Query() { limit }: SearchHistoryQueryReqDto,
-  ) {
+  ): Promise<HttpResponse<SearchHistoryEntryResDto[]>> {
     return this.searchService.getSearchHistory(req.user!.id, limit);
   }
 
@@ -120,8 +124,8 @@ export class SearchController {
           example: 'Global search results retrieved successfully',
         },
         data: {
-          type: 'array',
-          items: { $ref: getSchemaPath(GlobalSearchResDto) },
+          type: 'object',
+          $ref: getSchemaPath(GlobalSearchResDto),
         },
       },
     },
@@ -129,7 +133,7 @@ export class SearchController {
   async searchGlobal(
     @Req() req: Request,
     @Query() searchQueryReqDto: SearchQueryReqDto,
-  ) {
+  ): Promise<HttpResponse<GlobalSearchResDto>> {
     return this.searchService.searchGlobal(
       req.user!.id,
       searchQueryReqDto.query,
@@ -164,7 +168,7 @@ export class SearchController {
   async searchDiscussions(
     @Req() req: Request,
     @Query() dto: SearchQueryReqDto,
-  ) {
+  ): Promise<HttpResponse<DiscussionSearchResDto[]>> {
     return this.searchService.searchDiscussions(
       req.user!.id,
       dto.query,
@@ -199,7 +203,7 @@ export class SearchController {
   async searchReadingLists(
     @Req() req: Request,
     @Query() dto: SearchQueryReqDto,
-  ) {
+  ): Promise<HttpResponse<ReadingListSearchResDto[]>> {
     return this.searchService.searchReadingLists(
       req.user!.id,
       dto.query,
@@ -234,7 +238,7 @@ export class SearchController {
   async searchResearchers(
     @Req() req: Request,
     @Query() dto: SearchQueryReqDto,
-  ) {
+  ): Promise<HttpResponse<ResearcherSearchResDto[]>> {
     return this.searchService.searchResearchers(
       req.user!.id,
       dto.query,
