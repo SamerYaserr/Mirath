@@ -14,8 +14,9 @@ export class SearchHistoryRepository {
   }
 
   async exist(id: string, userId: string): Promise<boolean> {
-    return !!(await this.prisma.searchHistory.findUnique({
+    return !!(await this.prisma.searchHistory.findFirst({
       where: { id, userId },
+      select: { id: true },
     }));
   }
 
