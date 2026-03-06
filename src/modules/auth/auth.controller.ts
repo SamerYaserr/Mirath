@@ -15,12 +15,14 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCookieAuth,
+  ApiExtraModels,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
@@ -37,18 +39,25 @@ import { ResetPasswordReqDto } from './dto/requests/reset-password.req.dto';
 import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
 import { Public } from '../../common/decorators/public.decorator';
 
-import { SignupResDto } from './dto/responses/signup.res.dto';
-import { VerifyEmailResDto } from './dto/responses/verify-email.res.dto';
-import { GoogleAuthResDto } from './dto/responses/google-auth.res.dto';
-import { LoginResDto } from './dto/responses/login.res.dto';
+import { SignupDataResDto } from './dto/responses/signup.res.dto';
+import { LoginDataResDto } from './dto/responses/login.res.dto';
 import { CheckVerificationResDto } from './dto/responses/check-verification.res.dto';
 import { CheckSetupResDto } from './dto/responses/check-setup.res.dto';
-import { VerifyResetCodeResDto } from './dto/responses/verify-reset-code.res.dto';
-import { RefreshTokenResDto } from './dto/responses/refresh-token.res.dto';
-import { MessageResDto } from '../../common/dto/message.res.dto';
-
+import { HttpResponse } from 'src/common/types/api.types';
+import {
+  AccessTokenResDto,
+  ResetTokenResDto,
+} from './dto/responses/auth-token.res.dto';
 @ApiTags('Authentication')
 @Controller('auth')
+@ApiExtraModels(
+  SignupDataResDto,
+  AccessTokenResDto,
+  LoginDataResDto,
+  CheckVerificationResDto,
+  CheckSetupResDto,
+  ResetTokenResDto,
+)
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -66,13 +75,24 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description: 'User successfully created. OTP sent.',
-    type: SignupResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example:
+            'Signup successful. Please check your email for the verification code.',
+        },
+        data: { type: 'object', $ref: getSchemaPath(SignupDataResDto) },
+      },
+    },
   })
   @ApiBadRequestResponse({
     description: 'Validation failed or passwords do not match.',
   })
   @ApiConflictResponse({ description: 'Email or Username already exists.' })
-  async signup(@Body() signupReqDto: SignupReqDto) {
+  async signup(
+    @Body() signupReqDto: SignupReqDto,
+  ): Promise<HttpResponse<SignupDataResDto>> {
     return this.authService.signup(signupReqDto);
   }
 
@@ -87,19 +107,30 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Email successfully verified.',
-    type: VerifyEmailResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Email verified successfully.',
+        },
+        data: { $ref: getSchemaPath(AccessTokenResDto) },
+      },
+    },
   })
   @ApiBadRequestResponse({ description: 'Invalid or Expired OTP.' })
   async verifyEmail(
     @Body() verifyEmailReqDto: VerifyEmailReqDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<HttpResponse<AccessTokenResDto>> {
     const { accessToken, refreshToken } =
       await this.authService.verifyEmail(verifyEmailReqDto);
 
     this.setRefreshTokenCookie(res, refreshToken);
 
-    return { accessToken };
+    return {
+      message: 'Email verified successfully.',
+      data: AccessTokenResDto.fromToken(accessToken),
+    };
   }
 
   @Public()
@@ -113,11 +144,20 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'New verification email sent.',
-    type: MessageResDto,
+    schema: {
+      example: {
+        message: 'Verification code resent successfully.',
+      },
+    },
   })
+  @ApiBadRequestResponse({
+    description: 'Too many resend attempts. Please try again later.',
+  })
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  @ApiConflictResponse({ description: 'Account already verified.' })
   async resendVerification(
     @Body() resendVerificationReqDto: ResendVerificationReqDto,
-  ) {
+  ): Promise<HttpResponse<null>> {
     return this.authService.resendVerification(resendVerificationReqDto);
   }
 
@@ -141,20 +181,28 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Authentication successful.',
-    type: GoogleAuthResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Logged in successfully',
+        },
+        data: { $ref: getSchemaPath(LoginDataResDto) },
+      },
+    },
   })
   @ApiUnauthorizedResponse({ description: 'Invalid Google Token' })
   @ApiForbiddenResponse({ description: 'Account suspended' })
   async googleAuth(
     @Body() googleAuthReqDto: GoogleAuthReqDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<HttpResponse<LoginDataResDto>> {
     const { message, user, accessToken, refreshToken } =
       await this.authService.authenticateWithGoogle(googleAuthReqDto);
 
     this.setRefreshTokenCookie(res, refreshToken);
 
-    return { message, user, accessToken };
+    return { message, data: LoginDataResDto.fromAuthData(user, accessToken) };
   }
 
   @Public()
@@ -168,7 +216,15 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Login successful',
-    type: LoginResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Logged in successfully',
+        },
+        data: { $ref: getSchemaPath(LoginDataResDto) },
+      },
+    },
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
@@ -179,13 +235,13 @@ export class AuthController {
   async login(
     @Body() loginReqDto: LoginReqDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<HttpResponse<LoginDataResDto>> {
     const { message, user, accessToken, refreshToken } =
       await this.authService.login(loginReqDto);
 
     this.setRefreshTokenCookie(res, refreshToken);
 
-    return { message, user, accessToken };
+    return { message, data: LoginDataResDto.fromAuthData(user, accessToken) };
   }
 
   @Post('logout')
@@ -198,9 +254,16 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Successfully logged out.',
-    type: MessageResDto,
+    schema: {
+      example: {
+        message: 'Logged out successfully',
+      },
+    },
   })
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<HttpResponse<null>> {
     const refreshToken = req.cookies?.['refreshToken'];
 
     await this.authService.logout(refreshToken);
@@ -225,13 +288,15 @@ export class AuthController {
     status: 200,
     description:
       'OTP request processed successfully. A verification code has been sent if the email exists.',
-    type: MessageResDto,
+    schema: {
+      example: {
+        message: 'Please check your email for the verification code.',
+      },
+    },
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad Request - Invalid email format',
-  })
-  forgetPassword(@Body() forgetPasswordReqDto: ForgetPasswordReqDto) {
+  forgetPassword(
+    @Body() forgetPasswordReqDto: ForgetPasswordReqDto,
+  ): Promise<HttpResponse<null>> {
     return this.authService.forgetPassword(forgetPasswordReqDto);
   }
 
@@ -250,13 +315,26 @@ export class AuthController {
     status: 200,
     description:
       'OTP verified successfully. Returns a short-lived reset token.',
-    type: VerifyResetCodeResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'OTP verified successfully.',
+        },
+        data: { $ref: getSchemaPath(ResetTokenResDto) },
+      },
+    },
   })
-  @ApiResponse({
-    status: 400,
+  @ApiBadRequestResponse({
     description: 'Bad Request - Invalid OTP, expired OTP, or validation errors',
   })
-  verifyResetCode(@Body() verifyResetCodeReqDto: VerifyResetCodeReqDto) {
+  @ApiForbiddenResponse({
+    description:
+      'Forbidden - user account is suspended, banned, or deactivated',
+  })
+  verifyResetCode(
+    @Body() verifyResetCodeReqDto: VerifyResetCodeReqDto,
+  ): Promise<HttpResponse<ResetTokenResDto>> {
     return this.authService.verifyResetCode(verifyResetCodeReqDto);
   }
 
@@ -276,19 +354,23 @@ export class AuthController {
     status: 200,
     description:
       'Password reset successfully. User is logged out from all devices.',
-    type: MessageResDto,
+    schema: {
+      example: {
+        message: 'Password reset successfully.',
+      },
+    },
   })
-  @ApiResponse({
-    status: 400,
+  @ApiBadRequestResponse({
     description:
       'Bad Request - Passwords do not match or do not meet strength requirements',
   })
-  @ApiResponse({
-    status: 403,
+  @ApiForbiddenResponse({
     description:
       'Forbidden - Reset token is not valid, not for password reset, or user not found',
   })
-  resetPassword(@Body() resetPasswordReqDto: ResetPasswordReqDto) {
+  resetPassword(
+    @Body() resetPasswordReqDto: ResetPasswordReqDto,
+  ): Promise<HttpResponse<null>> {
     return this.authService.resetPassword(resetPasswordReqDto);
   }
 
@@ -307,7 +389,15 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Tokens refreshed successfully.',
-    type: RefreshTokenResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Tokens refreshed successfully.',
+        },
+        data: { $ref: getSchemaPath(AccessTokenResDto) },
+      },
+    },
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid, missing, or expired refresh token.',
@@ -315,7 +405,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<HttpResponse<AccessTokenResDto>> {
     const token = req.cookies?.['refreshToken'];
 
     if (!token) {
@@ -331,7 +421,7 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
 
     return {
       message: 'Tokens refreshed successfully.',
-      accessToken,
+      data: AccessTokenResDto.fromToken(accessToken),
     };
   }
 
@@ -347,12 +437,23 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Status retrieved successfully.',
-    type: CheckVerificationResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Verification status retrieved successfully.',
+        },
+        data: { $ref: getSchemaPath(CheckVerificationResDto) },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation failed for the provided email.',
   })
   @ApiNotFoundResponse({ description: 'User not found.' })
   async checkVerificationStatus(
     @Body() checkVerificationReqDto: CheckVerificationReqDto,
-  ) {
+  ): Promise<HttpResponse<CheckVerificationResDto>> {
     return this.authService.checkVerificationStatus(checkVerificationReqDto);
   }
 
@@ -367,9 +468,23 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
   @ApiResponse({
     status: 200,
     description: 'Setup status retrieved.',
-    type: CheckSetupResDto,
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Setup status retrieved successfully.',
+        },
+        data: { $ref: getSchemaPath(CheckSetupResDto) },
+      },
+    },
   })
-  async checkSetupStatus(@Req() req: Request) {
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - Missing or invalid access token.',
+  })
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  async checkSetupStatus(
+    @Req() req: Request,
+  ): Promise<HttpResponse<CheckSetupResDto>> {
     const userId = req.user!.id;
     return this.authService.checkSetupStatus(userId);
   }

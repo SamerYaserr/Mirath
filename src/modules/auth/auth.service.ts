@@ -27,17 +27,14 @@ import { GoogleAuthReqDto } from './dto/requests/google-auth.req.dto';
 import { LoginReqDto } from './dto/requests/login.req.dto';
 import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
 
-import {
-  AuthSessionResult,
-  CheckSetupResult,
-  CheckVerificationResult,
-  RotateRefreshTokenResult,
-  VerifyResetCodeResult,
-  SignupResult,
-} from './auth.types';
+import { AuthSessionResult, RotateRefreshTokenResult } from './auth.types';
 import { ForgetPasswordReqDto } from './dto/requests/forget-password.req.dto';
 import { VerifyResetCodeReqDto } from './dto/requests/verify-reset-code.req.dto';
 import { ResetPasswordReqDto } from './dto/requests/reset-password.req.dto';
+import { SignupDataResDto } from './dto/responses/signup.res.dto';
+import { CheckVerificationResDto } from './dto/responses/check-verification.res.dto';
+import { CheckSetupResDto } from './dto/responses/check-setup.res.dto';
+import { ResetTokenResDto } from './dto/responses/auth-token.res.dto';
 
 @Injectable()
 export class AuthService {
@@ -57,7 +54,9 @@ export class AuthService {
     );
   }
 
-  async signup(signupReqDto: SignupReqDto): Promise<SignupResult> {
+  async signup(
+    signupReqDto: SignupReqDto,
+  ): Promise<HttpResponse<SignupDataResDto>> {
     const existingUser = await this.usersRepository.findByEmailOrUsername(
       signupReqDto.email,
       signupReqDto.username,
@@ -120,14 +119,7 @@ export class AuthService {
     return {
       message:
         'Signup successful. Please check your email for the verification code.',
-      data: {
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          username: newUser.username,
-          status: newUser.status,
-        },
-      },
+      data: SignupDataResDto.fromUser(newUser),
     };
   }
 
@@ -167,13 +159,13 @@ export class AuthService {
 
   async resendVerification(
     resendVerificationReqDto: ResendVerificationReqDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<null>> {
     const user = await this.usersRepository.findByEmail(
       resendVerificationReqDto.email,
     );
-    if (!user) throw new BadRequestException('User not found');
+    if (!user) throw new NotFoundException('User not found');
     if (user.status === UserStatus.ACTIVE)
-      throw new BadRequestException('Account already verified');
+      throw new ConflictException('Account already verified');
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const recentOtps = await this.otpRepository.countRecentOtps(
@@ -195,7 +187,7 @@ export class AuthService {
 
     await this.generateAndSendOtp(user.id, user.email, OtpPurpose.REGISTER);
 
-    return { message: 'Verification code resent successfully' };
+    return { message: 'Verification code resent successfully.' };
   }
 
   async authenticateWithGoogle(
@@ -308,7 +300,7 @@ export class AuthService {
     );
 
     if (!user) {
-      winstonLogger.warn(`Invlaid login username/email for ${emailOrUsername}`);
+      winstonLogger.warn(`Invalid login username/email for ${emailOrUsername}`);
       throw new UnauthorizedException('Invalid email/username or password');
     }
 
@@ -323,7 +315,7 @@ export class AuthService {
 
     const isCorrectPass = await bcrypt.compare(password, user.password!);
     if (!isCorrectPass) {
-      winstonLogger.warn(`Invlaid login password for ${emailOrUsername}`);
+      winstonLogger.warn(`Invalid login password for ${emailOrUsername}`);
       throw new UnauthorizedException('Invalid email/username or password');
     }
 
@@ -363,7 +355,7 @@ export class AuthService {
 
   async forgetPassword(
     forgetPasswordReqDto: ForgetPasswordReqDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<null>> {
     const { email } = forgetPasswordReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (user) {
@@ -389,7 +381,7 @@ export class AuthService {
 
   async verifyResetCode(
     verifyResetCodeReqDto: VerifyResetCodeReqDto,
-  ): Promise<VerifyResetCodeResult> {
+  ): Promise<HttpResponse<ResetTokenResDto>> {
     const { email, otp } = verifyResetCodeReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (!user) throw new BadRequestException('Invalid or expired OTP');
@@ -424,12 +416,15 @@ export class AuthService {
       forPasswordReset: true,
     };
     const resetToken = await this.tokenService.generateResetToken(payload);
-    return { resetToken };
+    return {
+      message: 'OTP verified successfully.',
+      data: ResetTokenResDto.fromToken(resetToken),
+    };
   }
 
   async resetPassword(
     resetPasswordReqDto: ResetPasswordReqDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<null>> {
     const { resetToken, password } = resetPasswordReqDto;
     const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
     if (!verifiedToken || !verifiedToken.forPasswordReset)
@@ -461,7 +456,7 @@ export class AuthService {
 
   async checkVerificationStatus(
     checkVerificationReqDto: CheckVerificationReqDto,
-  ): Promise<CheckVerificationResult> {
+  ): Promise<HttpResponse<CheckVerificationResDto>> {
     const user = await this.usersRepository.findByEmail(
       checkVerificationReqDto.email,
     );
@@ -473,20 +468,28 @@ export class AuthService {
     const isVerified = user.status !== UserStatus.PENDING_VERIFICATION;
 
     return {
-      isVerified,
-      status: user.status,
+      message: 'Verification status retrieved successfully.',
+      data: {
+        isVerified,
+        status: user.status,
+      },
     };
   }
 
-  async checkSetupStatus(userId: string): Promise<CheckSetupResult> {
+  async checkSetupStatus(
+    userId: string,
+  ): Promise<HttpResponse<CheckSetupResDto>> {
     const user = await this.usersRepository.findById(userId);
     if (!user) throw new NotFoundException('User not found');
 
     const isSetupCompleted = user.status === UserStatus.ACTIVE;
 
     return {
-      isSetupCompleted,
-      status: user.status,
+      message: 'Setup status retrieved successfully.',
+      data: {
+        isSetupCompleted,
+        status: user.status,
+      },
     };
   }
 

@@ -15,34 +15,6 @@ export interface AuthSessionResult {
   refreshToken: string;
 }
 
-export interface SignupUserPayload {
-  id: string;
-  email: string;
-  username: string;
-  status: UserStatus;
-}
-
-export interface SignupResult {
-  message: string;
-  data: {
-    user: SignupUserPayload;
-  };
-}
-
-export interface VerifyResetCodeResult {
-  resetToken: string;
-}
-
-export interface CheckVerificationResult {
-  isVerified: boolean;
-  status: UserStatus;
-}
-
-export interface CheckSetupResult {
-  isSetupCompleted: boolean;
-  status: UserStatus;
-}
-
 export interface RotateRefreshTokenResult {
   accessToken: string;
   refreshToken: string;

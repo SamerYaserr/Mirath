@@ -1,4 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { UserStatus } from '@prisma/client';
+import { AuthUserPayload } from '../../auth.types';
 
 export class UserResDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -10,9 +12,19 @@ export class UserResDto {
   @ApiProperty({ example: 'user123' })
   username: string;
 
-  @ApiProperty({ example: 'https://example.com/photo.jpg', required: false })
+  @ApiPropertyOptional({ example: 'https://example.com/photo.jpg' })
   photoUrl?: string | null;
 
-  @ApiProperty({ example: 'ACTIVE' })
-  status: string;
+  @ApiProperty({ enum: UserStatus, example: UserStatus.ACTIVE })
+  status: UserStatus;
+
+  static fromPayload(payload: AuthUserPayload): UserResDto {
+    const dto = new UserResDto();
+    dto.id = payload.id;
+    dto.email = payload.email;
+    dto.username = payload.username;
+    dto.photoUrl = payload.photoUrl;
+    dto.status = payload.status;
+    return dto;
+  }
 }
