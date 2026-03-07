@@ -12,7 +12,7 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LevelOfEducation } from '@prisma/client';
 
-export class ProfileSetupDto {
+export class ProfileSetupReqDto {
   @ApiProperty({
     description: 'User full name',
     example: 'John Doe',

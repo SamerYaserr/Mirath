@@ -61,14 +61,36 @@ export class ProfileResDto {
   @ApiProperty({ example: 'Canada' })
   country: string;
 
+  @ApiProperty({
+    example: '1995-06-15',
+    nullable: true,
+    format: 'date',
+  })
+  birthDate: Date | null;
+
   @ApiProperty({ example: 'GRADUATE' })
   levelOfEducation: string;
 
   @ApiProperty({ example: 'University of Toronto' })
   university: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'USER' })
+  role: string;
+
+  @ApiProperty({ example: 'ACTIVE' })
+  status: string;
+
+  @ApiProperty({ example: false })
+  isEmailVisible: boolean;
+
+  @ApiProperty({ example: false })
+  isPremium: boolean;
+
+  @ApiProperty({ format: 'date-time' })
   createdAt: Date;
+
+  @ApiProperty({ format: 'date-time' })
+  updatedAt: Date;
 
   @ApiProperty({ description: 'Number of followers', example: 120 })
   followersCount: number;
@@ -103,10 +125,16 @@ export class ProfileResDto {
     dto.email = data.email || null;
     dto.photoUrl = data.photoUrl || null;
     dto.bio = data.bio || null;
+    dto.birthDate = data.birthDate || null;
     dto.country = data.country!;
     dto.levelOfEducation = data.levelOfEducation!;
     dto.university = data.university!;
+    dto.role = data.role!;
+    dto.status = data.status!;
+    dto.isEmailVisible = data.isEmailVisible!;
+    dto.isPremium = data.isPremium!;
     dto.createdAt = data.createdAt!;
+    dto.updatedAt = data.updatedAt!;
 
     dto.followersCount = data.followersCount || 0;
     dto.followingCount = data.followingCount || 0;

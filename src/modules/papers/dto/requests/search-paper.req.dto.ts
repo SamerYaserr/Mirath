@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
-export class SearchPaperDto {
+export class SearchPaperReqDto {
   @ApiProperty({
     description: 'The search term for fuzzy matching against full text.',
     example: 'Quantum Computing',

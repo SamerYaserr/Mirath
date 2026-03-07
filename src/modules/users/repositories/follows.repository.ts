@@ -51,6 +51,7 @@ export class FollowsRepository {
             photoUrl: true,
             bio: true,
             role: true,
+            status: true,
             isPremium: true,
           },
         },
