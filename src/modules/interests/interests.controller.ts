@@ -1,8 +1,17 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { InterestsService } from './interests.service';
-import { IdDto } from 'src/common/dto/id.dto';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, HttpStatus, Param } from '@nestjs/common';
+import {
+  ApiExtraModels,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  getSchemaPath,
+} from '@nestjs/swagger';
 
+import { IdDto } from 'src/common/dto/id.dto';
+import { InterestsService } from './interests.service';
+import { InterestResDto } from './dto/responses/interest.res.dto';
+
+@ApiExtraModels(InterestResDto)
 @Controller('interests')
 export class InterestsController {
   constructor(private interestsService: InterestsService) {}
@@ -13,27 +22,15 @@ export class InterestsController {
       'Retrieves a list of all predefined (non-custom) research interests available in the system',
   })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Successfully retrieved all interests',
     schema: {
-      example: {
-        size: 2,
-        data: [
-          {
-            id: '123e4567-e89b-12d3-a456-426614174000',
-            name: 'Physics',
-            custom: false,
-            createdAt: '2025-12-10T10:30:00.000Z',
-            updatedAt: '2025-12-10T10:30:00.000Z',
-          },
-          {
-            id: '223e4567-e89b-12d3-a456-426614174001',
-            name: 'Computer Science',
-            custom: false,
-            createdAt: '2025-12-10T10:30:00.000Z',
-            updatedAt: '2025-12-10T10:30:00.000Z',
-          },
-        ],
+      properties: {
+        size: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(InterestResDto) },
+        },
       },
     },
   })
@@ -55,22 +52,16 @@ export class InterestsController {
     format: 'uuid',
   })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Successfully retrieved the interest',
     schema: {
-      example: {
-        data: {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          name: 'Physics',
-          custom: false,
-          createdAt: '2025-12-10T10:30:00.000Z',
-          updatedAt: '2025-12-10T10:30:00.000Z',
-        },
+      properties: {
+        data: { $ref: getSchemaPath(InterestResDto) },
       },
     },
   })
   @ApiResponse({
-    status: 404,
+    status: HttpStatus.NOT_FOUND,
     description: 'Interest not found',
     schema: {
       example: {

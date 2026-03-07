@@ -1,15 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
 
-type PaperCard = {
-  id: string;
-  title: string;
-  abstract: string | null;
-  publishedAt: Date;
-  authors: string[];
-  categories: string[];
-};
+import { PrismaService } from '../../prisma/prisma.service';
+import {
+  FindRecentPapersArgs,
+  FindRecentPapersRes,
+  FindRecommendationPapersArgs,
+  FindRecommendationPapersRes,
+  FindUserForRecRes,
+} from '../feed.types';
 
 @Injectable()
 export class FeedRepository {
@@ -24,11 +23,9 @@ export class FeedRepository {
     categories: true,
   } as const;
 
-  async findRecentPapers(params: {
-    category: string | undefined;
-    limit: number;
-    offset: number;
-  }): Promise<{ papers: PaperCard[]; total: number }> {
+  async findRecentPapers(
+    params: FindRecentPapersArgs,
+  ): Promise<FindRecentPapersRes> {
     const { category, limit, offset } = params;
 
     const where: Prisma.PaperWhereInput = {};
@@ -69,11 +66,7 @@ export class FeedRepository {
     return saved.map((s) => s.paperId);
   }
 
-  async findUserForRecommendations(userId: string): Promise<{
-    id: string;
-    userInterests: { interest: { name: string } }[];
-    userFields: { field: { name: string } }[];
-  } | null> {
+  async findUserForRecommendations(userId: string): Promise<FindUserForRecRes> {
     return this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -83,12 +76,9 @@ export class FeedRepository {
     });
   }
 
-  async findRecommendationPapers(params: {
-    tags: string[];
-    limit: number;
-    offset: number;
-    userId: string;
-  }): Promise<{ papers: PaperCard[]; total: number }> {
+  async findRecommendationPapers(
+    params: FindRecommendationPapersArgs,
+  ): Promise<FindRecommendationPapersRes> {
     const { tags, limit, offset, userId } = params;
 
     const where: Prisma.PaperWhereInput = {

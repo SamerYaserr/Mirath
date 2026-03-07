@@ -8,5 +8,6 @@ import { PapersRepository } from './repositories/papers.repository';
   imports: [HttpModule],
   controllers: [PapersController],
   providers: [PapersService, PapersRepository],
+  exports: [PapersRepository],
 })
 export class PapersModule {}

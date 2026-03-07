@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FeedRepository } from './repositories/feed.repository';
-import { FeedQueryDto } from './dto/FeedQuery.dto';
-import { RecommendationQueryDto } from './dto/RecommendationQuery.dto';
+
 import { HttpResponse } from '../../common/types/api.types';
+import { FeedRepository } from './repositories/feed.repository';
+import { FeedQueryDto } from './dto/requests/FeedQuery.req.dto';
+import { FeedPaperResDto } from './dto/responses/feed-paper.res.dto';
+import { RecommendationQueryDto } from './dto/requests/RecommendationQuery.req.dto';
 
 @Injectable()
 export class FeedService {
@@ -26,10 +28,9 @@ export class FeedService {
 
     const savedSet = new Set(savedIds);
 
-    const data = papers.map((p) => ({
-      ...p,
-      isSaved: savedSet.has(p.id),
-    }));
+    const data = papers.map((p) =>
+      FeedPaperResDto.fromEntity({ ...p, isSaved: savedSet.has(p.id) }),
+    );
 
     return {
       message: 'Recent papers fetched successfully',
@@ -51,7 +52,6 @@ export class FeedService {
     const interestNames = user.userInterests.map((ui) => ui.interest.name);
     const fieldNames = user.userFields.map((uf) => uf.field.name);
     const tags = [...new Set([...interestNames, ...fieldNames])];
-    // const savedPaperIds = user.savedPapers.map((sp) => sp.paperId);
 
     if (tags.length === 0) {
       return {
@@ -68,10 +68,9 @@ export class FeedService {
       userId,
     });
 
-    const data = papers.map((p) => ({
-      ...p,
-      isSaved: false,
-    }));
+    const data = papers.map((p) =>
+      FeedPaperResDto.fromEntity({ ...p, isSaved: false }),
+    );
 
     return {
       message: 'Recommendations fetched successfully',
