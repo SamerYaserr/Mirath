@@ -1,22 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateReadingListDto } from '../dtos/create-reading-list.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ReadingListsRepository {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: string, data: CreateReadingListDto) {
-    return this.prisma.readingList.create({
-      data: {
-        ...data,
-        ownerId: userId,
-      },
-    });
+  async create(data: Prisma.ReadingListUncheckedCreateInput) {
+    return this.prisma.readingList.create({ data });
   }
 
   async findAllByUserId(userId: string, ownerId?: string) {
-    const targetUserId = ownerId || userId;
+    const targetUserId = ownerId ?? userId;
     const isViewingOwnLists = targetUserId === userId;
     return this.prisma.readingList.findMany({
       where: {
@@ -61,6 +56,7 @@ export class ReadingListsRepository {
             id: true,
             username: true,
             fullName: true,
+            photoUrl: true,
           },
         },
       },
@@ -121,14 +117,10 @@ export class ReadingListsRepository {
     });
   }
 
-  async isOwner(readingListId: string, userId: string): Promise<boolean> {
-    const list = await this.prisma.readingList.findFirst({
-      where: {
-        id: readingListId,
-        ownerId: userId,
-      },
-      select: { id: true },
+  async findOwner(readingListId: string): Promise<{ ownerId: string } | null> {
+    return this.prisma.readingList.findUnique({
+      where: { id: readingListId },
+      select: { ownerId: true },
     });
-    return !!list;
   }
 }

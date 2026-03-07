@@ -1,8 +1,8 @@
 import { ApiProperty, PickType } from '@nestjs/swagger';
-import { SignupDto } from './signup.dto';
+import { SignupReqDto } from './signup.req.dto';
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 
-export class VerifyResetCodeDto extends PickType(SignupDto, ['email']) {
+export class VerifyResetCodeReqDto extends PickType(SignupReqDto, ['email']) {
   @ApiProperty({
     description: 'The 6-digit one-time password sent to the email',
     example: '123456',
