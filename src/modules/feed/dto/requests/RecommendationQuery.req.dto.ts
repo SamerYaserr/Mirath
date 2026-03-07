@@ -16,8 +16,8 @@ export class RecommendationQueryDto {
 
   @ApiPropertyOptional({
     description: 'Number of items per page',
-    default: 5,
-    example: 5,
+    default: 10,
+    example: 10,
   })
   @IsOptional()
   @Type(() => Number)

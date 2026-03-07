@@ -15,5 +15,6 @@ import { SearchHistoryRepository } from '../search/repositories/search-history.r
     SavedPapersRepository,
     SearchHistoryRepository,
   ],
+  exports: [PapersRepository],
 })
 export class PapersModule {}

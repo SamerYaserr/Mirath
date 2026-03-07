@@ -7,21 +7,37 @@ import {
 import { VoteType } from '@prisma/client';
 
 import {
-  DiscussionsRepository,
-  DiscussionWithRelations,
-} from './repositories/discussions.repository';
+  CheckExistingType,
+  CreateCommentServiceArgs,
+  VoteServiceArgs,
+} from './discussions.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
-import { CreateDiscussionDto } from './dtos/create-discussion.dto';
-import { GetDiscussionsDto, SortType } from './dtos/get-discussions.dto';
-import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
-import { CreateCommentDto } from './dtos/create-comment.dto';
+import { CreateDiscussionDto } from './dto/requests/create-discussion.req.dto';
+import {
+  GetDiscussionsDto,
+  SortType,
+} from './dto/requests/get-discussions.req.dto';
+import { UsersRepository } from '../users/repositories/users.repository';
+import { PapersRepository } from '../papers/repositories/papers.repository';
+import { DiscussionsRepository } from './repositories/discussions.repository';
+import { CommentsRepository } from '../comments/repositories/comments.repository';
+import { InterestsRepository } from '../interests/repositories/interests.repository';
+import { DiscussionVotesRepository } from './repositories/discussion-votes.repository';
+import { DiscussionResDto } from './dto/responses/discussion.res.dto';
+import { CommentResDto } from './dto/responses/created-comment.res.dto';
+import { DetailedCommentResDto } from './dto/responses/comment.res.dto';
 
 @Injectable()
 export class DiscussionsService {
   constructor(
-    private discussionsRepository: DiscussionsRepository,
     private prisma: PrismaService,
+    private usersRepository: UsersRepository,
+    private papersRepository: PapersRepository,
+    private commentsRepository: CommentsRepository,
+    private interestsRepository: InterestsRepository,
+    private discussionsRepository: DiscussionsRepository,
+    private discussionVotesRepository: DiscussionVotesRepository,
   ) {}
 
   async create(
@@ -29,44 +45,46 @@ export class DiscussionsService {
     userId: string,
   ): Promise<HttpResponse> {
     const { title, content, topicIds, paperIds = [] } = dto;
+
     await Promise.all([
       this.checkExisting(topicIds),
       this.checkExisting(paperIds, 'paper'),
     ]);
 
-    const discussion = await this.discussionsRepository.create(
+    const discussion = await this.discussionsRepository.create({
       title,
       content,
       topicIds,
       paperIds,
-      userId,
-    );
-    const transformedDiscussions = this.transformDiscussion(discussion);
+      authorId: userId,
+    });
 
     return {
       message: 'discussion created successfully',
-      data: transformedDiscussions,
+      data: DiscussionResDto.fromEntity(discussion),
     };
   }
 
-  async findAll(q: GetDiscussionsDto, userId: string): Promise<HttpResponse> {
+  async findMany(q: GetDiscussionsDto, userId: string): Promise<HttpResponse> {
     const { sort = SortType.NEW, page = 1, limit = 10, topicId, authorId } = q;
     const skip = (page - 1) * limit;
+
     await Promise.all([
       topicId ? this.checkExisting([topicId]) : Promise.resolve(),
       authorId ? this.checkExisting([authorId], 'users') : Promise.resolve(),
     ]);
 
-    const discussions = await this.discussionsRepository.findAll(
+    const discussions = await this.discussionsRepository.findMany({
       userId,
       sort,
       skip,
       limit,
       topicId,
       authorId,
-    );
-    const transformedDiscussions = discussions.map((discussion) => {
-      return this.transformDiscussion(discussion);
+    });
+
+    const transformedDiscussions = discussions.map((d) => {
+      return DiscussionResDto.fromEntity(d);
     });
 
     return {
@@ -81,11 +99,9 @@ export class DiscussionsService {
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
-    const transformedDiscussions = this.transformDiscussion(discussion);
-
     return {
       message: 'Discussion retrieved successfully',
-      data: transformedDiscussions,
+      data: DiscussionResDto.fromEntity(discussion),
     };
   }
 
@@ -94,23 +110,24 @@ export class DiscussionsService {
       discussionId,
       userId,
     );
+
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
+
     if (discussion.authorId !== userId)
       throw new ForbiddenException(
         'You are only allowed to delete your discussions',
       );
 
     await this.discussionsRepository.deleteOne(discussionId);
-
     return { message: 'Discussion deleted successfully.' };
   }
 
-  async vote(
-    discussionId: string,
-    userId: string,
-    type: VoteType,
-  ): Promise<HttpResponse> {
+  async vote({
+    discussionId,
+    userId,
+    type,
+  }: VoteServiceArgs): Promise<HttpResponse> {
     const discussion = await this.discussionsRepository.findOne(
       discussionId,
       userId,
@@ -119,9 +136,8 @@ export class DiscussionsService {
       throw new NotFoundException('No discussion found with this ID');
 
     await this.prisma.$transaction(async (tx) => {
-      const existingVote = await this.discussionsRepository.findVote(
-        userId,
-        discussionId,
+      const existingVote = await this.discussionVotesRepository.findOne(
+        { userId, discussionId },
         tx,
       );
 
@@ -131,33 +147,35 @@ export class DiscussionsService {
             'You have already voted this way on this discussion.',
           );
 
-        await this.discussionsRepository.updateVoteType(
-          userId,
-          discussionId,
-          type,
+        await this.discussionVotesRepository.updateVoteType(
+          { userId, discussionId, type },
           tx,
         );
+
         const isNowUp = type === VoteType.UP;
         await this.discussionsRepository.updateVoteCounts(
-          discussionId,
           {
-            upIncrement: isNowUp ? 1 : -1,
-            downIncrement: isNowUp ? -1 : 1,
+            id: discussionId,
+            updates: {
+              upIncrement: isNowUp ? 1 : -1,
+              downIncrement: isNowUp ? -1 : 1,
+            },
           },
           tx,
         );
       } else {
-        await this.discussionsRepository.createVote(
-          userId,
-          discussionId,
-          type,
+        await this.discussionVotesRepository.create(
+          { userId, discussionId, type },
           tx,
         );
+
         await this.discussionsRepository.updateVoteCounts(
-          discussionId,
           {
-            upIncrement: type === VoteType.UP ? 1 : 0,
-            downIncrement: type === VoteType.DOWN ? 1 : 0,
+            id: discussionId,
+            updates: {
+              upIncrement: type === VoteType.UP ? 1 : 0,
+              downIncrement: type === VoteType.DOWN ? 1 : 0,
+            },
           },
           tx,
         );
@@ -171,20 +189,23 @@ export class DiscussionsService {
     discussionId: string,
     userId: string,
   ): Promise<HttpResponse> {
-    const vote = await this.discussionsRepository.findVote(
+    const vote = await this.discussionVotesRepository.findOne({
       userId,
       discussionId,
-    );
+    });
     if (!vote)
       throw new BadRequestException('You have not voted for this discussion');
 
     await this.prisma.$transaction(async (tx) => {
-      await this.discussionsRepository.deleteVote(userId, discussionId, tx);
+      await this.discussionVotesRepository.delete({ userId, discussionId }, tx);
+
       await this.discussionsRepository.updateVoteCounts(
-        discussionId,
         {
-          upIncrement: vote.type === VoteType.UP ? -1 : 0,
-          downIncrement: vote.type === VoteType.DOWN ? -1 : 0,
+          id: discussionId,
+          updates: {
+            upIncrement: vote.type === VoteType.UP ? -1 : 0,
+            downIncrement: vote.type === VoteType.DOWN ? -1 : 0,
+          },
         },
         tx,
       );
@@ -193,12 +214,13 @@ export class DiscussionsService {
     return { message: 'Vote deleted successfully.' };
   }
 
-  async createComment(
-    userId: string,
-    discussionId: string,
-    dto: CreateCommentDto,
-  ): Promise<HttpResponse> {
+  async createComment({
+    dto,
+    discussionId,
+    userId,
+  }: CreateCommentServiceArgs): Promise<HttpResponse> {
     const { content, parentId = undefined } = dto;
+
     const discussion = await this.discussionsRepository.findOne(
       discussionId,
       userId,
@@ -207,10 +229,11 @@ export class DiscussionsService {
       throw new NotFoundException('No discussion found with this ID');
 
     if (parentId) {
-      const parentComment =
-        await this.discussionsRepository.findComment(parentId);
+      const parentComment = await this.commentsRepository.findById(parentId);
+
       if (!parentComment)
         throw new NotFoundException('Parent comment not found');
+
       if (parentComment.discussionId !== discussionId)
         throw new BadRequestException(
           'Parent comment does not belong to this discussion',
@@ -218,18 +241,27 @@ export class DiscussionsService {
     }
 
     const comment = await this.prisma.$transaction(async (tx) => {
-      const newComment = await this.discussionsRepository.createComment(
-        discussionId,
-        userId,
-        content,
-        parentId,
+      const newComment = await this.commentsRepository.create(
+        {
+          discussionId,
+          authorId: userId,
+          content,
+          parentId: parentId ?? null,
+        },
         tx,
       );
-      await this.discussionsRepository.updateCommentCount(discussionId, 1, tx);
+
+      await this.discussionsRepository.updateCommentCount(
+        { id: discussionId, increment: 1 },
+        tx,
+      );
       return newComment;
     });
 
-    return { message: 'Comment posted successfully.', data: comment };
+    return {
+      message: 'Comment posted successfully.',
+      data: CommentResDto.fromEntity(comment),
+    };
   }
 
   async getDiscussionComments(
@@ -243,22 +275,14 @@ export class DiscussionsService {
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
-    const comments = await this.discussionsRepository.findDiscussionComments(
+    const comments = await this.commentsRepository.findDiscussionComments(
       userId,
       discussionId,
     );
 
-    const transformedComment = comments.map((comment) => {
-      const userVote = comment!.votes[0];
-      const { votes, ...rest } = comment!;
-
-      return {
-        ...rest,
-        hasVoted: !!userVote,
-        userVoteType: userVote?.type || undefined,
-        author: excludeUserSensitiveFields(comment!.author),
-      };
-    });
+    const transformedComment = comments.map((c) =>
+      DetailedCommentResDto.fromDetailedEntity(c),
+    );
 
     return {
       message: 'Comments retrieved successfully',
@@ -268,13 +292,19 @@ export class DiscussionsService {
   }
 
   // --- helpers ---
-  async checkExisting(ids: string[], type: string = 'topic') {
+  async checkExisting(ids: string[], type: CheckExistingType = 'topic') {
     let existing;
-    if (type === 'paper')
-      existing = await this.discussionsRepository.findExistingPapers(ids);
-    else if (type === 'users')
-      existing = await this.discussionsRepository.findExistingUsers(ids);
-    else existing = await this.discussionsRepository.findExistingTopics(ids);
+
+    switch (type) {
+      case 'paper':
+        existing = await this.papersRepository.findByIds(ids);
+        break;
+      case 'users':
+        existing = await this.usersRepository.findByIds(ids);
+        break;
+      default:
+        existing = await this.interestsRepository.findByIds(ids);
+    }
 
     if (existing.length !== ids.length) {
       const foundIds = existing.map((f) => f.id);
@@ -284,18 +314,5 @@ export class DiscussionsService {
         `Invalid ${type} ID(s): ${invalidIds.join(', ')}`,
       );
     }
-  }
-
-  private transformDiscussion(discussion: DiscussionWithRelations) {
-    const userVote = discussion!.votes[0];
-    const { votes, ...rest } = discussion!;
-
-    return {
-      ...rest,
-      hasVoted: !!userVote,
-      userVoteType: userVote?.type || undefined,
-      topics: discussion!.topics.map((t) => t.interest),
-      author: excludeUserSensitiveFields(discussion!.author),
-    };
   }
 }

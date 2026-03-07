@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { SavedPaper } from '@prisma/client';
 
 export interface SearchResult {
   id: string;
@@ -65,6 +66,41 @@ export class PapersRepository {
         content: true,
         createdAt: true,
         updatedAt: true,
+      },
+    });
+  }
+
+  async findSaved(paperId: string, userId: string): Promise<SavedPaper | null> {
+    return this.prisma.savedPaper.findUnique({
+      where: {
+        userId_paperId: { paperId, userId },
+      },
+    });
+  }
+
+  async deleteSaved(
+    paperId: string,
+    userId: string,
+  ): Promise<SavedPaper | null> {
+    return this.prisma.savedPaper.delete({
+      where: {
+        userId_paperId: {
+          paperId,
+          userId,
+        },
+      },
+    });
+  }
+
+  async findByIds(paperIds: string[]) {
+    return await this.prisma.paper.findMany({
+      where: {
+        id: {
+          in: paperIds,
+        },
+      },
+      select: {
+        id: true,
       },
     });
   }

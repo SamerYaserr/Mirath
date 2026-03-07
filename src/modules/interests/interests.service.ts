@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InterestsRepository } from './repositories/interests.repository';
+
 import { HttpResponse } from 'src/common/types/api.types';
+import { InterestResDto } from './dto/responses/interest.res.dto';
+import { InterestsRepository } from './repositories/interests.repository';
 
 @Injectable()
 export class InterestsService {
@@ -10,7 +12,11 @@ export class InterestsService {
     const interests = await this.interestsRepository.findMany({
       where: { custom: false },
     });
-    return { size: interests.length, data: interests };
+
+    return {
+      size: interests.length,
+      data: interests.map((i) => InterestResDto.fromEntity(i)),
+    };
   }
 
   async findById(interestId: string): Promise<HttpResponse> {
@@ -18,6 +24,6 @@ export class InterestsService {
     if (!interest)
       throw new NotFoundException('No interest found with this id');
 
-    return { data: interest };
+    return { data: InterestResDto.fromEntity(interest) };
   }
 }
