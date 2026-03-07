@@ -7,62 +7,51 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBadRequestResponse,
+  ApiExtraModels,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  getSchemaPath,
+} from '@nestjs/swagger';
 
 import { LibraryService } from './library.service';
-import { GetSavedPapersDto } from './dtos/get-saved-papers.dto';
+import { GetSavedPapersReqDto } from './dto/requests/get-saved-papers.req.dto';
+import { SavedPapersResDto } from './dto/responses/saved-paper-summary.res.dto';
 
+@ApiTags('Library')
+@ApiBearerAuth()
 @Controller('library')
+@ApiExtraModels(SavedPapersResDto)
 export class LibraryController {
   constructor(private readonly libraryService: LibraryService) {}
 
-  @ApiBearerAuth()
+  @Get('saved')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all saved papers',
     description:
-      'Retrieves all papers saved by the authenticated user with pagination and sorting options',
+      'Retrieves all papers saved by the authenticated user with pagination and sorting options.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Successfully retrieved saved papers',
+    description: 'Successfully retrieved saved papers.',
     schema: {
-      example: {
-        size: 2,
-        data: [
-          {
-            id: 'saved-id-1',
-            userId: 'user-id-123',
-            paperId: 'paper-id-1',
-            createdAt: '2025-12-10T10:30:00.000Z',
-            paper: {
-              id: 'paper-id-1',
-              title: 'Sample Paper',
-              abstract: 'Paper abstract',
-              authors: 'Author Name',
-            },
-          },
-        ],
+      properties: {
+        size: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(SavedPapersResDto) },
+        },
       },
     },
   })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid query parameters',
-    schema: {
-      example: {
-        statusCode: 400,
-        message: ['Limit must be an integer'],
-        error: 'Bad Request',
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - authentication required',
-  })
-  @HttpCode(HttpStatus.OK)
-  @Get('saved')
-  findAll(@Req() req: Request, @Query() q: GetSavedPapersDto) {
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  findAll(@Req() req: Request, @Query() q: GetSavedPapersReqDto) {
     const userId = req.user!.id;
     const { page, limit, sort } = q;
 

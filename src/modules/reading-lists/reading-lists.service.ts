@@ -4,9 +4,18 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
-import { ReadingListsRepository } from './repositories/reading-lists.repository';
-import { CreateReadingListDto } from './dtos/create-reading-list.dto';
 import { Prisma } from '@prisma/client';
+
+import { HttpResponse } from 'src/common/types/api.types';
+import { ReadingListsRepository } from './repositories/reading-lists.repository';
+import { CreateReadingListReqDto } from './dtos/requests/create-reading-list.req.dto';
+import { CreatedListResDto } from './dtos/responses/create-reading-list.res.dto';
+import {
+  GetAllSystemReadingListsResDto,
+  GetUserReadingListsResDto,
+} from './dtos/responses/get-all-lists.res.dto';
+import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
+import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 
 @Injectable()
 export class ReadingListsService {
@@ -14,33 +23,33 @@ export class ReadingListsService {
     private readonly readingListsRepository: ReadingListsRepository,
   ) {}
 
-  async create(userId: string, data: CreateReadingListDto) {
-    const list = await this.readingListsRepository.create(userId, data);
+  async create(
+    userId: string,
+    data: CreateReadingListReqDto,
+  ): Promise<HttpResponse<CreatedListResDto>> {
+    const list = await this.readingListsRepository.create({
+      title: data.title,
+      description: data.description ?? null,
+      isPublic: data.isPublic ?? true,
+      ownerId: userId,
+    });
+
     return {
       message: 'The reading list has been successfully created.',
-      data: list,
+      data: CreatedListResDto.fromList(list),
     };
   }
 
-  async findAll(userId: string, ownerId?: string) {
+  async findAll(
+    userId: string,
+    ownerId?: string,
+  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
     const lists = await this.readingListsRepository.findAllByUserId(
       userId,
       ownerId,
     );
 
-    const data = lists.map((list) => {
-      const categories = list.papers.flatMap((p) => p.paper.categories || []);
-
-      const uniqueCategories = [...new Set(categories)];
-      const previewTags = uniqueCategories.slice(0, 3);
-
-      const { papers, ...listWithoutPapers } = list;
-
-      return {
-        ...listWithoutPapers,
-        previewTags,
-      };
-    });
+    const data = lists.map(GetUserReadingListsResDto.fromList);
 
     return {
       message: 'Reading lists fetched successfully',
@@ -49,8 +58,9 @@ export class ReadingListsService {
     };
   }
 
-  async getAllLists() {
-    const data = await this.readingListsRepository.findAll();
+  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
+    const lists = await this.readingListsRepository.findAll();
+    const data = lists.map(GetAllSystemReadingListsResDto.fromList);
     return {
       message: 'All reading lists fetched successfully',
       data,
@@ -58,7 +68,10 @@ export class ReadingListsService {
     };
   }
 
-  async findOne(id: string, userId?: string) {
+  async findOne(
+    id: string,
+    userId?: string,
+  ): Promise<HttpResponse<FindOneReadingListResDto>> {
     const list = await this.readingListsRepository.findById(id);
     if (!list) {
       throw new NotFoundException('Reading list not found');
@@ -72,19 +85,22 @@ export class ReadingListsService {
 
     return {
       message: 'Reading list fetched successfully',
-      data: list,
+      data: FindOneReadingListResDto.fromList(list),
     };
   }
 
-  async addPaper(id: string, paperId: string, userId: string) {
+  async addPaper(
+    id: string,
+    paperId: string,
+    userId: string,
+  ): Promise<HttpResponse<AddedPaperResDto>> {
     try {
-      const list = await this.readingListsRepository.findById(id);
-      if (!list) {
+      const record = await this.readingListsRepository.findOwner(id);
+      if (!record) {
         throw new NotFoundException('Reading list not found');
       }
 
-      const isOwner = await this.readingListsRepository.isOwner(id, userId);
-      if (!isOwner) {
+      if (record.ownerId !== userId) {
         throw new ForbiddenException(
           'You can only modify your own reading lists',
         );
@@ -96,7 +112,7 @@ export class ReadingListsService {
       );
       return {
         message: 'Paper saved successfully',
-        data: addedPaper,
+        data: AddedPaperResDto.fromRecord(addedPaper),
       };
     } catch (error) {
       if (
@@ -111,13 +127,17 @@ export class ReadingListsService {
     }
   }
 
-  async removePaper(id: string, paperId: string, userId: string) {
-    const list = await this.readingListsRepository.findById(id);
-    if (!list) {
+  async removePaper(
+    id: string,
+    paperId: string,
+    userId: string,
+  ): Promise<HttpResponse> {
+    const record = await this.readingListsRepository.findOwner(id);
+    if (!record) {
       throw new NotFoundException('Reading list not found');
     }
-    const isOwner = await this.readingListsRepository.isOwner(id, userId);
-    if (!isOwner) {
+
+    if (record.ownerId !== userId) {
       throw new ForbiddenException(
         'You can only modify your own reading lists',
       );
@@ -125,6 +145,9 @@ export class ReadingListsService {
 
     try {
       await this.readingListsRepository.removePaper(id, paperId);
+      return {
+        message: 'Paper removed from the reading list successfully',
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -134,8 +157,5 @@ export class ReadingListsService {
       }
       throw error;
     }
-    return {
-      message: 'Paper removed from the reading list successfully',
-    };
   }
 }

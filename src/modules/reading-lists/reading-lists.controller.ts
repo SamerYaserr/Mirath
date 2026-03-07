@@ -21,22 +21,48 @@ import {
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiExtraModels,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ReadingListsService } from './reading-lists.service';
-import { CreateReadingListDto } from './dtos/create-reading-list.dto';
-import { AddPaperDto } from './dtos/add-paper.dto';
+
 import { IdDto } from 'src/common/dto/id.dto';
-import { DeletePaperDto } from './dtos/delete-paper.dto';
-import { OwnerIdDto } from './dtos/owner-id.dto';
+import { CreateReadingListReqDto } from './dtos/requests/create-reading-list.req.dto';
+import { AddPaperReqDto } from './dtos/requests/add-paper.req.dto';
+import { DeletePaperReqDto } from './dtos/requests/delete-paper.req.dto';
+import { ReadingListOwnerIdReqDto } from './dtos/requests/owner-id.req.dto';
+import {
+  GetAllSystemReadingListsResDto,
+  GetUserReadingListsResDto,
+} from './dtos/responses/get-all-lists.res.dto';
+import { CreatedListResDto } from './dtos/responses/create-reading-list.res.dto';
+import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
+import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
+import {
+  OwnerResDto,
+  PaperDetailResDto,
+  ReadingListPaperResDto,
+} from './dtos/responses/shared.res.dto';
+import { HttpResponse } from 'src/common/types/api.types';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
+@ApiExtraModels(
+  OwnerResDto,
+  PaperDetailResDto,
+  ReadingListPaperResDto,
+  GetUserReadingListsResDto,
+  GetAllSystemReadingListsResDto,
+  CreatedListResDto,
+  FindOneReadingListResDto,
+  AddedPaperResDto,
+)
 @Controller('reading-lists')
 export class ReadingListsController {
   constructor(private readonly readingListsService: ReadingListsService) {}
 
-  @Get('me')
+  @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get reading lists',
@@ -59,39 +85,30 @@ export class ReadingListsController {
     description:
       'Reading lists fetched successfully with paper count and preview tags.',
     schema: {
-      example: {
-        message: 'Reading lists fetched successfully',
-        size: 1,
-        data: [
-          {
-            id: 'c1a9d9f1-4b21-4b99-8d22-347799777555',
-            title: 'Neural Networks Papers',
-            description: 'A collection of must-read neural networks papers.',
-            isPublic: true,
-            ownerId: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq',
-            createdAt: '2026-01-19T18:39:07.379Z',
-            updatedAt: '2026-01-19T18:39:07.379Z',
-            _count: { papers: 15 },
-            previewTags: ['AI', 'CNN', 'Deep Learning'],
-            owner: {
-              id: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq',
-              username: 'jdoe_research',
-              fullName: 'John Doe',
-              photoUrl: 'https://example.com/avatar.jpg',
-            },
-          },
-        ],
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Reading lists fetched successfully',
+        },
+        size: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(GetUserReadingListsResDto) },
+        },
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  async findAll(@Req() req: Request, @Query() q: OwnerIdDto) {
-    const userId = req.user!['id'];
+  async findAll(
+    @Req() req: Request,
+    @Query() q: ReadingListOwnerIdReqDto,
+  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
+    const userId = req.user!.id;
     const { ownerId } = q;
     return this.readingListsService.findAll(userId, ownerId);
   }
 
-  @Get()
+  @Get('all')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all reading lists in the database',
@@ -101,62 +118,47 @@ export class ReadingListsController {
     status: HttpStatus.OK,
     description: 'All reading lists.',
     schema: {
-      example: {
-        message: 'Reading lists fetched successfully',
-        data: [
-          {
-            id: "5063158c-b696-4d7f-9737-85fdad1bf7ec",
-            title: "Biology 101 3",
-            description: "Voluptate ventosus coaegresco.",
-            isPublic: false,
-            ownerId: "8a63a83b-ba57-4388-ab30-e40822e93412",
-            createdAt: "2026-01-28T22:31:13.317Z",
-            updatedAt: "2026-01-28T22:31:13.317Z",
-            _count: {
-                papers: 7
-            },
-            owner: {
-                id: "8a63a83b-ba57-4388-ab30-e40822e93412",
-                username: "Nathan_Yundt32_49",
-                fullName: "Nathan Yundt"
-            }
-          },
-        ],
+      properties: {
+        message: {
+          type: 'string',
+          example: 'All reading lists fetched successfully',
+        },
+        size: { type: 'number', example: 1 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(GetAllSystemReadingListsResDto) },
+        },
       },
     },
   })
-  async getAllLists() {
+  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
     return this.readingListsService.getAllLists();
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new reading list' })
+  @ApiBody({ type: CreateReadingListReqDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Create a new reading list.',
     schema: {
-      example: {
-        message: 'The reading list has been successfully created.',
-        data: {
-          id: 'c1a9d9f1-4b21-4b99-8d22-347799777555',
-          title: 'Neural Networks Papers',
-          description: 'A collection of must-read neural networks papers.',
-          isPublic: false,
-          ownerId: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq',
-          createdAt: '2026-01-19T18:39:07.379Z',
-          updatedAt: '2026-01-19T18:39:07.379Z',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'The reading list has been successfully created.',
         },
+        data: { $ref: getSchemaPath(CreatedListResDto) },
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async create(
     @Req() req: Request,
-    @Body() createReadingListDto: CreateReadingListDto,
-  ) {
-    const userId = req.user!['id'];
-    return this.readingListsService.create(userId, createReadingListDto);
+    @Body() createReadingListReqDto: CreateReadingListReqDto,
+  ): Promise<HttpResponse<CreatedListResDto>> {
+    const userId = req.user!.id;
+    return this.readingListsService.create(userId, createReadingListReqDto);
   }
 
   @Get(':id')
@@ -166,38 +168,12 @@ export class ReadingListsController {
     status: HttpStatus.OK,
     description: 'Return the reading list with papers.',
     schema: {
-      example: {
-        message: 'Reading list fetched successfully',
-        data: {
-          id: 'c1a9d9f1-4b21-4b99-8d22-347799777555',
-          title: 'Neural Networks Papers',
-          description: 'A collection of must-read neural networks papers.',
-          isPublic: false,
-          ownerId: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq',
-          createdAt: '2026-01-19T18:39:07.379Z',
-          updatedAt: '2026-01-19T18:39:07.379Z',
-          papers: [
-            {
-              readingListId: 'c1a9d9f1-4b21-4b99-8d22-347799777555',
-              paperId: 'p1q2r3s4-t5u6-v7w8-x9y0-z1234567890a',
-              paper: {
-                id: 'p1q2r3s4-t5u6-v7w8-x9y0-z1234567890a',
-                title: 'Deep Learning in Neural Networks: An Overview',
-                abstract: 'This paper provides an overview of deep learning...',
-                citation: 'Citation 2025',
-                authors: ['J. Schmidhuber'],
-                categories: ['...'],
-                publishedAt: '2025-05-15T00:00:00.000Z',
-              },
-            },
-          ],
-          owner: {
-            id: 't4gvmte3-pppe-4crf-r333-9qfeqq15q7qq',
-            username: 'researcher123',
-            fullName: 'Jane Doe',
-            photoUrl: 'https://example.com/avatar.jpg',
-          },
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Reading list fetched successfully',
         },
+        data: { $ref: getSchemaPath(FindOneReadingListResDto) },
       },
     },
   })
@@ -206,25 +182,25 @@ export class ReadingListsController {
   @ApiForbiddenResponse({
     description: 'Access to private reading list denied.',
   })
-  async findOne(@Param() { id }: IdDto, @Req() req: Request) {
-    const userId = req.user!['id'];
+  async findOne(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse<FindOneReadingListResDto>> {
+    const userId = req.user!.id;
     return this.readingListsService.findOne(id, userId);
   }
 
   @Post(':id/papers')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a paper to a reading list' })
-  @ApiBody({ type: AddPaperDto })
+  @ApiBody({ type: AddPaperReqDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'The paper has been added to the list.',
     schema: {
-      example: {
-        message: 'Paper saved successfully',
-        data: {
-          readingListId: 'c1a9d9f1-4b21-4b99-8d22-347799777555',
-          paperId: 'p1q2r3s4-t5u6-v7w8-x9y0-z1234567890a',
-        },
+      properties: {
+        message: { type: 'string', example: 'Paper saved successfully' },
+        data: { $ref: getSchemaPath(AddedPaperResDto) },
       },
     },
   })
@@ -238,11 +214,15 @@ export class ReadingListsController {
   })
   async addPaper(
     @Param() { id }: IdDto,
-    @Body() addPaperDto: AddPaperDto,
+    @Body() addPaperReqDto: AddPaperReqDto,
     @Req() req: Request,
-  ) {
-    const userId = req.user!['id'];
-    return this.readingListsService.addPaper(id, addPaperDto.paperId, userId);
+  ): Promise<HttpResponse<AddedPaperResDto>> {
+    const userId = req.user!.id;
+    return this.readingListsService.addPaper(
+      id,
+      addPaperReqDto.paperId,
+      userId,
+    );
   }
 
   @Delete(':id/papers/:paperId')
@@ -252,13 +232,15 @@ export class ReadingListsController {
     status: HttpStatus.OK,
     description: 'The paper has been removed from the list.',
     schema: {
-      example: {
-        message: 'Paper removed from the reading list successfully',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Paper removed from the reading list successfully',
+        },
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  @ApiNotFoundResponse({ description: 'Reading list not found.' })
   @ApiForbiddenResponse({
     description: 'You can only modify your own reading lists',
   })
@@ -266,10 +248,10 @@ export class ReadingListsController {
     description: 'Reading list not found OR Paper not found in the list.',
   })
   async removePaper(
-    @Param() { id, paperId }: DeletePaperDto,
+    @Param() { id, paperId }: DeletePaperReqDto,
     @Req() req: Request,
-  ) {
-    const userId = req.user!['id'];
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
     return this.readingListsService.removePaper(id, paperId, userId);
   }
 }

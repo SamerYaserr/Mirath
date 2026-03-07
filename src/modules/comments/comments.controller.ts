@@ -56,7 +56,7 @@ export class CommentsController {
   ) {
     const userId = req.user!.id;
     const { type } = voteTypeDto;
-    return this.commentsService.vote(userId, id, type);
+    return this.commentsService.vote({ userId, commentId: id, type });
   }
 
   @ApiOperation({

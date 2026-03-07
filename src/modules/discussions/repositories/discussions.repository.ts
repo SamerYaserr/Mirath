@@ -1,21 +1,45 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, VoteType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
-import { SortType } from '../dtos/get-discussions.dto';
+import { SortType } from '../dto/requests/get-discussions.req.dto';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import {
+  DiscussionsFindManyArgs,
+  UpdateCommentCountArgs,
+  UpdateVoteCountsArgs,
+} from '../discussions.types';
 
 @Injectable()
 export class DiscussionsRepository {
   constructor(private prisma: PrismaService) {}
 
-  create(
-    title: string,
-    content: string,
-    topicIds: string[],
-    paperIds: string[],
-    authorId: string,
-  ) {
-    return this.prisma.discussion.create({
+  private readonly authorSelectCard: Prisma.UserSelect = {
+    id: true,
+    bio: true,
+    fullName: true,
+    username: true,
+    photoUrl: true,
+    isPremium: true,
+  };
+
+  private readonly paperSelectCard: Prisma.PaperSelect = {
+    id: true,
+    authors: true,
+    title: true,
+    abstract: true,
+  };
+
+  async create({
+    title,
+    content,
+    authorId,
+    paperIds,
+    topicIds,
+  }: Prisma.DiscussionUncheckedCreateInput & {
+    paperIds: string[];
+    topicIds: string[];
+  }) {
+    return await this.prisma.discussion.create({
       data: {
         title,
         content,
@@ -30,7 +54,9 @@ export class DiscussionsRepository {
         },
       },
       include: {
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         topics: {
           include: {
             interest: true,
@@ -45,25 +71,15 @@ export class DiscussionsRepository {
           },
         },
         papers: {
-          select: {
-            id: true,
-            authors: true,
-            title: true,
-            abstract: true,
-          },
+          select: this.paperSelectCard,
         },
       },
     });
   }
 
-  async findAll(
-    userId: string,
-    sort: SortType,
-    skip: number,
-    limit: number,
-    topicId?: string,
-    authorId?: string,
-  ) {
+  async findMany(args: DiscussionsFindManyArgs) {
+    const { topicId, authorId, sort, skip, limit, userId } = args;
+
     let whereClause: Prisma.DiscussionWhereInput = topicId
       ? {
           topics: {
@@ -75,6 +91,7 @@ export class DiscussionsRepository {
       : {};
 
     if (authorId) whereClause.authorId = authorId;
+
     const orderByClause: Prisma.DiscussionOrderByWithRelationInput[] =
       sort === SortType.TOP
         ? [{ upvoteCount: 'desc' }, { createdAt: 'desc' }]
@@ -91,7 +108,9 @@ export class DiscussionsRepository {
             interest: true,
           },
         },
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         votes: {
           where: {
             userId,
@@ -101,12 +120,7 @@ export class DiscussionsRepository {
           },
         },
         papers: {
-          select: {
-            id: true,
-            authors: true,
-            title: true,
-            abstract: true,
-          },
+          select: this.paperSelectCard,
         },
       },
     });
@@ -116,7 +130,9 @@ export class DiscussionsRepository {
     return await this.prisma.discussion.findUnique({
       where: { id },
       include: {
-        author: true,
+        author: {
+          select: this.authorSelectCard,
+        },
         topics: {
           include: {
             interest: true,
@@ -131,12 +147,7 @@ export class DiscussionsRepository {
           },
         },
         papers: {
-          select: {
-            id: true,
-            authors: true,
-            title: true,
-            abstract: true,
-          },
+          select: this.paperSelectCard,
         },
       },
     });
@@ -146,77 +157,27 @@ export class DiscussionsRepository {
     await this.prisma.discussion.delete({ where: { id } });
   }
 
-  async findVote(
-    userId: string,
-    discussionId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.discussionVote.findUnique({
-      where: {
-        userId_discussionId: { userId, discussionId },
-      },
-    });
-  }
-
-  async createVote(
-    userId: string,
-    discussionId: string,
-    type: VoteType,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.discussionVote.create({
-      data: { userId, discussionId, type },
-    });
-  }
-
-  async updateVoteType(
-    userId: string,
-    discussionId: string,
-    type: VoteType,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.discussionVote.update({
-      where: { userId_discussionId: { userId, discussionId } },
-      data: { type },
-    });
-  }
-
   async updateVoteCounts(
-    id: string,
-    updates: { upIncrement?: number; downIncrement?: number },
+    { id, updates }: UpdateVoteCountsArgs,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
     const data: Prisma.DiscussionUpdateInput = {};
-    if (updates.upIncrement) {
+
+    if (updates.upIncrement)
       data.upvoteCount = { increment: updates.upIncrement };
-    }
-    if (updates.downIncrement) {
+
+    if (updates.downIncrement)
       data.downvoteCount = { increment: updates.downIncrement };
-    }
+
     return client.discussion.update({
       where: { id },
       data,
     });
   }
 
-  async deleteVote(
-    userId: string,
-    discussionId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return client.discussionVote.delete({
-      where: { userId_discussionId: { userId, discussionId } },
-    });
-  }
-
   async updateCommentCount(
-    id: string,
-    increment: number,
+    { id, increment }: UpdateCommentCountArgs,
     tx?: Prisma.TransactionClient,
   ) {
     const client = tx || this.prisma;
@@ -225,94 +186,4 @@ export class DiscussionsRepository {
       data: { commentCount: { increment } },
     });
   }
-
-  async findExistingTopics(topicIds: string[]) {
-    return await this.prisma.interest.findMany({
-      where: {
-        id: {
-          in: topicIds,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-  }
-
-  async findExistingPapers(paperIds: string[]) {
-    return await this.prisma.paper.findMany({
-      where: {
-        id: {
-          in: paperIds,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-  }
-
-  async findExistingUsers(ids: string[]) {
-    if (ids.length === 1) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: ids[0]! },
-        select: { id: true },
-      });
-      return user ? [user] : [];
-    }
-
-    return this.prisma.user.findMany({
-      where: {
-        id: { in: ids },
-      },
-      select: {
-        id: true,
-      },
-    });
-  }
-
-  async createComment(
-    discussionId: string,
-    authorId: string,
-    content: string,
-    parentId?: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx || this.prisma;
-    return await client.comment.create({
-      data: {
-        authorId,
-        discussionId,
-        content,
-        parentId: parentId ?? null,
-      },
-    });
-  }
-
-  async findComment(id: string, tx?: Prisma.TransactionClient) {
-    const client = tx || this.prisma;
-    return await client.comment.findUnique({ where: { id } });
-  }
-
-  async findDiscussionComments(userId: string, discussionId: string) {
-    return this.prisma.comment.findMany({
-      where: { discussionId },
-      include: {
-        author: true,
-        votes: {
-          where: {
-            userId,
-          },
-          select: {
-            type: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
 }
-
-export type DiscussionWithRelations = Awaited<
-  ReturnType<DiscussionsRepository['findOne']>
->;

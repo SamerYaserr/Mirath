@@ -13,19 +13,28 @@ import { v4 as uuidv4 } from 'uuid';
 import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import { LoginTicket, OAuth2Client } from 'google-auth-library';
 
-import { SignupDto } from './dto/signup.dto';
+import { HttpResponse } from 'src/common/types/api.types';
+import { SignupReqDto } from './dto/requests/signup.req.dto';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { OtpRepository } from './repositories/otp.repository';
 import { MailService } from '../mail/mail.service';
 import { winstonLogger } from 'src/config/logger.config';
 import { TokenService } from './utils/token.service';
 import { RefreshTokenRepository } from './repositories/refreshToken.repository';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { GoogleAuthDto } from './dto/google-auth.dto';
-import { LoginDto } from './dto/login.dto';
-import { CheckVerificationDto } from './dto/check-verification.dto';
-import { HttpResponse } from 'src/common/types/api.types';
+import { VerifyEmailReqDto } from './dto/requests/verify-email.req.dto';
+import { ResendVerificationReqDto } from './dto/requests/resend-verification.req.dto';
+import { GoogleAuthReqDto } from './dto/requests/google-auth.req.dto';
+import { LoginReqDto } from './dto/requests/login.req.dto';
+import { CheckVerificationReqDto } from './dto/requests/check-verification.req.dto';
+
+import { AuthSessionResult, RotateRefreshTokenResult } from './auth.types';
+import { ForgetPasswordReqDto } from './dto/requests/forget-password.req.dto';
+import { VerifyResetCodeReqDto } from './dto/requests/verify-reset-code.req.dto';
+import { ResetPasswordReqDto } from './dto/requests/reset-password.req.dto';
+import { SignupDataResDto } from './dto/responses/signup.res.dto';
+import { CheckVerificationResDto } from './dto/responses/check-verification.res.dto';
+import { CheckSetupResDto } from './dto/responses/check-setup.res.dto';
+import { ResetTokenResDto } from './dto/responses/auth-token.res.dto';
 
 @Injectable()
 export class AuthService {
@@ -45,19 +54,17 @@ export class AuthService {
     );
   }
 
-  async signup(signupDto: SignupDto): Promise<HttpResponse> {
-    if (signupDto.password !== signupDto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
-
+  async signup(
+    signupReqDto: SignupReqDto,
+  ): Promise<HttpResponse<SignupDataResDto>> {
     const existingUser = await this.usersRepository.findByEmailOrUsername(
-      signupDto.email,
-      signupDto.username,
+      signupReqDto.email,
+      signupReqDto.username,
     );
     if (existingUser) {
       if (
-        existingUser.email === signupDto.email &&
-        existingUser.username === signupDto.username
+        existingUser.email === signupReqDto.email &&
+        existingUser.username === signupReqDto.username
       ) {
         switch (existingUser.status) {
           case UserStatus.PENDING_VERIFICATION:
@@ -83,19 +90,19 @@ export class AuthService {
         }
       }
 
-      if (existingUser.email === signupDto.email) {
+      if (existingUser.email === signupReqDto.email) {
         throw new ConflictException('Email is already in use');
       }
-      if (existingUser.username === signupDto.username) {
+      if (existingUser.username === signupReqDto.username) {
         throw new ConflictException('Username is already in use');
       }
     }
 
-    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
+    const hashedPassword = await bcrypt.hash(signupReqDto.password, 10);
 
     const newUser = await this.usersRepository.create({
-      email: signupDto.email,
-      username: signupDto.username,
+      email: signupReqDto.email,
+      username: signupReqDto.username,
       password: hashedPassword,
       status: UserStatus.PENDING_VERIFICATION,
     });
@@ -112,19 +119,16 @@ export class AuthService {
     return {
       message:
         'Signup successful. Please check your email for the verification code.',
-      data: {
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          username: newUser.username,
-          status: newUser.status,
-        },
-      },
+      data: SignupDataResDto.fromUser(newUser),
     };
   }
 
-  async verifyEmail(verifyEmailDto: VerifyEmailDto) {
-    const user = await this.usersRepository.findByEmail(verifyEmailDto.email);
+  async verifyEmail(
+    verifyEmailReqDto: VerifyEmailReqDto,
+  ): Promise<AuthSessionResult> {
+    const user = await this.usersRepository.findByEmail(
+      verifyEmailReqDto.email,
+    );
     if (!user) throw new BadRequestException('Invalid request');
 
     const otpRecord = await this.otpRepository.findPendingOtp(
@@ -134,7 +138,10 @@ export class AuthService {
 
     if (!otpRecord) throw new BadRequestException('Invalid or expired OTP');
 
-    const isMatch = await bcrypt.compare(verifyEmailDto.otp, otpRecord.otpCode);
+    const isMatch = await bcrypt.compare(
+      verifyEmailReqDto.otp,
+      otpRecord.otpCode,
+    );
     if (!isMatch) {
       throw new BadRequestException('Invalid or expired OTP');
     }
@@ -150,13 +157,15 @@ export class AuthService {
     return this.createSession(updatedUser, 'Email verified successfully');
   }
 
-  async resendVerification(resendVerificationDto: ResendVerificationDto) {
+  async resendVerification(
+    resendVerificationReqDto: ResendVerificationReqDto,
+  ): Promise<HttpResponse<null>> {
     const user = await this.usersRepository.findByEmail(
-      resendVerificationDto.email,
+      resendVerificationReqDto.email,
     );
-    if (!user) throw new BadRequestException('User not found');
+    if (!user) throw new NotFoundException('User not found');
     if (user.status === UserStatus.ACTIVE)
-      throw new BadRequestException('Account already verified');
+      throw new ConflictException('Account already verified');
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const recentOtps = await this.otpRepository.countRecentOtps(
@@ -178,21 +187,23 @@ export class AuthService {
 
     await this.generateAndSendOtp(user.id, user.email, OtpPurpose.REGISTER);
 
-    return { message: 'Verification code resent successfully' };
+    return { message: 'Verification code resent successfully.' };
   }
 
-  async authenticateWithGoogle(googleAuthDto: GoogleAuthDto) {
+  async authenticateWithGoogle(
+    googleAuthReqDto: GoogleAuthReqDto,
+  ): Promise<AuthSessionResult> {
     let ticket: LoginTicket | undefined;
-    try {
-      const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-      if (!googleClientId) {
-        throw new InternalServerErrorException(
-          'Google Client ID is not configured',
-        );
-      }
+    const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!googleClientId) {
+      throw new InternalServerErrorException(
+        'Google Client ID is not configured',
+      );
+    }
 
+    try {
       ticket = await this.googleClient.verifyIdToken({
-        idToken: googleAuthDto.idToken,
+        idToken: googleAuthReqDto.idToken,
         audience: googleClientId,
       });
     } catch (error) {
@@ -277,10 +288,10 @@ export class AuthService {
     return this.createSession(user, 'Account created successfully with Google');
   }
 
-  async login(loginDto: LoginDto) {
-    winstonLogger.info(`Login attempt for: ${loginDto.emailOrUsername}`);
+  async login(loginReqDto: LoginReqDto): Promise<AuthSessionResult> {
+    winstonLogger.info(`Login attempt for: ${loginReqDto.emailOrUsername}`);
 
-    const { emailOrUsername, password } = loginDto;
+    const { emailOrUsername, password } = loginReqDto;
     const isEmail = emailOrUsername.includes('@');
 
     const user = await this.usersRepository.findByEmailOrUsername(
@@ -289,7 +300,7 @@ export class AuthService {
     );
 
     if (!user) {
-      winstonLogger.warn(`Invlaid login username/email for ${emailOrUsername}`);
+      winstonLogger.warn(`Invalid login username/email for ${emailOrUsername}`);
       throw new UnauthorizedException('Invalid email/username or password');
     }
 
@@ -304,7 +315,7 @@ export class AuthService {
 
     const isCorrectPass = await bcrypt.compare(password, user.password!);
     if (!isCorrectPass) {
-      winstonLogger.warn(`Invlaid login password for ${emailOrUsername}`);
+      winstonLogger.warn(`Invalid login password for ${emailOrUsername}`);
       throw new UnauthorizedException('Invalid email/username or password');
     }
 
@@ -326,19 +337,26 @@ export class AuthService {
 
     await this.refreshTokenRepository.countActiveAndDeleteOldestToken(user.id);
     winstonLogger.info(`User ${emailOrUsername} logged in successfully`);
-    return await this.createSession(user, 'Logged in successfully');
+    return this.createSession(user, 'Logged in successfully');
   }
 
-  async logout(refreshToken: string) {
-    let payload = await this.tokenService.verifyRefreshToken(refreshToken);
-    await this.refreshTokenRepository.deleteBySessionId(payload.sid);
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const payload = await this.tokenService.verifyRefreshToken(refreshToken);
+      await this.refreshTokenRepository.deleteBySessionId(payload.sid);
 
-    winstonLogger.info(
-      `Session ${payload.sid} logged out/revoked successfully`,
-    );
+      winstonLogger.info(
+        `Session ${payload.sid} logged out/revoked successfully`,
+      );
+    } catch (error) {
+      winstonLogger.warn('Logout called with invalid or missing refresh token');
+    }
   }
 
-  async forgetPassword(email: string) {
+  async forgetPassword(
+    forgetPasswordReqDto: ForgetPasswordReqDto,
+  ): Promise<HttpResponse<null>> {
+    const { email } = forgetPasswordReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (user) {
       await this.otpRepository.invalidatePendingOtps(
@@ -361,7 +379,10 @@ export class AuthService {
     };
   }
 
-  async verifyResetCode(email: string, otp: string) {
+  async verifyResetCode(
+    verifyResetCodeReqDto: VerifyResetCodeReqDto,
+  ): Promise<HttpResponse<ResetTokenResDto>> {
+    const { email, otp } = verifyResetCodeReqDto;
     const user = await this.usersRepository.findByEmail(email);
     if (!user) throw new BadRequestException('Invalid or expired OTP');
 
@@ -395,17 +416,16 @@ export class AuthService {
       forPasswordReset: true,
     };
     const resetToken = await this.tokenService.generateResetToken(payload);
-    return { resetToken };
+    return {
+      message: 'OTP verified successfully.',
+      data: ResetTokenResDto.fromToken(resetToken),
+    };
   }
 
   async resetPassword(
-    resetToken: string,
-    password: string,
-    confirmPassword: string,
-  ) {
-    if (password !== confirmPassword)
-      throw new BadRequestException('Passwords do not match');
-
+    resetPasswordReqDto: ResetPasswordReqDto,
+  ): Promise<HttpResponse<null>> {
+    const { resetToken, password } = resetPasswordReqDto;
     const verifiedToken = await this.tokenService.verifyResetToken(resetToken);
     if (!verifiedToken || !verifiedToken.forPasswordReset)
       throw new ForbiddenException('Reset token is invalid or expired');
@@ -434,9 +454,11 @@ export class AuthService {
     return { message: 'Password reset successfully.' };
   }
 
-  async checkVerificationStatus(checkVerificationDto: CheckVerificationDto) {
+  async checkVerificationStatus(
+    checkVerificationReqDto: CheckVerificationReqDto,
+  ): Promise<HttpResponse<CheckVerificationResDto>> {
     const user = await this.usersRepository.findByEmail(
-      checkVerificationDto.email,
+      checkVerificationReqDto.email,
     );
 
     if (!user) {
@@ -446,24 +468,32 @@ export class AuthService {
     const isVerified = user.status !== UserStatus.PENDING_VERIFICATION;
 
     return {
-      isVerified,
-      status: user.status,
+      message: 'Verification status retrieved successfully.',
+      data: {
+        isVerified,
+        status: user.status,
+      },
     };
   }
 
-  async checkSetupStatus(userId: string) {
+  async checkSetupStatus(
+    userId: string,
+  ): Promise<HttpResponse<CheckSetupResDto>> {
     const user = await this.usersRepository.findById(userId);
-    const isSetupCompleted = user!.status === UserStatus.ACTIVE;
+    if (!user) throw new NotFoundException('User not found');
+
+    const isSetupCompleted = user.status === UserStatus.ACTIVE;
 
     return {
-      isSetupCompleted,
-      status: user!.status,
+      message: 'Setup status retrieved successfully.',
+      data: {
+        isSetupCompleted,
+        status: user.status,
+      },
     };
   }
 
-  async rotateRefreshToken(
-    token: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async rotateRefreshToken(token: string): Promise<RotateRefreshTokenResult> {
     let jti: string;
 
     try {
@@ -525,7 +555,7 @@ export class AuthService {
     userId: string,
     email: string,
     purpose: OtpPurpose,
-  ) {
+  ): Promise<void> {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const hashedOtp = await bcrypt.hash(otp, 10);
@@ -546,7 +576,10 @@ export class AuthService {
     await this.mailService.sendOtpEmail(email, otp);
   }
 
-  private async createSession(user: User, message: string) {
+  private async createSession(
+    user: User,
+    message: string,
+  ): Promise<AuthSessionResult> {
     const refreshExpiresAt = this.tokenService.getRefreshTokenExpiresAt();
 
     const sessionId = uuidv4();

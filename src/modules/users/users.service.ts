@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProfileSetupDto } from './dto/profile-setup.dto';
+import { ProfileSetupReqDto } from './dto/requests/profile-setup.req.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UsersRepository } from './repositories/users.repository';
@@ -16,7 +16,10 @@ import { UserInterestsRepository } from '../interests/repositories/user-interest
 import { excludeUserSensitiveFields } from 'src/common/utils/user.utils';
 import { FollowsRepository } from './repositories/follows.repository';
 import { FormattedProfile } from './user.types';
-import { ProfileResDto } from './dto/profile.res.dto';
+import { ProfileResDto } from './dto/responses/profile.res.dto';
+import { SetupProfileResDto } from './dto/responses/setup-profile.res.dto';
+import { FollowUserResDto } from './dto/responses/follow-user.res.dto';
+import { MyProfileResDto } from './dto/responses/my-profile.res.dto';
 
 @Injectable()
 export class UsersService {
@@ -32,8 +35,8 @@ export class UsersService {
   async setupProfile(
     userId: string,
     profilePhoto: Express.Multer.File,
-    dto: ProfileSetupDto,
-  ): Promise<HttpResponse> {
+    dto: ProfileSetupReqDto,
+  ): Promise<HttpResponse<SetupProfileResDto>> {
     const existingInterests = await this.interestsRepository.findMany({
       where: { name: { in: dto.interests } },
       select: {
@@ -99,15 +102,15 @@ export class UsersService {
 
     return {
       message: 'Profile setup completed successfully',
-      data: excludeUserSensitiveFields(user),
+      data: SetupProfileResDto.fromEntity(excludeUserSensitiveFields(user)),
     };
   }
 
-  async getMyProfile(userId: string): Promise<HttpResponse<FormattedProfile>> {
+  async getMyProfile(userId: string): Promise<HttpResponse<MyProfileResDto>> {
     const profile = await this._getFormattedProfile(userId);
 
     return {
-      data: profile,
+      data: MyProfileResDto.fromDomain(profile),
     };
   }
 
@@ -148,7 +151,7 @@ export class UsersService {
     userId: string,
     viewerId: string,
     pagination: PaginationDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<FollowUserResDto[]>> {
     await this.checkUserExistance(userId);
 
     const followers = await this.followsRepository.findFollowers(
@@ -160,14 +163,14 @@ export class UsersService {
     const followerIds = followers.map((f) => f.follower.id);
     const followingSet = await this.getFollowingSet(viewerId, followerIds);
 
-    const formattedFollowers = followers.map((f) => ({
-      ...f.follower,
-      isFollowing: followingSet.has(f.follower.id),
-    }));
-
     return {
       message: 'Followers retrieved successfully',
-      data: formattedFollowers,
+      data: followers.map((f) =>
+        FollowUserResDto.fromEntity(
+          f.follower,
+          followingSet.has(f.follower.id),
+        ),
+      ),
     };
   }
 
@@ -175,7 +178,7 @@ export class UsersService {
     userId: string,
     viewerId: string,
     pagination: PaginationDto,
-  ): Promise<HttpResponse> {
+  ): Promise<HttpResponse<FollowUserResDto[]>> {
     await this.checkUserExistance(userId);
 
     const followings = await this.followsRepository.findFollowings(
@@ -187,14 +190,14 @@ export class UsersService {
     const followingIds = followings.map((f) => f.following.id);
     const followingSet = await this.getFollowingSet(viewerId, followingIds);
 
-    const formattedFollowings = followings.map((f) => ({
-      ...f.following,
-      isFollowing: followingSet.has(f.following.id),
-    }));
-
     return {
       message: 'Following retrieved successfully',
-      data: formattedFollowings,
+      data: followings.map((f) =>
+        FollowUserResDto.fromEntity(
+          f.following,
+          followingSet.has(f.following.id),
+        ),
+      ),
     };
   }
 

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiExtraModels,
   ApiNotFoundResponse,
   ApiOperation,
@@ -18,77 +19,67 @@ import {
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { PapersService } from './papers.service';
-import { SearchPaperDto } from './dto/search-paper.dto';
+import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
 import { IdDto } from 'src/common/dto/id.dto';
-import { PaperResDto, PaperResponseDto } from './dto/paper.res.dto';
+import { PaperResDto } from './dto/responses/paper.res.dto';
+import { SavedPaperResDto } from './dto/responses/saved-paper.res.dto';
+import { SearchResultResDto } from './dto/responses/search-result.res.dto';
 
 @ApiTags('Papers')
+@ApiBearerAuth()
 @Controller('papers')
-@ApiExtraModels(PaperResDto)
+@ApiExtraModels(PaperResDto, SavedPaperResDto, SearchResultResDto)
 export class PapersController {
   constructor(private readonly papersService: PapersService) {}
 
-  @ApiBearerAuth()
+  @Post(':id/save')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Save a paper',
+    description: "Saves a paper to the user's library.",
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Save a paper to library',
-    example: {
-      message: 'Paper saved successfully',
-      data: {
-        id: 'paper-id-123',
-        userId: 'user-id-456',
-        paperId: 'paper-id-123',
-        createdAt: '2025-12-10T10:30:00.000Z',
+    description: 'Paper saved successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Paper saved successfully.' },
+        data: { $ref: getSchemaPath(SavedPaperResDto) },
       },
     },
   })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'No paper found with this id',
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'This paper is already saved',
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post(':id/save')
+  @ApiNotFoundResponse({ description: 'No paper found with this id' })
+  @ApiConflictResponse({ description: 'This paper is already saved' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   savePaper(@Param() { id }: IdDto, @Req() req: Request) {
     const userId = req.user!.id;
     return this.papersService.savePaper(id, userId);
   }
 
-  @ApiBearerAuth()
+  @Delete(':id/save')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete a saved paper',
+    description: 'Removes a paper from the authenticated user saved list.',
   })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
-    description: 'Saved paper deleted successfully',
+    description: 'Saved paper deleted successfully.',
   })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Paper not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'This paper was not in your saved list',
-  })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Delete(':id/save')
+  @ApiNotFoundResponse({ description: 'Paper not found' })
+  @ApiNotFoundResponse({ description: 'This paper was not in your saved list' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   deleteSavedPaper(@Param() { id }: IdDto, @Req() req: Request) {
     const userId = req.user!.id;
     return this.papersService.deleteSavedPaper(id, userId);
   }
 
   @Get('search')
-  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Search papers',
@@ -96,31 +87,28 @@ export class PapersController {
       'Performs a search on papers. Returns results in the standard HttpResponse format.',
   })
   @ApiResponse({
-    status: 200,
+    status: HttpStatus.OK,
     description: 'Search results retrieved successfully.',
     schema: {
-      example: {
-        message: 'Search results retrieved successfully',
-        data: [
-          {
-            id: '123e4567-e89b-12d3-a456-426614174000',
-            title: 'Quantum Computing Advances',
-            abstract: 'In this paper we discuss...',
-            publishedAt: '2025-01-01T00:00:00.000Z',
-            isSaved: true,
-          },
-        ],
-        size: 1,
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Search results retrieved successfully.',
+        },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(SearchResultResDto) },
+        },
+        size: { type: 'number', example: 1 },
       },
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  async search(@Req() req: Request, @Query() searchDto: SearchPaperDto) {
+  async search(@Req() req: Request, @Query() searchDto: SearchPaperReqDto) {
     const userId = req.user!.id;
     return this.papersService.search(userId, searchDto);
   }
 
-  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get paper by ID',
     description:
@@ -134,11 +122,20 @@ export class PapersController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Paper retrieved successfully',
-    type: PaperResponseDto,
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Paper retrieved successfully.' },
+        data: {
+          type: 'object',
+          properties: {
+            paper: { $ref: getSchemaPath(PaperResDto) },
+          },
+        },
+      },
+    },
   })
-  @ApiNotFoundResponse({
-    description: 'No paper found with this id',
-  })
+  @ApiNotFoundResponse({ description: 'No paper found with this id' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   @Get(':id')
   async find(@Param() { id }: IdDto) {
     return this.papersService.find(id);

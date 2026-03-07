@@ -1,0 +1,14 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsUUID } from 'class-validator';
+
+export class ReadingListOwnerIdReqDto {
+  @ApiPropertyOptional({
+    description:
+      "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists.",
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'ownerId must be a valid UUID' })
+  ownerId?: string;
+}

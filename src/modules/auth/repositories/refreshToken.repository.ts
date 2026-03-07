@@ -26,9 +26,12 @@ export class RefreshTokenRepository {
       },
     });
 
-    if (tokens.length >= 2) {
-      await this.prisma.refreshToken.delete({
-        where: { id: tokens[0]!.id },
+    const MAX_SESSIONS = 2;
+
+    if (tokens.length >= MAX_SESSIONS) {
+      const toDelete = tokens.slice(0, tokens.length - MAX_SESSIONS + 1);
+      await this.prisma.refreshToken.deleteMany({
+        where: { id: { in: toDelete.map((t) => t.id) } },
       });
     }
   }
@@ -56,7 +59,7 @@ export class RefreshTokenRepository {
   }
 
   async findById(tokenId: string) {
-    return await this.prisma.refreshToken.findUnique({
+    return this.prisma.refreshToken.findUnique({
       where: { id: tokenId },
     });
   }
@@ -67,7 +70,7 @@ export class RefreshTokenRepository {
     expireAt: Date,
     sessionId: string,
   ) {
-    return await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.refreshToken.delete({ where: { id: tokenId } });
       return await tx.refreshToken.create({
         data: {
