@@ -73,6 +73,7 @@ model User {
   followers         Follows[]          @relation("follower")
   followings        Follows[]          @relation("following")
   savedReadingLists SavedReadingList[]
+  readingHistories  ReadingHistory[]
 
   @@unique([providerId])
   @@index([email])
@@ -185,6 +186,7 @@ model Paper {
   savedPapers       SavedPaper[]
   readingListPapers ReadingListPaper[]
   discussions       Discussion[]
+  readingHistories  ReadingHistory[]
 
   @@index([publishedAt])
   // Array Indexes (Exact Match)
@@ -352,4 +354,17 @@ model DiscussionTopic {
   interest   Interest   @relation(fields: [interestId], references: [id], onDelete: Cascade)
 
   @@id([discussionId, interestId])
+}
+
+model ReadingHistory {
+  id       String   @id @default(uuid())
+  userId   String   @db.Uuid
+  paperId  String   @db.Uuid
+  viewedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, paperId])
+  @@index([userId, viewedAt(sort: Desc)])
 }
