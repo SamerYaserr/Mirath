@@ -31,7 +31,7 @@ export class ReadingListsService {
     const list = await this.readingListsRepository.create({
       title: data.title,
       description: data.description ?? null,
-      isPublic: data.isPublic ?? true,
+      isPublic: data.isPublic ?? false,
       ownerId: userId,
     });
 
