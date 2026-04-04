@@ -127,4 +127,8 @@ export class ReadingListsRepository {
   async update(id: string, data: Prisma.ReadingListUpdateInput) {
     return this.prisma.readingList.update({ where: { id }, data });
   }
+
+  async delete(id: string) {
+    return this.prisma.readingList.delete({ where: { id } });
+  }
 }

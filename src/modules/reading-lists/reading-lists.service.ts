@@ -96,16 +96,7 @@ export class ReadingListsService {
     userId: string,
   ): Promise<HttpResponse<AddedPaperResDto>> {
     try {
-      const record = await this.readingListsRepository.findOwner(id);
-      if (!record) {
-        throw new NotFoundException('Reading list not found');
-      }
-
-      if (record.ownerId !== userId) {
-        throw new ForbiddenException(
-          'You can only modify your own reading lists',
-        );
-      }
+      await this.verifyOwnership(id, userId);
 
       const addedPaper = await this.readingListsRepository.addPaper(
         id,
@@ -133,16 +124,7 @@ export class ReadingListsService {
     paperId: string,
     userId: string,
   ): Promise<HttpResponse> {
-    const record = await this.readingListsRepository.findOwner(id);
-    if (!record) {
-      throw new NotFoundException('Reading list not found');
-    }
-
-    if (record.ownerId !== userId) {
-      throw new ForbiddenException(
-        'You can only modify your own reading lists',
-      );
-    }
+    await this.verifyOwnership(id, userId);
 
     try {
       await this.readingListsRepository.removePaper(id, paperId);
@@ -165,6 +147,26 @@ export class ReadingListsService {
     userId,
     data,
   }: UpdateReadingListServiceParams): Promise<HttpResponse<CreatedListResDto>> {
+    await this.verifyOwnership(id, userId);
+
+    const updatedRecord = await this.readingListsRepository.update(id, data);
+    return {
+      message: 'Reading list updated successfully',
+      data: CreatedListResDto.fromList(updatedRecord),
+    };
+  }
+
+  async delete(id: string, userId: string): Promise<HttpResponse> {
+    await this.verifyOwnership(id, userId);
+
+    await this.readingListsRepository.delete(id);
+    return {
+      message: 'Reading list deleted successfully',
+    };
+  }
+
+  // -- Helpers --
+  async verifyOwnership(id: string, userId: string) {
     const record = await this.readingListsRepository.findOwner(id);
     if (!record) {
       throw new NotFoundException('Reading list not found');
@@ -175,11 +177,5 @@ export class ReadingListsService {
         'You can only modify your own reading lists',
       );
     }
-
-    const updatedRecord = await this.readingListsRepository.update(id, data);
-    return {
-      message: 'Reading list updated successfully',
-      data: CreatedListResDto.fromList(updatedRecord),
-    };
   }
 }

@@ -287,4 +287,17 @@ export class ReadingListsController {
     const userId = req.user!.id;
     return this.readingListsService.update({ id, userId, data: dto });
   }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a reading list' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'Reading list not found' })
+  @ApiForbiddenResponse({
+    description: 'You can only modify your own reading lists',
+  })
+  async delete(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.readingListsService.delete(id, userId);
+  }
 }
