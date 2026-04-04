@@ -123,4 +123,8 @@ export class ReadingListsRepository {
       select: { ownerId: true },
     });
   }
+
+  async update(id: string, data: Prisma.ReadingListUpdateInput) {
+    return this.prisma.readingList.update({ where: { id }, data });
+  }
 }

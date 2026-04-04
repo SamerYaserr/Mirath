@@ -9,6 +9,7 @@ import {
   HttpStatus,
   HttpCode,
   Query,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -45,6 +46,7 @@ import {
   ReadingListPaperResDto,
 } from './dtos/responses/shared.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
@@ -253,5 +255,36 @@ export class ReadingListsController {
   ): Promise<HttpResponse> {
     const userId = req.user!.id;
     return this.readingListsService.removePaper(id, paperId, userId);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update a reading list' })
+  @ApiBody({ type: UpdateReadingListReqDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Reading list updated successfully',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Reading list updated successfully',
+        },
+        data: { $ref: getSchemaPath(CreatedListResDto) },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'Reading list not found' })
+  @ApiForbiddenResponse({
+    description: 'You can only modify your own reading lists',
+  })
+  async Update(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Body() dto: UpdateReadingListReqDto,
+  ): Promise<HttpResponse<CreatedListResDto>> {
+    const userId = req.user!.id;
+    return this.readingListsService.update({ id, userId, data: dto });
   }
 }

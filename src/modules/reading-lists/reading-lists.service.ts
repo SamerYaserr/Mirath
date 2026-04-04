@@ -16,6 +16,7 @@ import {
 } from './dtos/responses/get-all-lists.res.dto';
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
 import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
+import { UpdateReadingListServiceParams } from './reading-list.types';
 
 @Injectable()
 export class ReadingListsService {
@@ -157,5 +158,28 @@ export class ReadingListsService {
       }
       throw error;
     }
+  }
+
+  async update({
+    id,
+    userId,
+    data,
+  }: UpdateReadingListServiceParams): Promise<HttpResponse<CreatedListResDto>> {
+    const record = await this.readingListsRepository.findOwner(id);
+    if (!record) {
+      throw new NotFoundException('Reading list not found');
+    }
+
+    if (record.ownerId !== userId) {
+      throw new ForbiddenException(
+        'You can only modify your own reading lists',
+      );
+    }
+
+    const updatedRecord = await this.readingListsRepository.update(id, data);
+    return {
+      message: 'Reading list updated successfully',
+      data: CreatedListResDto.fromList(updatedRecord),
+    };
   }
 }
