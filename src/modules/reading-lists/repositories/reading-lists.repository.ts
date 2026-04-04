@@ -116,8 +116,13 @@ export class ReadingListsRepository {
     });
   }
 
-  async addPaper(readingListId: string, paperId: string) {
-    return this.prisma.readingListPaper.create({
+  async addPaper(
+    readingListId: string,
+    paperId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.readingListPaper.create({
       data: {
         readingListId,
         paperId,
@@ -125,8 +130,13 @@ export class ReadingListsRepository {
     });
   }
 
-  async removePaper(readingListId: string, paperId: string) {
-    return this.prisma.readingListPaper.delete({
+  async removePaper(
+    readingListId: string,
+    paperId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.readingListPaper.delete({
       where: {
         readingListId_paperId: {
           readingListId,
@@ -136,18 +146,28 @@ export class ReadingListsRepository {
     });
   }
 
-  async findOwner(readingListId: string): Promise<{ ownerId: string } | null> {
-    return this.prisma.readingList.findUnique({
+  async findOwner(
+    readingListId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ ownerId: string } | null> {
+    const client = tx || this.prisma;
+    return client.readingList.findUnique({
       where: { id: readingListId },
       select: { ownerId: true },
     });
   }
 
-  async update(id: string, data: Prisma.ReadingListUpdateInput) {
-    return this.prisma.readingList.update({ where: { id }, data });
+  async update(
+    id: string,
+    data: Prisma.ReadingListUpdateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.readingList.update({ where: { id }, data });
   }
 
-  async delete(id: string) {
-    return this.prisma.readingList.delete({ where: { id } });
+  async delete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    return client.readingList.delete({ where: { id } });
   }
 }
