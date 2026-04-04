@@ -17,6 +17,7 @@ import {
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
 import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 import { UpdateReadingListServiceParams } from './reading-list.types';
+import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
 
 @Injectable()
 export class ReadingListsService {
@@ -43,19 +44,21 @@ export class ReadingListsService {
 
   async findAll(
     userId: string,
-    ownerId?: string,
+    { ownerId, skip, limit }: GetReadingListsQueryReqDto,
   ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
-    const lists = await this.readingListsRepository.findAllByUserId(
-      userId,
-      ownerId,
-    );
+    const [lists, totalCount] = await Promise.all([
+      this.readingListsRepository.findAllByUserId(userId, ownerId, {
+        skip,
+        take: limit,
+      }),
+      this.readingListsRepository.countByUserId(userId, ownerId),
+    ]);
 
     const data = lists.map(GetUserReadingListsResDto.fromList);
-
     return {
       message: 'Reading lists fetched successfully',
       data,
-      size: data.length,
+      size: totalCount,
     };
   }
 

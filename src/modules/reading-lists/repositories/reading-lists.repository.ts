@@ -10,14 +10,21 @@ export class ReadingListsRepository {
     return this.prisma.readingList.create({ data });
   }
 
-  async findAllByUserId(userId: string, ownerId?: string) {
+  async findAllByUserId(
+    userId: string,
+    ownerId?: string,
+    options?: Prisma.ReadingListFindManyArgs,
+  ) {
     const targetUserId = ownerId ?? userId;
     const isViewingOwnLists = targetUserId === userId;
+
     return this.prisma.readingList.findMany({
       where: {
         ownerId: targetUserId,
         ...(isViewingOwnLists ? {} : { isPublic: true }),
       },
+      ...(options?.skip !== undefined ? { skip: options.skip } : {}),
+      ...(options?.take !== undefined ? { take: options.take } : {}),
       include: {
         owner: {
           select: {
@@ -41,6 +48,18 @@ export class ReadingListsRepository {
       },
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+  }
+
+  async countByUserId(userId: string, ownerId?: string) {
+    const targetUserId = ownerId ?? userId;
+    const isViewingOwnLists = targetUserId === userId;
+
+    return this.prisma.readingList.count({
+      where: {
+        ownerId: targetUserId,
+        ...(isViewingOwnLists ? {} : { isPublic: true }),
       },
     });
   }

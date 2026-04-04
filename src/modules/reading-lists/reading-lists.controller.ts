@@ -32,7 +32,6 @@ import { IdDto } from 'src/common/dto/id.dto';
 import { CreateReadingListReqDto } from './dtos/requests/create-reading-list.req.dto';
 import { AddPaperReqDto } from './dtos/requests/add-paper.req.dto';
 import { DeletePaperReqDto } from './dtos/requests/delete-paper.req.dto';
-import { ReadingListOwnerIdReqDto } from './dtos/requests/owner-id.req.dto';
 import {
   GetAllSystemReadingListsResDto,
   GetUserReadingListsResDto,
@@ -47,6 +46,7 @@ import {
 } from './dtos/responses/shared.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
+import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
@@ -103,11 +103,10 @@ export class ReadingListsController {
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async findAll(
     @Req() req: Request,
-    @Query() q: ReadingListOwnerIdReqDto,
+    @Query() q: GetReadingListsQueryReqDto,
   ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
     const userId = req.user!.id;
-    const { ownerId } = q;
-    return this.readingListsService.findAll(userId, ownerId);
+    return this.readingListsService.findAll(userId, q);
   }
 
   @Get('all')
