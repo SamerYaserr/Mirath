@@ -47,6 +47,7 @@ import {
 import { HttpResponse } from 'src/common/types/api.types';
 import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
 import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
@@ -132,8 +133,10 @@ export class ReadingListsController {
       },
     },
   })
-  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
-    return this.readingListsService.getAllLists();
+  async getAllLists(
+    @Query() q: PaginationDto,
+  ): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
+    return this.readingListsService.getAllLists(q);
   }
 
   @Post()

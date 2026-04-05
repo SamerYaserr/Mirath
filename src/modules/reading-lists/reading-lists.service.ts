@@ -19,6 +19,7 @@ import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 import { UpdateReadingListServiceParams } from './reading-list.types';
 import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class ReadingListsService {
@@ -64,13 +65,23 @@ export class ReadingListsService {
     };
   }
 
-  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
-    const lists = await this.readingListsRepository.findAll();
+  async getAllLists({
+    skip,
+    limit,
+  }: PaginationDto): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
+    const [lists, listsCount] = await Promise.all([
+      this.readingListsRepository.findAll({
+        skip,
+        take: limit,
+      }),
+      this.readingListsRepository.count(),
+    ]);
+
     const data = lists.map(GetAllSystemReadingListsResDto.fromList);
     return {
       message: 'All reading lists fetched successfully',
       data,
-      size: data.length,
+      size: listsCount,
     };
   }
 

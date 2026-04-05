@@ -64,8 +64,14 @@ export class ReadingListsRepository {
     });
   }
 
-  async findAll() {
+  async count() {
+    return this.prisma.readingList.count();
+  }
+
+  async findAll(options?: Prisma.ReadingListFindManyArgs) {
     return this.prisma.readingList.findMany({
+      ...(options?.skip !== undefined ? { skip: options.skip } : {}),
+      ...(options?.take !== undefined ? { take: options.take } : {}),
       include: {
         _count: {
           select: { papers: true },
