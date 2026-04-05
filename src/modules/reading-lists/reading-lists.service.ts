@@ -16,10 +16,15 @@ import {
 } from './dtos/responses/get-all-lists.res.dto';
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
 import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
+import { UpdateReadingListServiceParams } from './reading-list.types';
+import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
+import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class ReadingListsService {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly readingListsRepository: ReadingListsRepository,
   ) {}
 
@@ -30,7 +35,7 @@ export class ReadingListsService {
     const list = await this.readingListsRepository.create({
       title: data.title,
       description: data.description ?? null,
-      isPublic: data.isPublic ?? true,
+      isPublic: data.isPublic ?? false,
       ownerId: userId,
     });
 
@@ -42,29 +47,41 @@ export class ReadingListsService {
 
   async findAll(
     userId: string,
-    ownerId?: string,
+    { ownerId, skip, limit }: GetReadingListsQueryReqDto,
   ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
-    const lists = await this.readingListsRepository.findAllByUserId(
-      userId,
-      ownerId,
-    );
+    const [lists, totalCount] = await Promise.all([
+      this.readingListsRepository.findAllByUserId(userId, ownerId, {
+        skip,
+        take: limit,
+      }),
+      this.readingListsRepository.countByUserId(userId, ownerId),
+    ]);
 
     const data = lists.map(GetUserReadingListsResDto.fromList);
-
     return {
       message: 'Reading lists fetched successfully',
       data,
-      size: data.length,
+      size: totalCount,
     };
   }
 
-  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
-    const lists = await this.readingListsRepository.findAll();
+  async getAllLists({
+    skip,
+    limit,
+  }: PaginationDto): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
+    const [lists, listsCount] = await Promise.all([
+      this.readingListsRepository.findAll({
+        skip,
+        take: limit,
+      }),
+      this.readingListsRepository.count(),
+    ]);
+
     const data = lists.map(GetAllSystemReadingListsResDto.fromList);
     return {
       message: 'All reading lists fetched successfully',
       data,
-      size: data.length,
+      size: listsCount,
     };
   }
 
@@ -95,21 +112,10 @@ export class ReadingListsService {
     userId: string,
   ): Promise<HttpResponse<AddedPaperResDto>> {
     try {
-      const record = await this.readingListsRepository.findOwner(id);
-      if (!record) {
-        throw new NotFoundException('Reading list not found');
-      }
-
-      if (record.ownerId !== userId) {
-        throw new ForbiddenException(
-          'You can only modify your own reading lists',
-        );
-      }
-
-      const addedPaper = await this.readingListsRepository.addPaper(
-        id,
-        paperId,
-      );
+      const addedPaper = await this.prisma.$transaction(async (tx) => {
+        await this.verifyOwnership(id, userId, tx);
+        return this.readingListsRepository.addPaper(id, paperId, tx);
+      });
       return {
         message: 'Paper saved successfully',
         data: AddedPaperResDto.fromRecord(addedPaper),
@@ -132,19 +138,11 @@ export class ReadingListsService {
     paperId: string,
     userId: string,
   ): Promise<HttpResponse> {
-    const record = await this.readingListsRepository.findOwner(id);
-    if (!record) {
-      throw new NotFoundException('Reading list not found');
-    }
-
-    if (record.ownerId !== userId) {
-      throw new ForbiddenException(
-        'You can only modify your own reading lists',
-      );
-    }
-
     try {
-      await this.readingListsRepository.removePaper(id, paperId);
+      await this.prisma.$transaction(async (tx) => {
+        await this.verifyOwnership(id, userId, tx);
+        await this.readingListsRepository.removePaper(id, paperId, tx);
+      });
       return {
         message: 'Paper removed from the reading list successfully',
       };
@@ -156,6 +154,49 @@ export class ReadingListsService {
         throw new NotFoundException('Paper not found in this reading list');
       }
       throw error;
+    }
+  }
+
+  async update({
+    id,
+    userId,
+    data,
+  }: UpdateReadingListServiceParams): Promise<HttpResponse<CreatedListResDto>> {
+    const updatedRecord = await this.prisma.$transaction(async (tx) => {
+      await this.verifyOwnership(id, userId, tx);
+      return this.readingListsRepository.update(id, data, tx);
+    });
+    return {
+      message: 'Reading list updated successfully',
+      data: CreatedListResDto.fromList(updatedRecord),
+    };
+  }
+
+  async delete(id: string, userId: string): Promise<HttpResponse> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.verifyOwnership(id, userId, tx);
+      await this.readingListsRepository.delete(id, tx);
+    });
+    return {
+      message: 'Reading list deleted successfully',
+    };
+  }
+
+  // -- Helpers --
+  async verifyOwnership(
+    id: string,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const record = await this.readingListsRepository.findOwner(id, tx);
+    if (!record) {
+      throw new NotFoundException('Reading list not found');
+    }
+
+    if (record.ownerId !== userId) {
+      throw new ForbiddenException(
+        'You can only modify your own reading lists',
+      );
     }
   }
 }

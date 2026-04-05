@@ -9,6 +9,7 @@ import {
   HttpStatus,
   HttpCode,
   Query,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -31,7 +32,6 @@ import { IdDto } from 'src/common/dto/id.dto';
 import { CreateReadingListReqDto } from './dtos/requests/create-reading-list.req.dto';
 import { AddPaperReqDto } from './dtos/requests/add-paper.req.dto';
 import { DeletePaperReqDto } from './dtos/requests/delete-paper.req.dto';
-import { ReadingListOwnerIdReqDto } from './dtos/requests/owner-id.req.dto';
 import {
   GetAllSystemReadingListsResDto,
   GetUserReadingListsResDto,
@@ -45,6 +45,9 @@ import {
   ReadingListPaperResDto,
 } from './dtos/responses/shared.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
+import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
@@ -101,11 +104,10 @@ export class ReadingListsController {
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async findAll(
     @Req() req: Request,
-    @Query() q: ReadingListOwnerIdReqDto,
+    @Query() q: GetReadingListsQueryReqDto,
   ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
     const userId = req.user!.id;
-    const { ownerId } = q;
-    return this.readingListsService.findAll(userId, ownerId);
+    return this.readingListsService.findAll(userId, q);
   }
 
   @Get('all')
@@ -131,8 +133,10 @@ export class ReadingListsController {
       },
     },
   })
-  async getAllLists(): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
-    return this.readingListsService.getAllLists();
+  async getAllLists(
+    @Query() q: PaginationDto,
+  ): Promise<HttpResponse<GetAllSystemReadingListsResDto[]>> {
+    return this.readingListsService.getAllLists(q);
   }
 
   @Post()
@@ -253,5 +257,49 @@ export class ReadingListsController {
   ): Promise<HttpResponse> {
     const userId = req.user!.id;
     return this.readingListsService.removePaper(id, paperId, userId);
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update a reading list' })
+  @ApiBody({ type: UpdateReadingListReqDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Reading list updated successfully',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Reading list updated successfully',
+        },
+        data: { $ref: getSchemaPath(CreatedListResDto) },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'Reading list not found' })
+  @ApiForbiddenResponse({
+    description: 'You can only modify your own reading lists',
+  })
+  async Update(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Body() dto: UpdateReadingListReqDto,
+  ): Promise<HttpResponse<CreatedListResDto>> {
+    const userId = req.user!.id;
+    return this.readingListsService.update({ id, userId, data: dto });
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a reading list' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'Reading list not found' })
+  @ApiForbiddenResponse({
+    description: 'You can only modify your own reading lists',
+  })
+  async delete(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.readingListsService.delete(id, userId);
   }
 }

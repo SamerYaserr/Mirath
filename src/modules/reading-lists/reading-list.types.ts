@@ -1,3 +1,5 @@
+import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
+
 export interface OwnerSource {
   id: string;
   username: string;
@@ -72,4 +74,10 @@ export interface UserListSource {
 export interface AddedPaperRecord {
   readingListId: string;
   paperId: string;
+}
+
+export interface UpdateReadingListServiceParams {
+  id: string;
+  userId: string;
+  data: UpdateReadingListReqDto;
 }
