@@ -306,6 +306,7 @@ export class ReadingListsController {
       },
     },
   })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   @ApiNotFoundResponse({ description: 'Reading list not found' })
   @ApiForbiddenResponse({
     description: 'You can only modify your own reading lists',
