@@ -56,4 +56,10 @@ export class SavedPapersRepository {
       take: limit,
     });
   }
+
+  async countByUserId(userId: string): Promise<number> {
+    return this.prisma.savedPaper.count({
+      where: { userId },
+    });
+  }
 }

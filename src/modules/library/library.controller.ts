@@ -28,13 +28,35 @@ import { SavedPapersResDto } from './dto/responses/saved-paper-summary.res.dto';
 import { ReadingHistoryResDto } from './dto/responses/reading-history.res.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { LibraryStatsResDto } from './dto/responses/library-stats.res.dto';
 
 @ApiTags('Library')
 @ApiBearerAuth()
 @Controller('library')
-@ApiExtraModels(SavedPapersResDto, ReadingHistoryResDto)
+@ApiExtraModels(SavedPapersResDto, ReadingHistoryResDto, LibraryStatsResDto)
 export class LibraryController {
   constructor(private readonly libraryService: LibraryService) {}
+
+  @Get('stats')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get library stats',
+    description:
+      'Returns aggregate counts for the Library home screen: total lists (owned + saved), created lists, saved papers, and projects.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Library stats retrieved successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(LibraryStatsResDto) },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  getStats(@Req() req: Request): Promise<HttpResponse<LibraryStatsResDto>> {
+    return this.libraryService.getStats(req.user!.id);
+  }
 
   @Get('saved')
   @HttpCode(HttpStatus.OK)
@@ -71,11 +93,18 @@ export class LibraryController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Reading history updated',
-    schema: { properties: { message: { type: 'string', example: 'Reading history updated' } } }
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Reading history updated' },
+      },
+    },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   @ApiNotFoundResponse({ description: 'Paper not found.' })
-  updateReadingHistory(@Req() req: Request, @Param('paperId') paperId: string): Promise<HttpResponse> {
+  updateReadingHistory(
+    @Req() req: Request,
+    @Param('paperId') paperId: string,
+  ): Promise<HttpResponse> {
     return this.libraryService.updateReadingHistory(req.user!.id, paperId);
   }
 
@@ -97,7 +126,10 @@ export class LibraryController {
   })
   @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  getReadingHistory(@Req() req: Request, @Query() q: PaginationDto): Promise<HttpResponse<ReadingHistoryResDto[]>> {
+  getReadingHistory(
+    @Req() req: Request,
+    @Query() q: PaginationDto,
+  ): Promise<HttpResponse<ReadingHistoryResDto[]>> {
     const { page, limit } = q;
     return this.libraryService.getReadingHistory(req.user!.id, page, limit);
   }
@@ -105,14 +137,17 @@ export class LibraryController {
   @Delete('reading-history')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Clear all reading history' })
-  @ApiResponse({ 
+  @ApiResponse({
     status: 200,
     description: 'Reading history cleared successfully',
-    schema: { 
-      properties: { 
-        message: { type: 'string', example: 'Reading history cleared successfully' } 
-      } 
-    } 
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Reading history cleared successfully',
+        },
+      },
+    },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   clearReadingHistory(@Req() req: Request): Promise<HttpResponse> {
@@ -122,18 +157,24 @@ export class LibraryController {
   @Delete('reading-history/:paperId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a paper from reading history' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Paper removed from reading history',
-    schema: { 
-      properties: { 
-        message: { type: 'string', example: 'Paper removed from reading history' } 
-      } 
-    } 
-   })
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Paper removed from reading history',
+        },
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   @ApiNotFoundResponse({ description: 'Paper not found in reading history.' })
-  removePaperFromHistory(@Req() req: Request, @Param('paperId') paperId: string): Promise<HttpResponse> {
+  removePaperFromHistory(
+    @Req() req: Request,
+    @Param('paperId') paperId: string,
+  ): Promise<HttpResponse> {
     return this.libraryService.removePaperFromHistory(req.user!.id, paperId);
   }
 }

@@ -234,4 +234,16 @@ export class ReadingListsRepository {
     const client = tx || this.prisma;
     return client.readingList.delete({ where: { id } });
   }
+
+  async countCreatedByUserId(userId: string): Promise<number> {
+    return this.prisma.readingList.count({
+      where: { ownerId: userId },
+    });
+  }
+
+  async countSavedListsByUserId(userId: string): Promise<number> {
+    return this.prisma.savedReadingList.count({
+      where: { userId },
+    });
+  }
 }
