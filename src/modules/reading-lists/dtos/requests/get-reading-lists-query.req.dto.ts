@@ -2,7 +2,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsUUID } from 'class-validator';
 
-export class ReadingListOwnerIdReqDto {
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+
+export class GetReadingListsQueryReqDto extends PaginationDto {
   @ApiPropertyOptional({
     description:
       "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists.",

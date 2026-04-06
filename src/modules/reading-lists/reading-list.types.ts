@@ -1,3 +1,5 @@
+import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
+
 export interface OwnerSource {
   id: string;
   username: string;
@@ -85,4 +87,9 @@ export interface SavedReadingList {
     // first 5 papers, fetched only for preview tag computation
     papers: { paper: { categories: string[] } }[];
   };
+}
+export interface UpdateReadingListServiceParams {
+  id: string;
+  userId: string;
+  data: UpdateReadingListReqDto;
 }
