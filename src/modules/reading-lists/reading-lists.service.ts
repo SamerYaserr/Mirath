@@ -93,7 +93,13 @@ export class ReadingListsService {
     id: string,
     userId?: string,
   ): Promise<HttpResponse<FindOneReadingListResDto>> {
-    const list = await this.readingListsRepository.findById(id);
+    const [list, savedRecord] = await Promise.all([
+      this.readingListsRepository.findById(id),
+      userId
+        ? this.readingListsRepository.findSavedById(id, userId)
+        : Promise.resolve(null),
+    ]);
+
     if (!list) {
       throw new NotFoundException('Reading list not found');
     }
@@ -104,9 +110,11 @@ export class ReadingListsService {
       );
     }
 
+    const isSaved = !!savedRecord;
+
     return {
       message: 'Reading list fetched successfully',
-      data: FindOneReadingListResDto.fromList(list),
+      data: FindOneReadingListResDto.fromList({ ...list, isSaved }),
     };
   }
 

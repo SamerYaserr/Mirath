@@ -66,7 +66,7 @@ export class ReadingListsRepository {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     return this.prisma.readingList.findUnique({
       where: { id },
       include: {
@@ -167,6 +167,17 @@ export class ReadingListsRepository {
               },
             },
           },
+        },
+      },
+    });
+  }
+
+  async findSavedById(readingListId: string, userId: string) {
+    return this.prisma.savedReadingList.findUnique({
+      where: {
+        userId_readingListId: {
+          userId,
+          readingListId,
         },
       },
     });

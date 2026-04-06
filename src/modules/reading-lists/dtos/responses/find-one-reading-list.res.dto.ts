@@ -32,12 +32,16 @@ export class FindOneReadingListResDto {
   @ApiProperty({ type: OwnerResDto })
   owner: OwnerResDto;
 
+  @ApiPropertyOptional({ example: false })
+  isSaved: boolean;
+
   static fromList(list: FindOneListSource): FindOneReadingListResDto {
     const dto = new FindOneReadingListResDto();
     dto.id = list.id;
     dto.title = list.title;
     dto.description = list.description;
     dto.isPublic = list.isPublic;
+    dto.isSaved = list.isSaved;
     dto.ownerId = list.ownerId;
     dto.createdAt = list.createdAt;
     dto.updatedAt = list.updatedAt;

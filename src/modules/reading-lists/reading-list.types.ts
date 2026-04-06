@@ -36,6 +36,7 @@ export interface FindOneListSource {
   title: string;
   description: string | null;
   isPublic: boolean;
+  isSaved: boolean;
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;

@@ -71,9 +71,9 @@ export class ReadingListsController {
     summary: 'Get reading lists',
     description:
       'Fetch reading lists for the current user or another user.\n\n' +
-      '- **saved=true** — returns the current user\'s saved (bookmarked) lists. ' +
+      "- **saved=true** — returns the current user's saved (bookmarked) lists. " +
       'Cannot be combined with `ownerId`.\n' +
-      '- **ownerId provided** — returns that user\'s PUBLIC lists only.\n' +
+      "- **ownerId provided** — returns that user's PUBLIC lists only.\n" +
       '- **neither** — returns all lists (public and private) belonging to the current user.',
   })
   @ApiQuery({
@@ -95,11 +95,14 @@ export class ReadingListsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description:
-      'Reading lists fetched successfully. ' +
+      'Reading lists fetched successfully with paper count and preview tags. ' +
       'Returns GetUserSavedListsResDto[] when saved=true, otherwise GetUserReadingListsResDto[].',
     schema: {
       properties: {
-        message: { type: 'string', example: 'Reading lists fetched successfully' },
+        message: {
+          type: 'string',
+          example: 'Reading lists fetched successfully',
+        },
         size: { type: 'number', example: 1 },
         data: {
           type: 'array',
