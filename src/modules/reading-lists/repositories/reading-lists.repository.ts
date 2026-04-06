@@ -10,14 +10,21 @@ export class ReadingListsRepository {
     return this.prisma.readingList.create({ data });
   }
 
-  async findAllByUserId(userId: string, ownerId?: string) {
+  async findAllByUserId(
+    userId: string,
+    ownerId?: string,
+    options?: Prisma.ReadingListFindManyArgs,
+  ) {
     const targetUserId = ownerId ?? userId;
     const isViewingOwnLists = targetUserId === userId;
+
     return this.prisma.readingList.findMany({
       where: {
         ownerId: targetUserId,
         ...(isViewingOwnLists ? {} : { isPublic: true }),
       },
+      ...(options?.skip !== undefined ? { skip: options.skip } : {}),
+      ...(options?.take !== undefined ? { take: options.take } : {}),
       include: {
         owner: {
           select: {
@@ -45,8 +52,26 @@ export class ReadingListsRepository {
     });
   }
 
-  async findAll() {
+  async countByUserId(userId: string, ownerId?: string) {
+    const targetUserId = ownerId ?? userId;
+    const isViewingOwnLists = targetUserId === userId;
+
+    return this.prisma.readingList.count({
+      where: {
+        ownerId: targetUserId,
+        ...(isViewingOwnLists ? {} : { isPublic: true }),
+      },
+    });
+  }
+
+  async count() {
+    return this.prisma.readingList.count();
+  }
+
+  async findAll(options?: Prisma.ReadingListFindManyArgs) {
     return this.prisma.readingList.findMany({
+      ...(options?.skip !== undefined ? { skip: options.skip } : {}),
+      ...(options?.take !== undefined ? { take: options.take } : {}),
       include: {
         _count: {
           select: { papers: true },
@@ -66,7 +91,7 @@ export class ReadingListsRepository {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     return this.prisma.readingList.findUnique({
       where: { id },
       include: {
@@ -97,8 +122,13 @@ export class ReadingListsRepository {
     });
   }
 
-  async addPaper(readingListId: string, paperId: string) {
-    return this.prisma.readingListPaper.create({
+  async addPaper(
+    readingListId: string,
+    paperId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.readingListPaper.create({
       data: {
         readingListId,
         paperId,
@@ -106,8 +136,13 @@ export class ReadingListsRepository {
     });
   }
 
-  async removePaper(readingListId: string, paperId: string) {
-    return this.prisma.readingListPaper.delete({
+  async removePaper(
+    readingListId: string,
+    paperId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.readingListPaper.delete({
       where: {
         readingListId_paperId: {
           readingListId,
@@ -117,10 +152,98 @@ export class ReadingListsRepository {
     });
   }
 
-  async findOwner(readingListId: string): Promise<{ ownerId: string } | null> {
-    return this.prisma.readingList.findUnique({
+  async findOwner(
+    readingListId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ ownerId: string } | null> {
+    const client = tx || this.prisma;
+    return client.readingList.findUnique({
       where: { id: readingListId },
       select: { ownerId: true },
+    });
+  }
+
+  async save(readingListId: string, userId: string): Promise<void> {
+    await this.prisma.savedReadingList.createMany({
+      data: { readingListId, userId },
+      skipDuplicates: true,
+    });
+  }
+
+  async unsave(readingListId: string, userId: string): Promise<number> {
+    const { count } = await this.prisma.savedReadingList.deleteMany({
+      where: { readingListId, userId },
+    });
+    return count;
+  }
+
+  async findAllSaved(userId: string) {
+    return this.prisma.savedReadingList.findMany({
+      where: { userId },
+      orderBy: {
+        savedAt: 'desc',
+      },
+      include: {
+        readingList: {
+          include: {
+            owner: {
+              select: {
+                id: true,
+                username: true,
+                fullName: true,
+                photoUrl: true,
+              },
+            },
+            _count: {
+              select: { papers: true },
+            },
+            papers: {
+              take: 5,
+              include: {
+                paper: {
+                  select: { categories: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async findSavedById(readingListId: string, userId: string) {
+    return this.prisma.savedReadingList.findUnique({
+      where: {
+        userId_readingListId: {
+          userId,
+          readingListId,
+        },
+      },
+    });
+  }
+  async update(
+    id: string,
+    data: Prisma.ReadingListUpdateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const client = tx || this.prisma;
+    return client.readingList.update({ where: { id }, data });
+  }
+
+  async delete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    return client.readingList.delete({ where: { id } });
+  }
+
+  async countCreatedByUserId(userId: string): Promise<number> {
+    return this.prisma.readingList.count({
+      where: { ownerId: userId },
+    });
+  }
+
+  async countSavedListsByUserId(userId: string): Promise<number> {
+    return this.prisma.savedReadingList.count({
+      where: { userId },
     });
   }
 }
