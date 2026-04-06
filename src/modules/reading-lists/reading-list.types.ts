@@ -1,3 +1,5 @@
+import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
+
 export interface OwnerSource {
   id: string;
   username: string;
@@ -36,6 +38,7 @@ export interface FindOneListSource {
   title: string;
   description: string | null;
   isPublic: boolean;
+  isSaved: boolean;
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -72,4 +75,21 @@ export interface UserListSource {
 export interface AddedPaperRecord {
   readingListId: string;
   paperId: string;
+}
+
+export interface SavedReadingList {
+  userId: string;
+  readingListId: string;
+  savedAt: Date;
+  readingList: {
+    owner: OwnerSource;
+    _count: { papers: number };
+    // first 5 papers, fetched only for preview tag computation
+    papers: { paper: { categories: string[] } }[];
+  };
+}
+export interface UpdateReadingListServiceParams {
+  id: string;
+  userId: string;
+  data: UpdateReadingListReqDto;
 }
