@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
@@ -253,5 +254,34 @@ export class ReadingListsController {
   ): Promise<HttpResponse> {
     const userId = req.user!.id;
     return this.readingListsService.removePaper(id, paperId, userId);
+  }
+
+  @Post(':id/save')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Save a reading list',
+    description:
+      'Save a public reading list to your saved lists. ' +
+      'User cannot save his own lists or private lists.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The reading list has been saved successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'List saved successfully.' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'Reading list not found.' })
+  @ApiForbiddenResponse({ description: 'You cannot save a private list.' })
+  @ApiBadRequestResponse({ description: 'You cannot save your own list.' })
+  async save(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
+    return this.readingListsService.save(id, userId);
   }
 }

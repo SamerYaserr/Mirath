@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
@@ -157,5 +158,20 @@ export class ReadingListsService {
       }
       throw error;
     }
+  }
+
+  async save(id: string, userId: string): Promise<HttpResponse> {
+    const list = await this.readingListsRepository.findById(id);
+    if (!list) throw new NotFoundException('Reading list not found.');
+
+    if (list.ownerId === userId)
+      throw new BadRequestException('You cannot save your own list.');
+
+    if (!list.isPublic)
+      throw new ForbiddenException('You cannot save a private list.');
+
+    await this.readingListsRepository.save(id, userId);
+
+    return { message: 'List saved successfully.' };
   }
 }

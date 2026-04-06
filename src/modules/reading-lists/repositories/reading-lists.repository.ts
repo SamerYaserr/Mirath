@@ -123,4 +123,11 @@ export class ReadingListsRepository {
       select: { ownerId: true },
     });
   }
+
+  async save(readingListId: string, userId: string): Promise<void> {
+    await this.prisma.savedReadingList.createMany({
+      data: { readingListId, userId },
+      skipDuplicates: true,
+    });
+  }
 }
