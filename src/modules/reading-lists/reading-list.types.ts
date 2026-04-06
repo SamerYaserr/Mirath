@@ -38,6 +38,7 @@ export interface FindOneListSource {
   title: string;
   description: string | null;
   isPublic: boolean;
+  isSaved: boolean;
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -76,6 +77,17 @@ export interface AddedPaperRecord {
   paperId: string;
 }
 
+export interface SavedReadingList {
+  userId: string;
+  readingListId: string;
+  savedAt: Date;
+  readingList: {
+    owner: OwnerSource;
+    _count: { papers: number };
+    // first 5 papers, fetched only for preview tag computation
+    papers: { paper: { categories: string[] } }[];
+  };
+}
 export interface UpdateReadingListServiceParams {
   id: string;
   userId: string;

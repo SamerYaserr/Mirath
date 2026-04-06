@@ -91,7 +91,7 @@ export class ReadingListsRepository {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     return this.prisma.readingList.findUnique({
       where: { id },
       include: {
@@ -163,6 +163,64 @@ export class ReadingListsRepository {
     });
   }
 
+  async save(readingListId: string, userId: string): Promise<void> {
+    await this.prisma.savedReadingList.createMany({
+      data: { readingListId, userId },
+      skipDuplicates: true,
+    });
+  }
+
+  async unsave(readingListId: string, userId: string): Promise<number> {
+    const { count } = await this.prisma.savedReadingList.deleteMany({
+      where: { readingListId, userId },
+    });
+    return count;
+  }
+
+  async findAllSaved(userId: string) {
+    return this.prisma.savedReadingList.findMany({
+      where: { userId },
+      orderBy: {
+        savedAt: 'desc',
+      },
+      include: {
+        readingList: {
+          include: {
+            owner: {
+              select: {
+                id: true,
+                username: true,
+                fullName: true,
+                photoUrl: true,
+              },
+            },
+            _count: {
+              select: { papers: true },
+            },
+            papers: {
+              take: 5,
+              include: {
+                paper: {
+                  select: { categories: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async findSavedById(readingListId: string, userId: string) {
+    return this.prisma.savedReadingList.findUnique({
+      where: {
+        userId_readingListId: {
+          userId,
+          readingListId,
+        },
+      },
+    });
+  }
   async update(
     id: string,
     data: Prisma.ReadingListUpdateInput,

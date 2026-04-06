@@ -12,6 +12,7 @@ import {
   Patch,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
@@ -45,6 +46,7 @@ import {
   ReadingListPaperResDto,
 } from './dtos/responses/shared.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { GetUserSavedListsResDto } from './dtos/responses/get-saved-lists.res.dto';
 import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
 import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -56,6 +58,7 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
   PaperDetailResDto,
   ReadingListPaperResDto,
   GetUserReadingListsResDto,
+  GetUserSavedListsResDto,
   GetAllSystemReadingListsResDto,
   CreatedListResDto,
   FindOneReadingListResDto,
@@ -70,23 +73,33 @@ export class ReadingListsController {
   @ApiOperation({
     summary: 'Get reading lists',
     description:
-      'Fetch reading lists for the current user or another user. ' +
-      "If ownerId query parameter is provided, returns that user's PUBLIC lists only. " +
-      'If ownerId is omitted, returns all lists (public and private) belonging to the current user. ' +
-      'Each list includes a paper count and preview tags (top 3 unique categories from the first 5 papers).',
+      'Fetch reading lists for the current user or another user.\n\n' +
+      "- **saved=true** — returns the current user's saved (bookmarked) lists. " +
+      'Cannot be combined with `ownerId`.\n' +
+      "- **ownerId provided** — returns that user's PUBLIC lists only.\n" +
+      '- **neither** — returns all lists (public and private) belonging to the current user.',
   })
   @ApiQuery({
     name: 'ownerId',
     required: false,
     description:
-      "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists.",
+      "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists. Cannot be combined with saved=true.",
     type: String,
     example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiQuery({
+    name: 'saved',
+    required: false,
+    description:
+      "Set to true to fetch the current user's saved (bookmarked) reading lists. Cannot be combined with ownerId.",
+    type: Boolean,
+    example: true,
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description:
-      'Reading lists fetched successfully with paper count and preview tags.',
+      'Reading lists fetched successfully with paper count and preview tags. ' +
+      'Returns GetUserSavedListsResDto[] when saved=true, otherwise GetUserReadingListsResDto[].',
     schema: {
       properties: {
         message: {
@@ -96,18 +109,35 @@ export class ReadingListsController {
         size: { type: 'number', example: 1 },
         data: {
           type: 'array',
-          items: { $ref: getSchemaPath(GetUserReadingListsResDto) },
+          items: {
+            oneOf: [
+              { $ref: getSchemaPath(GetUserReadingListsResDto) },
+              { $ref: getSchemaPath(GetUserSavedListsResDto) },
+            ],
+          },
         },
       },
     },
+  })
+  @ApiBadRequestResponse({
+    description: 'Cannot use saved=true and ownerId at the same time.',
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async findAll(
     @Req() req: Request,
     @Query() q: GetReadingListsQueryReqDto,
-  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
+  ): Promise<
+    HttpResponse<GetUserReadingListsResDto[] | GetUserSavedListsResDto[]>
+  > {
     const userId = req.user!.id;
-    return this.readingListsService.findAll(userId, q);
+    const { ownerId, saved, skip = 0, limit = 10 } = q;
+    return this.readingListsService.findAll(
+      userId,
+      skip,
+      limit,
+      ownerId,
+      saved,
+    );
   }
 
   @Get('all')
@@ -288,6 +318,60 @@ export class ReadingListsController {
   ): Promise<HttpResponse<CreatedListResDto>> {
     const userId = req.user!.id;
     return this.readingListsService.update({ id, userId, data: dto });
+  }
+
+  @Post(':id/save')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Save a reading list',
+    description:
+      'Save a public reading list to your saved lists. ' +
+      'User cannot save his own lists or private lists.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The reading list has been saved successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'List saved successfully.' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'Reading list not found.' })
+  @ApiForbiddenResponse({ description: 'You cannot save a private list.' })
+  @ApiBadRequestResponse({ description: 'You cannot save your own list.' })
+  async save(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
+    return this.readingListsService.save(id, userId);
+  }
+
+  @Delete(':id/save')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a saved reading list',
+    description: "Unsave a saved reading list from user's profile.",
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The reading list has been unsaved successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'List unsaved successfully.' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'You have not saved this list.' })
+  async unsave(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
+    return this.readingListsService.unsave(id, userId);
   }
 
   @Delete(':id')
