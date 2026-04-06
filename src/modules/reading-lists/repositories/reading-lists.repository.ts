@@ -130,4 +130,11 @@ export class ReadingListsRepository {
       skipDuplicates: true,
     });
   }
+
+  async unsave(readingListId: string, userId: string): Promise<number> {
+    const { count } = await this.prisma.savedReadingList.deleteMany({
+      where: { readingListId, userId },
+    });
+    return count;
+  }
 }

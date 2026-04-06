@@ -284,4 +284,29 @@ export class ReadingListsController {
     const userId = req.user!.id;
     return this.readingListsService.save(id, userId);
   }
+
+  @Delete(':id/save')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a saved reading list',
+    description: "Unsave a saved reading list from user's profile.",
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The reading list has been unsaved successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'List unsaved successfully.' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'You have not saved this list.' })
+  async unsave(
+    @Param() { id }: IdDto,
+    @Req() req: Request,
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
+    return this.readingListsService.unsave(id, userId);
+  }
 }

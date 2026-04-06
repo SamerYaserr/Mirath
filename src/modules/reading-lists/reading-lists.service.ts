@@ -174,4 +174,11 @@ export class ReadingListsService {
 
     return { message: 'List saved successfully.' };
   }
+
+  async unsave(id: string, userId: string): Promise<HttpResponse> {
+    const count = await this.readingListsRepository.unsave(id, userId);
+    if (!count) throw new NotFoundException('You have not saved this list.');
+
+    return { message: 'List unsaved successfully.' };
+  }
 }
