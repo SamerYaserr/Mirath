@@ -17,6 +17,7 @@ import {
 } from './dtos/responses/get-all-lists.res.dto';
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
 import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
+import { GetUserSavedListsResDto } from './dtos/responses/get-saved-lists.res.dto';
 
 @Injectable()
 export class ReadingListsService {
@@ -44,12 +45,31 @@ export class ReadingListsService {
   async findAll(
     userId: string,
     ownerId?: string,
-  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
+    saved?: boolean,
+  ): Promise<
+    HttpResponse<GetUserReadingListsResDto[] | GetUserSavedListsResDto[]>
+  > {
+    if (saved && ownerId)
+      throw new BadRequestException(
+        'You can only find saved reading lists or by ownerId',
+      );
+
+    if (saved) {
+      const lists = await this.readingListsRepository.findAllSaved(userId);
+
+      const data = lists.map(GetUserSavedListsResDto.fromList);
+
+      return {
+        message: 'Saved reading lists fetched successfully',
+        data,
+        size: data.length,
+      };
+    }
+
     const lists = await this.readingListsRepository.findAllByUserId(
       userId,
       ownerId,
     );
-
     const data = lists.map(GetUserReadingListsResDto.fromList);
 
     return {

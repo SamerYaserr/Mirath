@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsOptional, IsUUID } from 'class-validator';
 
 export class ReadingListOwnerIdReqDto {
   @ApiPropertyOptional({
@@ -11,4 +12,9 @@ export class ReadingListOwnerIdReqDto {
   @IsOptional()
   @IsUUID('4', { message: 'ownerId must be a valid UUID' })
   ownerId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  saved?: boolean;
 }

@@ -73,3 +73,15 @@ export interface AddedPaperRecord {
   readingListId: string;
   paperId: string;
 }
+
+export interface SavedReadingList {
+  userId: string;
+  readingListId: string;
+  savedAt: Date;
+  readingList: {
+    owner: OwnerSource;
+    _count: { papers: number };
+    // first 5 papers, fetched only for preview tag computation
+    papers: { paper: { categories: string[] } }[];
+  };
+}

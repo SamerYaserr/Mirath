@@ -137,4 +137,38 @@ export class ReadingListsRepository {
     });
     return count;
   }
+
+  async findAllSaved(userId: string) {
+    return this.prisma.savedReadingList.findMany({
+      where: { userId },
+      orderBy: {
+        savedAt: 'desc',
+      },
+      include: {
+        readingList: {
+          include: {
+            owner: {
+              select: {
+                id: true,
+                username: true,
+                fullName: true,
+                photoUrl: true,
+              },
+            },
+            _count: {
+              select: { papers: true },
+            },
+            papers: {
+              take: 5,
+              include: {
+                paper: {
+                  select: { categories: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }

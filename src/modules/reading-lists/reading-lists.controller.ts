@@ -46,6 +46,7 @@ import {
   ReadingListPaperResDto,
 } from './dtos/responses/shared.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { GetUserSavedListsResDto } from './dtos/responses/get-saved-lists.res.dto';
 
 @ApiTags('Reading Lists')
 @ApiBearerAuth()
@@ -54,6 +55,7 @@ import { HttpResponse } from 'src/common/types/api.types';
   PaperDetailResDto,
   ReadingListPaperResDto,
   GetUserReadingListsResDto,
+  GetUserSavedListsResDto,
   GetAllSystemReadingListsResDto,
   CreatedListResDto,
   FindOneReadingListResDto,
@@ -68,45 +70,62 @@ export class ReadingListsController {
   @ApiOperation({
     summary: 'Get reading lists',
     description:
-      'Fetch reading lists for the current user or another user. ' +
-      "If ownerId query parameter is provided, returns that user's PUBLIC lists only. " +
-      'If ownerId is omitted, returns all lists (public and private) belonging to the current user. ' +
-      'Each list includes a paper count and preview tags (top 3 unique categories from the first 5 papers).',
+      'Fetch reading lists for the current user or another user.\n\n' +
+      '- **saved=true** — returns the current user\'s saved (bookmarked) lists. ' +
+      'Cannot be combined with `ownerId`.\n' +
+      '- **ownerId provided** — returns that user\'s PUBLIC lists only.\n' +
+      '- **neither** — returns all lists (public and private) belonging to the current user.',
   })
   @ApiQuery({
     name: 'ownerId',
     required: false,
     description:
-      "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists.",
+      "UUID of the user whose reading lists to fetch. If omitted, returns current user's lists. Cannot be combined with saved=true.",
     type: String,
     example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiQuery({
+    name: 'saved',
+    required: false,
+    description:
+      "Set to true to fetch the current user's saved (bookmarked) reading lists. Cannot be combined with ownerId.",
+    type: Boolean,
+    example: true,
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description:
-      'Reading lists fetched successfully with paper count and preview tags.',
+      'Reading lists fetched successfully. ' +
+      'Returns GetUserSavedListsResDto[] when saved=true, otherwise GetUserReadingListsResDto[].',
     schema: {
       properties: {
-        message: {
-          type: 'string',
-          example: 'Reading lists fetched successfully',
-        },
+        message: { type: 'string', example: 'Reading lists fetched successfully' },
         size: { type: 'number', example: 1 },
         data: {
           type: 'array',
-          items: { $ref: getSchemaPath(GetUserReadingListsResDto) },
+          items: {
+            oneOf: [
+              { $ref: getSchemaPath(GetUserReadingListsResDto) },
+              { $ref: getSchemaPath(GetUserSavedListsResDto) },
+            ],
+          },
         },
       },
     },
+  })
+  @ApiBadRequestResponse({
+    description: 'Cannot use saved=true and ownerId at the same time.',
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   async findAll(
     @Req() req: Request,
     @Query() q: ReadingListOwnerIdReqDto,
-  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
+  ): Promise<
+    HttpResponse<GetUserReadingListsResDto[] | GetUserSavedListsResDto[]>
+  > {
     const userId = req.user!.id;
-    const { ownerId } = q;
-    return this.readingListsService.findAll(userId, ownerId);
+    const { ownerId, saved } = q;
+    return this.readingListsService.findAll(userId, ownerId, saved);
   }
 
   @Get('all')
