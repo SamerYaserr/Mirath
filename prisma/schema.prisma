@@ -74,6 +74,7 @@ model User {
   followings        Follows[]          @relation("following")
   savedReadingLists SavedReadingList[]
   readingHistories  ReadingHistory[]
+  highlights        Highlight[]
 
   @@unique([providerId])
   @@index([email])
@@ -187,6 +188,7 @@ model Paper {
   readingListPapers ReadingListPaper[]
   discussions       Discussion[]
   readingHistories  ReadingHistory[]
+  highlights        Highlight[]
 
   @@index([publishedAt])
   // Array Indexes (Exact Match)
@@ -367,4 +369,46 @@ model ReadingHistory {
 
   @@unique([userId, paperId])
   @@index([userId, viewedAt(sort: Desc)])
+}
+
+enum HighlightColor {
+  YELLOW
+  GREEN
+  BLUE
+  PURPLE
+  PINK
+  RED
+}
+
+model Highlight {
+  id      String         @id @default(uuid()) @db.Uuid
+  userId  String         @db.Uuid
+  paperId String         @db.Uuid
+  color   HighlightColor @default(YELLOW)
+  note    String?
+
+  xpathStart  String
+  xpathEnd    String
+  startOffset Int
+  endOffset   Int
+
+  selectedText String
+  plainText    String?
+  htmlContent  String?
+
+  contextBefore      String?
+  contextAfter       String?
+  firstWord          String?
+  lastWord           String?
+  selectedWordCount  Int?
+  selectedCharLength Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([userId, paperId])
+  @@index([userId, paperId, createdAt])
 }
