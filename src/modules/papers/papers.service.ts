@@ -3,21 +3,22 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { firstValueFrom } from 'rxjs';
 import { Prisma } from '@prisma/client';
-
-import { PapersRepository } from './repositories/papers.repository';
-import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
-import { HttpResponse } from 'src/common/types/api.types';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+
 import { AppConfig } from 'src/config/configuration';
-import { firstValueFrom } from 'rxjs';
+import { HttpResponse } from 'src/common/types/api.types';
 import { winstonLogger as logger } from 'src/config/logger.config';
+import { PapersRepository } from './repositories/papers.repository';
+import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
 import { SearchHistoryRepository } from '../search/repositories/search-history.repository';
-import { SavedPapersRepository } from './repositories/saved-papers.repository';
-import { SearchResultResDto } from './dto/responses/search-result.res.dto';
-import { SavedPaperResDto } from './dto/responses/saved-paper.res.dto';
 import { PaperResDto } from './dto/responses/paper.res.dto';
+import { SavedPaperResDto } from './dto/responses/saved-paper.res.dto';
+import { SearchResultResDto } from './dto/responses/search-result.res.dto';
+import { SearchInPaperResDto } from './dto/responses/search-in-paper.res.dto';
+import { SavedPapersRepository } from './repositories/saved-papers.repository';
 
 type SearchReqBody = {
   question: string;
@@ -122,11 +123,26 @@ export class PapersService {
   }
 
   async find(paperId: string): Promise<HttpResponse<PaperResDto>> {
-    const paper = await this.papersRepository.find(paperId);
+    const paper = await this.papersRepository.findDetailed(paperId);
     if (!paper) throw new NotFoundException('No paper found with this id');
 
     return {
       data: PaperResDto.fromEntity(paper),
+    };
+  }
+
+  async searchInPaper(
+    paperId: string,
+    q: string,
+  ): Promise<SearchInPaperResDto> {
+    const paper = await this.papersRepository.find(paperId);
+    if (!paper) throw new NotFoundException('No paper found with this id');
+
+    const result = await this.papersRepository.searchInPaper(paperId, q);
+
+    return {
+      query: q,
+      ...result,
     };
   }
 

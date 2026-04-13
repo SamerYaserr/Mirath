@@ -16,6 +16,7 @@ import {
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -23,17 +24,24 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 
-import { PapersService } from './papers.service';
-import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
 import { IdDto } from 'src/common/dto/id.dto';
+import { PapersService } from './papers.service';
 import { PaperResDto } from './dto/responses/paper.res.dto';
 import { SavedPaperResDto } from './dto/responses/saved-paper.res.dto';
+import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
 import { SearchResultResDto } from './dto/responses/search-result.res.dto';
+import { SearchInPaperReqDto } from './dto/requests/search-in-paper.req.dto';
+import { SearchInPaperResDto } from './dto/responses/search-in-paper.res.dto';
 
 @ApiTags('Papers')
 @ApiBearerAuth()
 @Controller('papers')
-@ApiExtraModels(PaperResDto, SavedPaperResDto, SearchResultResDto)
+@ApiExtraModels(
+  PaperResDto,
+  SavedPaperResDto,
+  SearchResultResDto,
+  SearchInPaperResDto,
+)
 export class PapersController {
   constructor(private readonly papersService: PapersService) {}
 
@@ -139,5 +147,38 @@ export class PapersController {
   @Get(':id')
   async find(@Param() { id }: IdDto) {
     return this.papersService.find(id);
+  }
+
+  @ApiOperation({
+    summary: 'Search in paper',
+    description:
+      'Searches for a query string within the full text of a specific paper and returns the positions of all matches.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'The UUID of the paper to retrieve',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiQuery({
+    name: 'q',
+    description: 'The search term to find within the paper full text.',
+    example: 'Commissioning',
+    required: true,
+    type: String,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Search results retrieved successfully.',
+    schema: {
+      $ref: getSchemaPath(SearchInPaperResDto),
+    },
+  })
+  @ApiNotFoundResponse({ description: 'No paper found with this id' })
+  @Get(':id/search')
+  async searchInPaper(
+    @Param() { id }: IdDto,
+    @Query() { q }: SearchInPaperReqDto,
+  ) {
+    return this.papersService.searchInPaper(id, q);
   }
 }

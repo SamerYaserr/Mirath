@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SearchInPaperReqDto {
@@ -12,5 +13,6 @@ export class SearchInPaperReqDto {
   @MaxLength(200, {
     message: 'Search term must be no more than 200 characters long',
   })
+  @Transform(({ value }) => (typeof value === 'string' ? value?.trim() : value))
   q: string;
 }
