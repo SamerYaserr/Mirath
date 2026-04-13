@@ -110,4 +110,22 @@ export class PaperAnnotationsService {
       message: 'Note deleted successfully.',
     };
   }
+
+  async getNotes(
+    userId: string,
+    paperId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<HttpResponse> {
+    const skip = (page - 1) * limit;
+    const [size, notes] = await Promise.all([
+      this.highlightsRepository.countNotes(userId, paperId),
+      this.highlightsRepository.getNotes(userId, paperId, skip, limit),
+    ]);
+
+    return {
+      size,
+      data: notes.map((note) => HighlightResDto.fromEntity(note)),
+    };
+  }
 }
