@@ -7,6 +7,7 @@ import {
   HttpCode,
   Controller,
   HttpStatus,
+  Delete,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -44,5 +45,15 @@ export class PaperAnnotationsController {
   ): Promise<HttpResponse> {
     const userId = req.user!.id;
     return this.paperAnnotationsService.editNote(userId, highlightId, id, note);
+  }
+
+  @Delete('/:highlightId/note')
+  @HttpCode(HttpStatus.OK)
+  deleteNote(
+    @Req() req: Request,
+    @Param() { highlightId, id }: HighlightParamsDto,
+  ): Promise<HttpResponse> {
+    const userId = req.user!.id;
+    return this.paperAnnotationsService.deleteNote(userId, highlightId, id);
   }
 }

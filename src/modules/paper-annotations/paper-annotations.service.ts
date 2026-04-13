@@ -81,4 +81,33 @@ export class PaperAnnotationsService {
       data: HighlightResDto.fromEntity(updatedHighlight),
     };
   }
+
+  async deleteNote(
+    userId: string,
+    highlightId: string,
+    paperId: string,
+  ): Promise<HttpResponse> {
+    const highlight = await this.highlightsRepository.find(highlightId);
+    if (!highlight)
+      throw new NotFoundException('No highlight found with this id.');
+
+    if (highlight.paperId !== paperId)
+      throw new BadRequestException(
+        'This highlight does not belong to the given paper.',
+      );
+
+    if (highlight.userId !== userId)
+      throw new ForbiddenException(
+        'You do not have permission to perform this action.',
+      );
+
+    if (!highlight.note)
+      return new NotFoundException('No note found on this highlight.');
+
+    await this.highlightsRepository.deleteNote(highlightId);
+
+    return {
+      message: 'Note deleted successfully.',
+    };
+  }
 }

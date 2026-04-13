@@ -16,4 +16,11 @@ export class HighlightsRepository {
       data: { note },
     });
   }
+
+  async deleteNote(id: string) {
+    return await this.prisma.highlight.update({
+      where: { id },
+      data: { note: null },
+    });
+  }
 }
