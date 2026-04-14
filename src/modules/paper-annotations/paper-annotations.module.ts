@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+
 import { PaperAnnotationsController } from './paper-annotations.controller';
 import { PaperAnnotationsService } from './paper-annotations.service';
 import { HighlightsRepository } from './repositories/highlights.repository';
