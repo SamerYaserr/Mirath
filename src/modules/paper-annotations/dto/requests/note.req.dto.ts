@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class TakeNoteReqDto {
+export class NoteReqDto {
   @ApiProperty({
     description: 'Note on the highlighted text',
     example:
