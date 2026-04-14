@@ -114,31 +114,27 @@ export class HighlightResDto {
     Object.assign(this, partial);
   }
 
-  static fromEntity(entity: Highlight): HighlightResDto {
+  static fromEntity(highlight: Highlight): HighlightResDto {
     return new HighlightResDto({
-      id: entity.id,
-      paperId: entity.paperId,
-      color: entity.color,
-      note: entity.note,
-
-      xpathStart: entity.xpathStart,
-      xpathEnd: entity.xpathEnd,
-      startOffset: entity.startOffset,
-      endOffset: entity.endOffset,
-
-      selectedText: entity.selectedText,
-      plainText: entity.plainText,
-      htmlContent: entity.htmlContent,
-
-      contextBefore: entity.contextBefore,
-      contextAfter: entity.contextAfter,
-      firstWord: entity.firstWord,
-      lastWord: entity.lastWord,
-      selectedWordCount: entity.selectedWordCount,
-      selectedCharLength: entity.selectedCharLength,
-
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      id: highlight.id,
+      paperId: highlight.paperId,
+      color: highlight.color,
+      note: highlight.note,
+      xpathStart: highlight.xpathStart,
+      xpathEnd: highlight.xpathEnd,
+      startOffset: highlight.startOffset,
+      endOffset: highlight.endOffset,
+      selectedText: highlight.selectedText,
+      plainText: highlight.plainText,
+      htmlContent: highlight.htmlContent,
+      contextBefore: highlight.contextBefore,
+      contextAfter: highlight.contextAfter,
+      firstWord: highlight.firstWord,
+      lastWord: highlight.lastWord,
+      selectedWordCount: highlight.selectedWordCount,
+      selectedCharLength: highlight.selectedCharLength,
+      createdAt: highlight.createdAt,
+      updatedAt: highlight.updatedAt,
     });
   }
 }
