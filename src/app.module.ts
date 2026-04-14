@@ -18,6 +18,7 @@ import { FeedModule } from './modules/feed/feed.module';
 import { ReadingListsModule } from './modules/reading-lists/reading-lists.module';
 import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { PaperAnnotationsModule } from './modules/paper-annotations/paper-annotations.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CommentsModule } from './modules/comments/comments.module';
     ReadingListsModule,
     DiscussionsModule,
     CommentsModule,
+    PaperAnnotationsModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
