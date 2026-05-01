@@ -1,4 +1,4 @@
-import { User, UserStatus } from '@prisma/client';
+import { Prisma, User, UserStatus } from '@prisma/client';
 import {
   BadRequestException,
   Injectable,
@@ -25,6 +25,7 @@ import {
   RELATION_FIELDS,
   USER_FIELD_WHITELIST,
 } from './dto/requests/get-me-query.req.dto';
+import { UpdateProfileReqDto } from './dto/requests/update-profile.req.dto';
 
 @Injectable()
 export class UsersService {
@@ -266,6 +267,103 @@ export class UsersService {
     return {
       message: 'Profile retrieved successfully',
       data: { profile: ProfileResDto.fromDomain(data) },
+    };
+  }
+
+  async updateProfile(
+    userId: string,
+    profilePhoto: Express.Multer.File | undefined,
+    dto: UpdateProfileReqDto,
+  ): Promise<HttpResponse<MyProfileResDto>> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    let secureUrl: string | undefined;
+
+    if (profilePhoto) {
+      secureUrl = (await this.cloudinaryService.uploadFile(profilePhoto))
+        .secure_url;
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (dto.interests) {
+          const existingInterests = await this.interestsRepository.findMany(
+            {
+              where: { name: { in: dto.interests } },
+              select: { name: true },
+            },
+            tx,
+          );
+
+          const existingInterestNames = new Set(
+            existingInterests.map((i) => i.name),
+          );
+          const customInterests = dto.interests.filter(
+            (i) => !existingInterestNames.has(i),
+          );
+
+          if (customInterests.length) {
+            await this.interestsRepository.createMany(
+              customInterests.map((c) => ({ name: c, custom: true })),
+              tx,
+            );
+          }
+
+          const userInterestIds = await this.interestsRepository.findMany(
+            { where: { name: { in: dto.interests } }, select: { id: true } },
+            tx,
+          );
+
+          await this.userInterestsRepository.deleteByUserId(userId, tx);
+
+          if (userInterestIds.length) {
+            await this.userInterestsRepository.createMany(
+              userInterestIds.map((ui) => ({ userId, interestId: ui.id })),
+              tx,
+            );
+          }
+        }
+
+        const updateData: Prisma.UserUpdateInput = {};
+        if (dto.fullName !== undefined) updateData.fullName = dto.fullName;
+        if (dto.bio !== undefined) updateData.bio = dto.bio;
+        if (dto.levelOfEducation !== undefined)
+          updateData.levelOfEducation = dto.levelOfEducation;
+        if (dto.university !== undefined)
+          updateData.university = dto.university;
+        if (dto.country !== undefined) updateData.country = dto.country;
+
+        if (dto.keepEmailPrivate !== undefined)
+          updateData.isEmailVisible = !dto.keepEmailPrivate;
+        if (secureUrl !== undefined) updateData.photoUrl = secureUrl;
+
+        if (Object.keys(updateData).length > 0) {
+          await this.usersRepository.update(
+            { where: { id: userId }, data: updateData },
+            tx,
+          );
+        }
+      });
+
+      if (secureUrl && user.photoUrl) {
+        await this.cloudinaryService
+          .deleteFile(user.photoUrl)
+          .catch(() =>
+            logger.warn('Failed to delete old photo from Cloudinary'),
+          );
+      }
+    } catch (error) {
+      if (secureUrl) {
+        await this.cloudinaryService.deleteFile(secureUrl).catch(() => {});
+      }
+      throw error;
+    }
+
+    const updatedProfile = await this._getFormattedProfile(userId);
+    return {
+      message: 'Profile updated successfully',
+      data: MyProfileResDto.fromDomain(updatedProfile),
     };
   }
 

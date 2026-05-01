@@ -12,6 +12,7 @@ import {
   UploadedFile,
   UseInterceptors,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -41,6 +42,7 @@ import { SetupProfileResDto } from './dto/responses/setup-profile.res.dto';
 import { MyProfileResDto } from './dto/responses/my-profile.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
 import { GetMeQueryDto } from './dto/requests/get-me-query.req.dto';
+import { UpdateProfileReqDto } from './dto/requests/update-profile.req.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -125,6 +127,34 @@ export class UsersController {
     @UploadedFile(ProfilePhotoPipe) profilePhoto: Express.Multer.File,
   ) {
     return this.usersService.setupProfile(req.user!.id, profilePhoto, dto);
+  }
+
+  @Patch('profile')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('profilePhoto'))
+  @ApiOperation({
+    summary: 'Edit user profile',
+    description:
+      'Partially updates the profile fields via multipart/form-data. Fields omitted will remain unchanged.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile updated successfully.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Profile updated successfully' },
+        data: { $ref: getSchemaPath(MyProfileResDto) },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  async updateProfile(
+    @Req() req: Request,
+    @Body() dto: UpdateProfileReqDto,
+    @UploadedFile(ProfilePhotoPipe) profilePhoto?: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfile(req.user!.id, profilePhoto, dto);
   }
 
   @Get('me')

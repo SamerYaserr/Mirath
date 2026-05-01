@@ -13,4 +13,9 @@ export class UserInterestsRepository {
     const client = tx || this.prisma;
     return await client.userInterest.createMany({ data });
   }
+
+  async deleteByUserId(userId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    return await client.userInterest.deleteMany({ where: { userId } });
+  }
 }
