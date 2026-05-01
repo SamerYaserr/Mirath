@@ -20,6 +20,11 @@ import { ProfileResDto } from './dto/responses/profile.res.dto';
 import { SetupProfileResDto } from './dto/responses/setup-profile.res.dto';
 import { FollowUserResDto } from './dto/responses/follow-user.res.dto';
 import { MyProfileResDto } from './dto/responses/my-profile.res.dto';
+import {
+  BLACKLISTED_FIELDS,
+  RELATION_FIELDS,
+  USER_FIELD_WHITELIST,
+} from './dto/requests/get-me-query.req.dto';
 
 @Injectable()
 export class UsersService {
@@ -106,12 +111,45 @@ export class UsersService {
     };
   }
 
-  async getMyProfile(userId: string): Promise<HttpResponse<MyProfileResDto>> {
-    const profile = await this._getFormattedProfile(userId);
+  async getMyProfile(
+    userId: string,
+    fields?: string,
+  ): Promise<HttpResponse<MyProfileResDto>> {
+    if (fields) {
+      const select = this._buildSparseSelect(fields);
 
-    return {
-      data: MyProfileResDto.fromDomain(profile),
-    };
+      if (select) {
+        const user = await this.usersRepository.findById(userId, select);
+
+        if (!user) throw new NotFoundException('User not found');
+
+        const response: Record<string, unknown> = { ...user };
+
+        const maybeRelations = user as {
+          userInterests?: Array<{ interest: { id: string; name: string } }>;
+          userFields?: Array<{ field: { id: string; name: string } }>;
+        };
+
+        if (maybeRelations.userInterests) {
+          response['interests'] = maybeRelations.userInterests.map(
+            (ui) => ui.interest,
+          );
+          delete response['userInterests'];
+        }
+
+        if (maybeRelations.userFields) {
+          response['fieldsOfStudy'] = maybeRelations.userFields.map(
+            (uf) => uf.field,
+          );
+          delete response['userFields'];
+        }
+
+        return { data: response };
+      }
+    }
+
+    const profile = await this._getFormattedProfile(userId);
+    return { data: MyProfileResDto.fromDomain(profile) };
   }
 
   async follow(followerId: string, followingId: string): Promise<HttpResponse> {
@@ -270,5 +308,45 @@ export class UsersService {
     };
 
     return formattedProfile;
+  }
+
+  _buildSparseSelect(fields: string): Record<string, unknown> | null {
+    const requested = fields
+      .split(',')
+      .map((f) => f.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!requested.length) return null;
+
+    const select: Record<string, unknown> = {};
+
+    for (const field of requested) {
+      if (!USER_FIELD_WHITELIST.has(field) || BLACKLISTED_FIELDS.has(field)) {
+        continue;
+      }
+
+      if (RELATION_FIELDS.has(field)) {
+        if (field === 'interests') {
+          select['userInterests'] = {
+            select: {
+              interest: { select: { id: true, name: true } },
+            },
+          };
+        } else if (field === 'fieldsOfStudy') {
+          select['userFields'] = {
+            select: {
+              field: { select: { id: true, name: true } },
+            },
+          };
+        }
+        continue;
+      }
+
+      select[field] = true;
+    }
+
+    select['id'] = true;
+
+    return Object.keys(select).length > 1 ? select : null;
   }
 }

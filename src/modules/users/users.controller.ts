@@ -23,6 +23,7 @@ import {
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -39,6 +40,7 @@ import { FollowUserResDto } from './dto/responses/follow-user.res.dto';
 import { SetupProfileResDto } from './dto/responses/setup-profile.res.dto';
 import { MyProfileResDto } from './dto/responses/my-profile.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
+import { GetMeQueryDto } from './dto/requests/get-me-query.req.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -127,6 +129,14 @@ export class UsersController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
+  @ApiQuery({
+    name: 'fields',
+    required: false,
+    description:
+      'Comma-separated list of fields to return (sparse fieldsets). ' +
+      'If omitted, the full profile is returned.',
+    example: 'interests,fullName,photoUrl',
+  })
   @ApiOperation({
     summary: 'Get current user profile',
     description:
@@ -146,8 +156,11 @@ export class UsersController {
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  getMyProfile(@Req() req: Request) {
-    return this.usersService.getMyProfile(req.user!.id);
+  getMyProfile(
+    @Req() req: Request,
+    @Query() query: GetMeQueryDto,
+  ): Promise<HttpResponse<MyProfileResDto>> {
+    return this.usersService.getMyProfile(req.user!.id, query.fields);
   }
 
   @Post(':id/follow')

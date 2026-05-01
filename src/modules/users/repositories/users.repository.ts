@@ -15,8 +15,13 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+  async findById(id: string, select?: Prisma.UserSelect): Promise<User | null> {
+    const args: Prisma.UserFindUniqueArgs = { where: { id } };
+    if (select) {
+      args.select = select;
+    }
+
+    return this.prisma.user.findUnique(args);
   }
 
   async findByEmailOrUsername(

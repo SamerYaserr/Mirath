@@ -1,22 +1,21 @@
-import { OmitType } from '@nestjs/swagger';
+import { OmitType, PartialType } from '@nestjs/swagger';
 import { FormattedProfileWithMeta, ProfileResDto } from './profile.res.dto';
 
-export class MyProfileResDto extends OmitType(ProfileResDto, [
-  'isMe',
-  'isFollowing',
-] as const) {
+export class MyProfileResDto extends PartialType(
+  OmitType(ProfileResDto, ['isMe', 'isFollowing'] as const),
+) {
   static fromDomain(
-    data: Omit<FormattedProfileWithMeta, 'isMe' | 'isFollowing'>,
+    data: Partial<Omit<FormattedProfileWithMeta, 'isMe' | 'isFollowing'>>,
   ): MyProfileResDto {
-    const dto = new ProfileResDto();
+    const dto = new MyProfileResDto();
 
     dto.id = data.id!;
     dto.username = data.username!;
     dto.fullName = data.fullName!;
-    dto.email = data.email || null;
-    dto.photoUrl = data.photoUrl || null;
-    dto.bio = data.bio || null;
-    dto.birthDate = data.birthDate || null;
+    dto.email = data.email ?? null;
+    dto.photoUrl = data.photoUrl ?? null;
+    dto.bio = data.bio ?? null;
+    dto.birthDate = data.birthDate ?? null;
     dto.country = data.country!;
     dto.levelOfEducation = data.levelOfEducation!;
     dto.university = data.university!;
@@ -27,17 +26,20 @@ export class MyProfileResDto extends OmitType(ProfileResDto, [
     dto.createdAt = data.createdAt!;
     dto.updatedAt = data.updatedAt!;
 
-    dto.followersCount = data.followersCount || 0;
-    dto.followingCount = data.followingCount || 0;
+    dto.followersCount = data.followersCount ?? 0;
+    dto.followingCount = data.followingCount ?? 0;
 
-    dto.interests = (data.interests || []).map((i) => ({
-      id: i.id!,
-      name: i.name!,
-    }));
-    dto.fieldsOfStudy = (data.fieldsOfStudy || []).map((f) => ({
-      id: f.id!,
-      name: f.name!,
-    }));
+    dto.interests =
+      data.interests?.map((i) => ({
+        id: i.id!,
+        name: i.name!,
+      })) ?? [];
+
+    dto.fieldsOfStudy =
+      data.fieldsOfStudy?.map((f) => ({
+        id: f.id!,
+        name: f.name!,
+      })) ?? [];
 
     return dto;
   }
