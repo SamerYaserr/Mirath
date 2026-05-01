@@ -39,6 +39,27 @@ enum VoteType {
   DOWN
 }
 
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+}
+
+enum AttachmentType {
+  IMAGE
+  AUDIO
+}
+
+enum FeedbackType {
+  THUMBS_UP
+  THUMBS_DOWN
+}
+
 model User {
   id               String            @id @default(uuid()) @db.Uuid
   username         String            @unique
@@ -75,6 +96,8 @@ model User {
   savedReadingLists SavedReadingList[]
   readingHistories  ReadingHistory[]
   highlights        Highlight[]
+  chatSessions      ChatSession[]
+  messageFeedbacks  MessageFeedback[]
 
   @@unique([providerId])
   @@index([email])
@@ -411,4 +434,65 @@ model Highlight {
 
   @@index([userId, paperId])
   @@index([userId, paperId, createdAt])
+}
+
+model ChatSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  title       String    @default("New Chat")
+  isTemporary Boolean   @default(false)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid()) @db.Uuid
+  sessionId String      @db.Uuid
+  role      MessageRole
+  type      MessageType @default(TEXT)
+  content   String
+  createdAt DateTime    @default(now())
+
+  session     ChatSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  attachments MessageAttachment[]
+  feedback    MessageFeedback?
+
+  @@index([sessionId, createdAt(sort: Asc)])
+  @@map("chat_messages")
+}
+
+model MessageAttachment {
+  id              String         @id @default(uuid()) @db.Uuid
+  messageId       String         @db.Uuid
+  type            AttachmentType
+  url             String
+  mimeType        String
+  sizeBytes       Int
+  durationSeconds Int?
+  createdAt       DateTime       @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("message_attachments")
+}
+
+model MessageFeedback {
+  id        String       @id @default(uuid()) @db.Uuid
+  messageId String       @unique @db.Uuid
+  userId    String       @db.Uuid
+  type      FeedbackType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("message_feedback")
 }
