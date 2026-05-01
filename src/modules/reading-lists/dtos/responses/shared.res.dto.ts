@@ -52,6 +52,13 @@ export class PaperDetailResDto {
   @ApiProperty({ example: 'Citation 2025' })
   citation: string;
 
+  @ApiProperty({
+    description:
+      'Whether the authenticated user has saved/bookmarked this paper',
+    example: false,
+  })
+  isSaved: boolean;
+
   static fromPaper(paper: PaperSource): PaperDetailResDto {
     const dto = new PaperDetailResDto();
     dto.id = paper.id;
@@ -61,6 +68,7 @@ export class PaperDetailResDto {
     dto.categories = paper.categories;
     dto.publishedAt = paper.publishedAt;
     dto.citation = paper.citation;
+    dto.isSaved = paper.isSaved;
     return dto;
   }
 }

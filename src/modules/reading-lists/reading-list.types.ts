@@ -15,6 +15,7 @@ export interface PaperSource {
   categories: string[];
   publishedAt: Date;
   citation: string;
+  isSaved: boolean;
 }
 
 export interface ReadingListPaperRecord {
@@ -68,7 +69,6 @@ export interface UserListSource {
   updatedAt: Date;
   _count: { papers: number };
   owner: OwnerSource;
-  // first 5 paperss, fetched only for preview tag computation
   papers: { paper: { categories: string[] } }[];
 }
 
@@ -84,10 +84,10 @@ export interface SavedReadingList {
   readingList: {
     owner: OwnerSource;
     _count: { papers: number };
-    // first 5 papers, fetched only for preview tag computation
     papers: { paper: { categories: string[] } }[];
   };
 }
+
 export interface UpdateReadingListServiceParams {
   id: string;
   userId: string;

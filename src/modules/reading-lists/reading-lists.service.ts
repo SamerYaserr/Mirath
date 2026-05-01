@@ -113,16 +113,13 @@ export class ReadingListsService {
     userId?: string,
   ): Promise<HttpResponse<FindOneReadingListResDto>> {
     const [list, savedRecord] = await Promise.all([
-      this.readingListsRepository.findById(id),
+      this.readingListsRepository.findById(id, userId),
       userId
         ? this.readingListsRepository.findSavedById(id, userId)
         : Promise.resolve(null),
     ]);
 
-    if (!list) {
-      throw new NotFoundException('Reading list not found');
-    }
-
+    if (!list) throw new NotFoundException('Reading list not found');
     if (!list.isPublic && list.ownerId !== userId) {
       throw new ForbiddenException(
         'You do not have access to this private list',
@@ -131,9 +128,28 @@ export class ReadingListsService {
 
     const isSaved = !!savedRecord;
 
+    const normalisedPapers = list.papers.map((entry) => ({
+      readingListId: entry.readingListId,
+      paperId: entry.paperId,
+      paper: {
+        id: entry.paper.id,
+        title: entry.paper.title,
+        authors: entry.paper.authors,
+        abstract: entry.paper.abstract,
+        categories: entry.paper.categories,
+        publishedAt: entry.paper.publishedAt,
+        citation: entry.paper.citation,
+        isSaved: userId ? (entry.paper.savedPapers ?? []).length > 0 : false,
+      },
+    }));
+
     return {
       message: 'Reading list fetched successfully',
-      data: FindOneReadingListResDto.fromList({ ...list, isSaved }),
+      data: FindOneReadingListResDto.fromList({
+        ...list,
+        papers: normalisedPapers,
+        isSaved,
+      }),
     };
   }
 
