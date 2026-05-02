@@ -52,6 +52,7 @@ import { UpdateProfileReqDto } from './dto/requests/update-profile.req.dto';
   FollowUserResDto,
   SetupProfileResDto,
   MyProfileResDto,
+  UpdateProfileReqDto,
 )
 export class UsersController {
   constructor(private usersService: UsersService) {}
@@ -136,6 +137,23 @@ export class UsersController {
     summary: 'Edit user profile',
     description:
       'Partially updates the profile fields via multipart/form-data. Fields omitted will remain unchanged.',
+  })
+  @ApiBody({
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(UpdateProfileReqDto) },
+        {
+          properties: {
+            profilePhoto: {
+              type: 'string',
+              format: 'binary',
+              description:
+                'User profile photo (JPG, JPEG, PNG, or WebP, max 30MB)',
+            },
+          },
+        },
+      ],
+    },
   })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({
