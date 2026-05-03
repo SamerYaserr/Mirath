@@ -42,4 +42,8 @@ export class ChatSessionsRepository {
 
     return session;
   }
+
+  async deleteOne(id: string) {
+    await this.prisma.chatSession.delete({ where: { id } });
+  }
 }

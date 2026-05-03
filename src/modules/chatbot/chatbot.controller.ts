@@ -1,6 +1,14 @@
 import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 
 import { ChatbotService } from './chatbot.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -29,5 +37,11 @@ export class ChatbotController {
   findOne(@Req() req: Request, @Param() { id }: IdDto) {
     const userId = req.user!.id;
     return this.chatbotService.findOne(id, userId);
+  }
+
+  @Delete('sessions/:id')
+  deleteOne(@Req() req: Request, @Param() { id }: IdDto) {
+    const userId = req.user!.id;
+    return this.chatbotService.deleteOne(id, userId);
   }
 }

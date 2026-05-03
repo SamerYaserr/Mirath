@@ -48,9 +48,23 @@ export class ChatbotService {
 
     if (session.userId !== userId)
       throw new ForbiddenException(
-        'You do not have access to this chat session.',
+        'You do not have permission to access this chat session.',
       );
 
     return { data: SessionResDto.fromEntity(session) };
+  }
+
+  async deleteOne(id: string, userId: string): Promise<HttpResponse> {
+    const session = await this.chatSessionsRepository.findOne(id);
+    if (!session) throw new NotFoundException('No session found with this id.');
+
+    if (session.userId !== userId)
+      throw new ForbiddenException(
+        'You do not have permission to delete this chat session.',
+      );
+
+    await this.chatSessionsRepository.deleteOne(id);
+
+    return { message: 'Session deleted successfully.' };
   }
 }
