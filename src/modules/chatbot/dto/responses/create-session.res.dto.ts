@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ChatSession } from '@prisma/client';
 
-export class SessionResDto {
+export class CreateSessionResDto {
   @ApiProperty({
     description: 'Unique identifier of the session',
     example: '770e8400-e29b-41d4-a716-446655440777',
@@ -38,8 +38,8 @@ export class SessionResDto {
   })
   expiresAt: Date;
 
-  static fromEntity(session: ChatSession): SessionResDto {
-    return Object.assign(new SessionResDto(), {
+  static fromEntity(session: ChatSession): CreateSessionResDto {
+    return Object.assign(new CreateSessionResDto(), {
       ...session,
     });
   }

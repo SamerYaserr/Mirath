@@ -16,4 +16,20 @@ export class ChatSessionsRepository {
     });
     return session;
   }
+
+  async findAll(userId: string, limit: number, skip: number) {
+    const sessions = await this.prisma.chatSession.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      skip,
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    return sessions;
+  }
 }

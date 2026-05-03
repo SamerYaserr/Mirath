@@ -1,8 +1,9 @@
 import type { Request } from 'express';
-import { Controller, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Query, Req } from '@nestjs/common';
 
 import { ChatbotService } from './chatbot.service';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -14,5 +15,12 @@ export class ChatbotController {
   create(@Req() req: Request) {
     const userId = req.user!.id;
     return this.chatbotService.create(userId);
+  }
+
+  @Get('sessions')
+  findAll(@Req() req: Request, @Query() q: PaginationDto) {
+    const userId = req.user!.id;
+    const { page, limit } = q;
+    return this.chatbotService.findAll(userId, page, limit);
   }
 }

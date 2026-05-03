@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import { HttpResponse } from 'src/common/types/api.types';
 import { ChatSessionsRepository } from './repositories/chat-sessions.repository';
-import { SessionResDto } from './dto/responses/session.res.dto';
+import { CreateSessionResDto } from './dto/responses/create-session.res.dto';
+import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 
 @Injectable()
 export class ChatbotService {
@@ -13,7 +14,26 @@ export class ChatbotService {
 
     return {
       message: 'session created successfully',
-      data: SessionResDto.fromEntity(session),
+      data: CreateSessionResDto.fromEntity(session),
+    };
+  }
+
+  async findAll(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<HttpResponse> {
+    const skip = (page - 1) * limit;
+    const sessions = await this.chatSessionsRepository.findAll(
+      userId,
+      limit,
+      skip,
+    );
+
+    return {
+      data: sessions.map((session) =>
+        GetUserSessionsResDto.fromEntity(session),
+      ),
     };
   }
 }
