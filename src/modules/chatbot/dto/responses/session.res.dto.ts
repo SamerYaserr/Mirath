@@ -9,6 +9,12 @@ export class SessionResDto {
   id: string;
 
   @ApiProperty({
+    description: 'Title of the chat session',
+    example: 'New Chat',
+  })
+  title: string;
+
+  @ApiProperty({
     description: 'ID of the user this chat session belongs to',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
