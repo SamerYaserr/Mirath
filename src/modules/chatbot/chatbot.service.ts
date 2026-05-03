@@ -11,14 +11,17 @@ import { ConfigService } from '@nestjs/config';
 import {
   CreateMessagePayload,
   FindMessagesPayload,
+  FindSessionsPayload,
   RenameChatSessionPayload,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
+import { SessionResDto } from './dto/responses/session.res.dto';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import ChatSessionsRepository from './repositories/sessions.repository';
 import ChatMessagesRepository from './repositories/messages.repository';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
+import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 
 @Injectable()
 export default class ChatbotService {
@@ -94,6 +97,42 @@ export default class ChatbotService {
       data: messages.map((message) => ChatbotMessageResDto.fromEntity(message)),
       size,
     };
+  }
+
+  async create(userId: string): Promise<HttpResponse> {
+    const session = await this.sessionRepo.create(userId);
+
+    return {
+      message: 'session created successfully',
+      data: SessionResDto.fromEntity(session),
+    };
+  }
+
+  async findAll({
+    userId,
+    limit,
+    skip,
+  }: FindSessionsPayload): Promise<HttpResponse> {
+    const sessions = await this.sessionRepo.findAll(userId, limit, skip);
+
+    return {
+      size: sessions.length,
+      data: sessions.map((session) =>
+        GetUserSessionsResDto.fromEntity(session),
+      ),
+    };
+  }
+
+  async findOne(id: string, userId: string): Promise<HttpResponse> {
+    const session = await this.findSessionOrThrow(id, userId);
+    return { data: SessionResDto.fromEntity(session) };
+  }
+
+  async deleteOne(id: string, userId: string): Promise<HttpResponse> {
+    await this.findSessionOrThrow(id, userId);
+    await this.sessionRepo.deleteOne(id);
+
+    return { message: 'Session deleted successfully.' };
   }
 
   // === Helpers ===

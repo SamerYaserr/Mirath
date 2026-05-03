@@ -20,3 +20,5 @@ export type FindMessagesPayload = {
 
 export type FindManyParams = Pick<ChatMessage, 'sessionId'> &
   Omit<PaginationDto, 'page'>;
+
+export type FindSessionsPayload = Omit<FindMessagesPayload, 'sessionId'>;
