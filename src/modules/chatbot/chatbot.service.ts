@@ -10,12 +10,15 @@ import { ConfigService } from '@nestjs/config';
 
 import {
   CreateMessagePayload,
+  FindMessagesPayload,
   RenameChatSessionPayload,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
+import { HttpResponse } from 'src/common/types/api.types';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import ChatSessionsRepository from './repositories/sessions.repository';
 import ChatMessagesRepository from './repositories/messages.repository';
+import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 
 @Injectable()
 export default class ChatbotService {
@@ -67,6 +70,29 @@ export default class ChatbotService {
         type: message.type,
         createdAt: message.createdAt,
       },
+    };
+  }
+
+  async findMessages({
+    sessionId,
+    userId,
+    limit,
+    skip,
+  }: FindMessagesPayload): Promise<HttpResponse<ChatbotMessageResDto[]>> {
+    await this.findSessionOrThrow(sessionId, userId);
+
+    const [messages, size] = await Promise.all([
+      this.chatbotMessageRepo.findMany({
+        sessionId,
+        limit,
+        skip,
+      }),
+      this.chatbotMessageRepo.count(sessionId),
+    ]);
+
+    return {
+      data: messages.map((message) => ChatbotMessageResDto.fromEntity(message)),
+      size,
     };
   }
 
