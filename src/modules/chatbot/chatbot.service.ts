@@ -1,8 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { HttpResponse } from 'src/common/types/api.types';
+import { SessionResDto } from './dto/responses/session.res.dto';
 import { ChatSessionsRepository } from './repositories/chat-sessions.repository';
-import { CreateSessionResDto } from './dto/responses/create-session.res.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 
 @Injectable()
@@ -14,7 +18,7 @@ export class ChatbotService {
 
     return {
       message: 'session created successfully',
-      data: CreateSessionResDto.fromEntity(session),
+      data: SessionResDto.fromEntity(session),
     };
   }
 
@@ -31,9 +35,22 @@ export class ChatbotService {
     );
 
     return {
+      size: sessions.length,
       data: sessions.map((session) =>
         GetUserSessionsResDto.fromEntity(session),
       ),
     };
+  }
+
+  async findOne(id: string, userId: string): Promise<HttpResponse> {
+    const session = await this.chatSessionsRepository.findOne(id);
+    if (!session) throw new NotFoundException('No session found with this id.');
+
+    if (session.userId !== userId)
+      throw new ForbiddenException(
+        'You do not have access to this chat session.',
+      );
+
+    return { data: SessionResDto.fromEntity(session) };
   }
 }

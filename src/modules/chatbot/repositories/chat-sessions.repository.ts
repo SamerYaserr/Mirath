@@ -14,6 +14,7 @@ export class ChatSessionsRepository {
     const session = await this.prisma.chatSession.create({
       data: { userId, title, isTemporary },
     });
+
     return session;
   }
 
@@ -30,6 +31,15 @@ export class ChatSessionsRepository {
         },
       },
     });
+
     return sessions;
+  }
+
+  async findOne(id: string) {
+    const session = await this.prisma.chatSession.findUnique({
+      where: { id },
+    });
+
+    return session;
   }
 }

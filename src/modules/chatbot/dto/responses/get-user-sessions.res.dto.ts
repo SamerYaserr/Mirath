@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ChatSession, ChatMessage } from '@prisma/client';
 
-import { CreateSessionResDto } from './create-session.res.dto';
+import { SessionResDto } from './session.res.dto';
 
-export class GetUserSessionsResDto extends CreateSessionResDto {
+export class GetUserSessionsResDto extends SessionResDto {
   @ApiProperty({
     description:
       'Preview of the last message in the session, truncated to 80 characters',
@@ -18,7 +18,7 @@ export class GetUserSessionsResDto extends CreateSessionResDto {
 
     const dto = Object.assign(
       new GetUserSessionsResDto(),
-      CreateSessionResDto.fromEntity(rest as ChatSession),
+      SessionResDto.fromEntity(rest as ChatSession),
     );
 
     const lastMessage = messages?.[0];
