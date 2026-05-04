@@ -19,7 +19,7 @@ import { ReadingListsModule } from './modules/reading-lists/reading-lists.module
 import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { PaperAnnotationsModule } from './modules/paper-annotations/paper-annotations.module';
-import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import ChatbotModule from './modules/chatbot/chatbot.module';
 
 @Module({
   imports: [

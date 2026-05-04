@@ -2,7 +2,7 @@ import { TransformFnParams } from 'class-transformer';
 import sanitizeHtml from 'sanitize-html';
 
 // sanitize HTML
-export const sanitizeToText = ({ value }: TransformFnParams) => {
+export const sanitizeToText = ({ value }: TransformFnParams): string => {
   if (typeof value !== 'string') return value;
 
   const clean = sanitizeHtml(value, {

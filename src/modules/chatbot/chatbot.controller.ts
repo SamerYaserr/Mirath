@@ -1,40 +1,109 @@
+import { Observable } from 'rxjs';
 import type { Request } from 'express';
 import {
-  ApiBearerAuth,
-  ApiExtraModels,
-  ApiForbiddenResponse,
-  ApiNotFoundResponse,
-  ApiOperation,
+  Req,
+  Sse,
+  Get,
+  Body,
+  Post,
+  Param,
+  Query,
+  Delete,
+  HttpCode,
+  Controller,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
   ApiQuery,
   ApiResponse,
-  ApiTags,
-  ApiUnauthorizedResponse,
+  ApiOperation,
+  ApiBearerAuth,
   getSchemaPath,
+  ApiExtraModels,
+  ApiNotFoundResponse,
+  ApiForbiddenResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import {
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Query,
-  Req,
-} from '@nestjs/common';
 
-import { ChatbotService } from './chatbot.service';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { IdDto } from 'src/common/dto/id.dto';
+import ChatbotService from './chatbot.service';
+import { ChatbotMessageDataEvent } from './chatbot.types';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SessionResDto } from './dto/responses/session.res.dto';
+import { HttpResponse, SseEvent } from 'src/common/types/api.types';
+import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
+import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
-@ApiExtraModels(SessionResDto, GetUserSessionsResDto)
+@ApiExtraModels(ChatbotMessageResDto, SessionResDto, GetUserSessionsResDto)
 @Controller('chatbot')
-export class ChatbotController {
+export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
+
+  @Sse('sessions/:id/messages')
+  streamMessage(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Body() dto: CreateChatbotMessageReqDto,
+  ): Observable<SseEvent<ChatbotMessageDataEvent>> {
+    return new Observable((subscriber) => {
+      const abortController = new AbortController();
+
+      this.chatbotService.processMessageStream({
+        sessionId: id,
+        userId: req.user!.id,
+        abortController,
+        subscriber,
+        ...dto,
+      });
+
+      return () => {
+        abortController.abort();
+      };
+    });
+  }
+
+  @Get('sessions/:id/messages')
+  @ApiOperation({
+    summary: 'List chatbot messages',
+    description:
+      'Returns the messages for a chat session in chronological order.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Chat messages retrieved successfully.',
+    schema: {
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(ChatbotMessageResDto) },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Chat session not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'You do not have access to this chat session',
+  })
+  findMessages(
+    @Req() req: Request,
+    @Param() { id }: IdDto,
+    @Query() dto: PaginationDto,
+  ): Promise<HttpResponse<ChatbotMessageResDto[]>> {
+    return this.chatbotService.findMessages({
+      sessionId: id,
+      skip: dto.skip,
+      limit: dto.limit,
+      userId: req.user!.id,
+    });
+  }
 
   @Post('sessions')
   @HttpCode(HttpStatus.CREATED)
@@ -83,10 +152,9 @@ export class ChatbotController {
     },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
-  findAll(@Req() req: Request, @Query() q: PaginationDto) {
+  findAll(@Req() req: Request, @Query() { limit, skip }: PaginationDto) {
     const userId = req.user!.id;
-    const { page, limit } = q;
-    return this.chatbotService.findAll(userId, page, limit);
+    return this.chatbotService.findAll({ userId, limit, skip });
   }
 
   @Get('sessions/:id')

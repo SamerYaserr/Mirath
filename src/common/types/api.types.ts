@@ -3,3 +3,7 @@ export type HttpResponse<T = any> = {
   data?: T;
   size?: number;
 };
+
+export type SseEvent<T> = {
+  data: T;
+};

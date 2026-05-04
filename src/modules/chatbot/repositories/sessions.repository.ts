@@ -1,10 +1,16 @@
 import { Injectable } from '@nestjs/common';
-
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { RenameChatSessionPayload } from '../chatbot.types';
 
 @Injectable()
-export class ChatSessionsRepository {
-  constructor(private prisma: PrismaService) {}
+export default class ChatSessionsRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  findById(id: string) {
+    return this.prisma.chatSession.findUnique({
+      where: { id },
+    });
+  }
 
   async create(
     userId: string,
@@ -45,5 +51,22 @@ export class ChatSessionsRepository {
 
   async deleteOne(id: string) {
     await this.prisma.chatSession.delete({ where: { id } });
+  }
+
+  async updateTitle({
+    sessionId,
+    newTitle: title,
+  }: Omit<RenameChatSessionPayload, 'userId'>) {
+    await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { title },
+    });
+  }
+
+  async touch(sessionId: string) {
+    await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { updatedAt: new Date() },
+    });
   }
 }
