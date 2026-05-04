@@ -46,7 +46,6 @@ import {
   ReadingListPaperResDto,
 } from './dtos/responses/shared.res.dto';
 import { HttpResponse } from 'src/common/types/api.types';
-import { GetUserSavedListsResDto } from './dtos/responses/get-saved-lists.res.dto';
 import { UpdateReadingListReqDto } from './dtos/requests/update.req.dto';
 import { GetReadingListsQueryReqDto } from './dtos/requests/get-reading-lists-query.req.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -58,7 +57,6 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
   PaperDetailResDto,
   ReadingListPaperResDto,
   GetUserReadingListsResDto,
-  GetUserSavedListsResDto,
   GetAllSystemReadingListsResDto,
   CreatedListResDto,
   FindOneReadingListResDto,
@@ -99,7 +97,7 @@ export class ReadingListsController {
     status: HttpStatus.OK,
     description:
       'Reading lists fetched successfully with paper count and preview tags. ' +
-      'Returns GetUserSavedListsResDto[] when saved=true, otherwise GetUserReadingListsResDto[].',
+      'Returns GetUserReadingListsResDto[].',
     schema: {
       properties: {
         message: {
@@ -109,12 +107,7 @@ export class ReadingListsController {
         size: { type: 'number', example: 1 },
         data: {
           type: 'array',
-          items: {
-            oneOf: [
-              { $ref: getSchemaPath(GetUserReadingListsResDto) },
-              { $ref: getSchemaPath(GetUserSavedListsResDto) },
-            ],
-          },
+          items: { $ref: getSchemaPath(GetUserReadingListsResDto) },
         },
       },
     },
@@ -126,9 +119,7 @@ export class ReadingListsController {
   async findAll(
     @Req() req: Request,
     @Query() q: GetReadingListsQueryReqDto,
-  ): Promise<
-    HttpResponse<GetUserReadingListsResDto[] | GetUserSavedListsResDto[]>
-  > {
+  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
     const userId = req.user!.id;
     const { ownerId, saved, skip = 0, limit = 10 } = q;
     return this.readingListsService.findAll(

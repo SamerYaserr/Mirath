@@ -81,11 +81,7 @@ export interface SavedReadingList {
   userId: string;
   readingListId: string;
   savedAt: Date;
-  readingList: {
-    owner: OwnerSource;
-    _count: { papers: number };
-    papers: { paper: { categories: string[] } }[];
-  };
+  readingList: UserListSource;
 }
 
 export interface UpdateReadingListServiceParams {

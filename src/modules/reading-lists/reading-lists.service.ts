@@ -17,7 +17,6 @@ import {
 } from './dtos/responses/get-all-lists.res.dto';
 import { FindOneReadingListResDto } from './dtos/responses/find-one-reading-list.res.dto';
 import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
-import { GetUserSavedListsResDto } from './dtos/responses/get-saved-lists.res.dto';
 import { UpdateReadingListServiceParams } from './reading-list.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -52,9 +51,7 @@ export class ReadingListsService {
     limit: number,
     ownerId?: string,
     saved?: boolean,
-  ): Promise<
-    HttpResponse<GetUserReadingListsResDto[] | GetUserSavedListsResDto[]>
-  > {
+  ): Promise<HttpResponse<GetUserReadingListsResDto[]>> {
     if (saved && ownerId)
       throw new BadRequestException(
         'You can only find saved reading lists or by ownerId',
@@ -63,7 +60,9 @@ export class ReadingListsService {
     if (saved) {
       const lists = await this.readingListsRepository.findAllSaved(userId);
 
-      const data = lists.map(GetUserSavedListsResDto.fromList);
+      const data = lists.map((list) =>
+        GetUserReadingListsResDto.fromList(list.readingList),
+      );
 
       return {
         message: 'Saved reading lists fetched successfully',
