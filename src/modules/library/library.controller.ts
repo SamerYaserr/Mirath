@@ -42,7 +42,7 @@ export class LibraryController {
   @ApiOperation({
     summary: 'Get library stats',
     description:
-      'Returns aggregate counts for the Library home screen: total lists (owned + saved), created lists, saved papers, and projects.',
+      'Returns aggregated counts for the Library overview, including total lists (owned + saved), created lists, saved papers, and projects.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -63,7 +63,7 @@ export class LibraryController {
   @ApiOperation({
     summary: 'Get all saved papers',
     description:
-      'Retrieves all papers saved by the authenticated user with pagination and sorting options.',
+      "Returns the authenticated user's saved papers with pagination and optional sorting.",
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -89,7 +89,11 @@ export class LibraryController {
 
   @Post('reading-history/:paperId')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Update reading history' })
+  @ApiOperation({
+    summary: 'Update reading history',
+    description:
+      "Adds the specified paper to the authenticated user's reading history or updates its timestamp if it already exists.",
+  })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Reading history updated',
@@ -110,7 +114,11 @@ export class LibraryController {
 
   @Get('reading-history')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get reading history' })
+  @ApiOperation({
+    summary: 'Get reading history',
+    description:
+      "Returns the authenticated user's reading history with pagination.",
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully retrieved reading history.',
@@ -136,7 +144,11 @@ export class LibraryController {
 
   @Delete('reading-history')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Clear all reading history' })
+  @ApiOperation({
+    summary: 'Clear all reading history',
+    description:
+      'Deletes all reading history entries for the authenticated user.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Reading history cleared successfully',
@@ -156,7 +168,11 @@ export class LibraryController {
 
   @Delete('reading-history/:paperId')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove a paper from reading history' })
+  @ApiOperation({
+    summary: 'Remove a paper from reading history',
+    description:
+      "Deletes a single paper from the authenticated user's reading history by paper ID.",
+  })
   @ApiResponse({
     status: 200,
     description: 'Paper removed from reading history',
