@@ -28,13 +28,13 @@ import {
 
 import { IdDto } from 'src/common/dto/id.dto';
 import ChatbotService from './chatbot.service';
-import { HttpResponse, SseEvent } from 'src/common/types/api.types';
+import { ChatbotMessageDataEvent } from './chatbot.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SessionResDto } from './dto/responses/session.res.dto';
+import { HttpResponse, SseEvent } from 'src/common/types/api.types';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
-import { ChatbotMessageDataEvent } from './chatbot.types';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()

@@ -15,10 +15,10 @@ import {
   FindSessionsPayload,
   ProcessMessagePayload,
   RenameChatSessionPayload,
-  RenameChatSessionExternalApiPayload,
   ExternalApiStreamResponse,
   HandleStreamEventsPayload,
   PersistStreamedMessagePayload,
+  RenameChatSessionExternalApiPayload,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -253,9 +253,13 @@ export default class ChatbotService {
   }
 
   async deleteOne(id: string, userId: string): Promise<HttpResponse> {
-    await this.findSessionOrThrow(id, userId);
-    await this.sessionsRepo.deleteOne(id);
+    const session = await this.findSessionOrThrow(id, userId);
 
+    if (session.isTemporary) {
+      await this.deleteTemporarySessionFromExternalApi(id);
+    }
+
+    await this.sessionsRepo.deleteOne(id);
     return { message: 'Session deleted successfully.' };
   }
 
@@ -303,6 +307,22 @@ export default class ChatbotService {
         );
       }),
     ]);
+  }
+
+  private async deleteTemporarySessionFromExternalApi(sessionId: string) {
+    await firstValueFrom(
+      this.httpService.delete(
+        `${this.configService.get('EXTERNAL_API_BASE_URL')}/temporary/chat`,
+        {
+          data: { thread_id: sessionId },
+        },
+      ),
+    ).catch((error) => {
+      logger.error(
+        `Failed to delete temporary session ${sessionId} via external API`,
+        { error },
+      );
+    });
   }
 
   private async callExternalChatStream({
