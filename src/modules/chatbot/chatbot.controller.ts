@@ -1,37 +1,40 @@
+import { Observable } from 'rxjs';
 import type { Request } from 'express';
 import {
   Req,
+  Sse,
   Get,
   Body,
   Post,
   Param,
+  Query,
+  Delete,
+  HttpCode,
   Controller,
   HttpStatus,
-  Query,
-  HttpCode,
-  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
+  ApiQuery,
   ApiResponse,
   ApiOperation,
   ApiBearerAuth,
   getSchemaPath,
   ApiExtraModels,
-  ApiUnauthorizedResponse,
-  ApiQuery,
   ApiNotFoundResponse,
   ApiForbiddenResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import { IdDto } from 'src/common/dto/id.dto';
 import ChatbotService from './chatbot.service';
+import { HttpResponse, SseEvent } from 'src/common/types/api.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SessionResDto } from './dto/responses/session.res.dto';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
-import { HttpResponse } from 'src/common/types/api.types';
+import { ChatbotMessageDataEvent } from './chatbot.types';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -40,16 +43,26 @@ import { HttpResponse } from 'src/common/types/api.types';
 export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 
-  @Post('sessions/:id/messages')
-  createMessage(
+  @Sse('sessions/:id/messages')
+  streamMessage(
     @Req() req: Request,
     @Param() { id }: IdDto,
     @Body() dto: CreateChatbotMessageReqDto,
-  ) {
-    return this.chatbotService.createMessage({
-      sessionId: id,
-      userId: req.user!.id,
-      ...dto,
+  ): Observable<SseEvent<ChatbotMessageDataEvent>> {
+    return new Observable((subscriber) => {
+      const abortController = new AbortController();
+
+      this.chatbotService.processMessageStream({
+        sessionId: id,
+        userId: req.user!.id,
+        abortController,
+        subscriber,
+        ...dto,
+      });
+
+      return () => {
+        abortController.abort();
+      };
     });
   }
 

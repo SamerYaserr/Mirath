@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { RenameChatSessionPayload } from '../chatbot.types';
 
 @Injectable()
 export default class ChatSessionsRepository {
@@ -50,5 +51,22 @@ export default class ChatSessionsRepository {
 
   async deleteOne(id: string) {
     await this.prisma.chatSession.delete({ where: { id } });
+  }
+
+  async updateTitle({
+    sessionId,
+    newTitle: title,
+  }: Omit<RenameChatSessionPayload, 'userId'>) {
+    await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { title },
+    });
+  }
+
+  async touch(sessionId: string) {
+    await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { updatedAt: new Date() },
+    });
   }
 }
