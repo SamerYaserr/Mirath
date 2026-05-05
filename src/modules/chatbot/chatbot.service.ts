@@ -7,9 +7,8 @@ import FormData from 'form-data';
 import { Readable } from 'stream';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
+import { MessageRole } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
-import { fileTypeFromBuffer } from 'file-type';
-import { AttachmentType, MessageRole, Prisma } from '@prisma/client';
 
 import {
   FindMessagesPayload,
@@ -40,13 +39,10 @@ export default class ChatbotService {
   ) {}
 
   async processMessageStream({
-    image,
-    voice,
     userId,
     content,
     sessionId,
     subscriber,
-    voiceDuration,
     abortController,
   }: ProcessMessagePayload) {
     try {
@@ -58,29 +54,6 @@ export default class ChatbotService {
         content,
         role: MessageRole.USER,
         sessionId: session.id,
-        attachments: {
-          createMany: {
-            data: [
-              ...(image
-                ? [
-                    await this.getMessageAttachmentCreateInput({
-                      file: image,
-                      type: AttachmentType.IMAGE,
-                    }),
-                  ]
-                : []),
-              ...(voice
-                ? [
-                    await this.getMessageAttachmentCreateInput({
-                      file: voice,
-                      type: AttachmentType.AUDIO,
-                      voiceDuration: voiceDuration,
-                    }),
-                  ]
-                : []),
-            ],
-          },
-        },
       });
 
       // Check if session had more than 1 messages
@@ -102,8 +75,6 @@ export default class ChatbotService {
         abortController,
         userId,
         sessionId,
-        image,
-        voice,
       });
 
       let buffer = '',
@@ -366,8 +337,6 @@ export default class ChatbotService {
   }
 
   private async callExternalChatStream({
-    image,
-    voice,
     userId,
     content,
     sessionId,
@@ -375,18 +344,6 @@ export default class ChatbotService {
   }: Omit<ProcessMessagePayload, 'subscriber'>) {
     const form = new FormData();
     form.append('message', content);
-
-    if (image) {
-      form.append('image', this.base64ToBuffer(image), {
-        contentType: 'application/octet-stream',
-      });
-    }
-
-    if (voice) {
-      form.append('voice', this.base64ToBuffer(voice), {
-        contentType: 'application/octet-stream',
-      });
-    }
 
     const { data: stream } = await firstValueFrom(
       this.httpService.post<Readable>(
@@ -477,31 +434,5 @@ export default class ChatbotService {
         });
       }
     });
-  }
-
-  private base64ToBuffer(file: string): Buffer {
-    // base64 => file
-    return Buffer.from(file, 'base64');
-  }
-
-  private async getMessageAttachmentCreateInput({
-    file,
-    type,
-    voiceDuration,
-  }: {
-    file: string;
-    type: AttachmentType;
-    voiceDuration?: number | undefined;
-  }): Promise<Omit<Prisma.MessageAttachmentUncheckedCreateInput, 'messageId'>> {
-    const buffer = this.base64ToBuffer(file);
-
-    return {
-      url: file,
-      type,
-      mimeType:
-        (await fileTypeFromBuffer(buffer))?.mime || 'application/octet-stream',
-      sizeBytes: Buffer.byteLength(file, 'base64'),
-      durationSeconds: voiceDuration ?? null,
-    };
   }
 }
