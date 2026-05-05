@@ -61,7 +61,6 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.5",
-    "@types/file-type": "^10.6.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.19.3",
     "@types/nodemailer": "^7.0.4",
