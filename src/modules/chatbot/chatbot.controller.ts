@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiTags,
+  ApiBody,
   ApiQuery,
   ApiResponse,
   ApiOperation,
@@ -44,6 +45,46 @@ export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 
   @Sse('sessions/:id/messages')
+  @ApiOperation({
+    summary: 'Stream a chatbot reply for a session message',
+  })
+  @ApiBody({
+    type: CreateChatbotMessageReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Stream opened successfully. The client should keep reading SSE data frames until it receives the `[DONE]` sentinel or an error event.',
+    content: {
+      'text/event-stream': {
+        schema: {
+          type: 'string',
+          description:
+            'Raw SSE frame. The payload after `data:` is a JSON string for chunk and error events, or the string `[DONE]` for completion.',
+          example: 'data: {"delta":"The paper argues that..."}\n\n',
+        },
+        examples: {
+          chunk: {
+            summary: 'Assistant chunk event',
+            value: 'data: {"delta":"The paper argues that..."}\n\n',
+          },
+          error: {
+            summary: 'Stream error event',
+            value:
+              'data: {"error":"Failed to process the message, please try again later."}\n\n',
+          },
+          done: {
+            summary: 'Completion sentinel',
+            value: 'data: "[DONE]"\n\n',
+          },
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'Chat session not found' })
+  @ApiForbiddenResponse({
+    description: 'You do not have access to this chat session',
+  })
   streamMessage(
     @Req() req: Request,
     @Param() { id }: IdDto,
@@ -66,7 +107,7 @@ export default class ChatbotController {
     });
   }
 
-  @Get('sessions/:id/messages')
+  @Get('sessions/:id/history')
   @ApiOperation({
     summary: 'List chatbot messages',
     description:
