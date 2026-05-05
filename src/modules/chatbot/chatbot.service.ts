@@ -7,8 +7,9 @@ import FormData from 'form-data';
 import { Readable } from 'stream';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
-import { MessageRole } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import { fileTypeFromBuffer } from 'file-type';
+import { AttachmentType, MessageRole, Prisma } from '@prisma/client';
 
 import {
   FindMessagesPayload,
@@ -17,8 +18,8 @@ import {
   RenameChatSessionPayload,
   ExternalApiStreamResponse,
   HandleStreamEventsPayload,
-  PersistStreamedMessagePayload,
   RenameChatSessionExternalApiPayload,
+  PersistStreamedMessageAndTitlePayload,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -39,10 +40,13 @@ export default class ChatbotService {
   ) {}
 
   async processMessageStream({
+    image,
+    voice,
     userId,
     content,
     sessionId,
     subscriber,
+    voiceDuration,
     abortController,
   }: ProcessMessagePayload) {
     try {
@@ -54,6 +58,29 @@ export default class ChatbotService {
         content,
         role: MessageRole.USER,
         sessionId: session.id,
+        attachments: {
+          createMany: {
+            data: [
+              ...(image
+                ? [
+                    await this.getMessageAttachmentCreateInput({
+                      file: image,
+                      type: AttachmentType.IMAGE,
+                    }),
+                  ]
+                : []),
+              ...(voice
+                ? [
+                    await this.getMessageAttachmentCreateInput({
+                      file: voice,
+                      type: AttachmentType.AUDIO,
+                      voiceDuration: voiceDuration,
+                    }),
+                  ]
+                : []),
+            ],
+          },
+        },
       });
 
       // Check if session had more than 1 messages
@@ -75,11 +102,14 @@ export default class ChatbotService {
         abortController,
         userId,
         sessionId,
+        image,
+        voice,
       });
 
-      let buffer = '';
-      let persisted = false;
-      let assembledResponse = '';
+      let buffer = '',
+        persisted = false,
+        assembledResponse = '',
+        newTitle: string | undefined = undefined;
       stream.on('data', (chunk: Buffer) => {
         buffer += chunk.toString();
 
@@ -106,25 +136,32 @@ export default class ChatbotService {
               case 'chunk':
                 if (event.content) {
                   // This is needed to persist the message in the database once the stream ends
-                  assembledResponse += event.content;
+                  const content = Array.isArray(event.content)
+                    ? event.content[0].text
+                    : event.content;
+
+                  assembledResponse += content;
 
                   // Stream the chunk to the client
-                  subscriber.next({ data: { delta: event.content } });
+                  subscriber.next({
+                    data: { delta: content },
+                  });
                 }
                 break;
 
               case 'end':
                 // Stream completed
-                this.persistAssistantMessage({
+                this.persistAssistantMessageAndUpdateSessionTitle({
+                  newTitle,
                   persisted,
-                  assembledResponse,
                   sessionId,
+                  assembledResponse,
                 })
                   .then((p) => {
                     subscriber.next({ data: '[DONE]' });
                     subscriber.complete();
 
-                    if (typeof p === 'boolean') persisted = p;
+                    persisted = p;
                   })
                   .catch((err: unknown) => {
                     logger.error(
@@ -148,10 +185,11 @@ export default class ChatbotService {
                   },
                 });
 
-                this.persistAssistantMessage({
+                this.persistAssistantMessageAndUpdateSessionTitle({
+                  newTitle,
                   persisted,
-                  assembledResponse,
                   sessionId,
+                  assembledResponse,
                 }).catch((err: unknown) => {
                   logger.error('Failed to persist on AI error', {
                     error: err,
@@ -162,6 +200,7 @@ export default class ChatbotService {
                 break;
 
               case 'metadata':
+                newTitle = event.chat_title;
                 break;
             }
           } catch {
@@ -173,9 +212,10 @@ export default class ChatbotService {
       // Handle Stream Completion
       this.handleStreamCompletion({
         stream,
-        assembledResponse,
         persisted,
         sessionId,
+        assembledResponse,
+        newTitle,
       });
 
       // Handle Stream Errors
@@ -295,7 +335,7 @@ export default class ChatbotService {
           `${this.configService.get('EXTERNAL_API_BASE_URL')}/rename/chat`,
           {
             thread_id: sessionId,
-            new_title: newTitle,
+            new_title: newTitle!,
             user_id: userId,
           },
         ),
@@ -326,13 +366,27 @@ export default class ChatbotService {
   }
 
   private async callExternalChatStream({
-    content,
-    abortController,
+    image,
+    voice,
     userId,
+    content,
     sessionId,
+    abortController,
   }: Omit<ProcessMessagePayload, 'subscriber'>) {
     const form = new FormData();
     form.append('message', content);
+
+    if (image) {
+      form.append('image', this.base64ToBuffer(image), {
+        contentType: 'application/octet-stream',
+      });
+    }
+
+    if (voice) {
+      form.append('voice', this.base64ToBuffer(voice), {
+        contentType: 'application/octet-stream',
+      });
+    }
 
     const { data: stream } = await firstValueFrom(
       this.httpService.post<Readable>(
@@ -349,23 +403,34 @@ export default class ChatbotService {
     return stream;
   }
 
-  private async persistAssistantMessage({
+  private async persistAssistantMessageAndUpdateSessionTitle({
+    newTitle,
     persisted,
-    assembledResponse,
     sessionId,
-  }: PersistStreamedMessagePayload) {
-    if (persisted) return;
+    assembledResponse,
+  }: PersistStreamedMessageAndTitlePayload) {
+    if (persisted) return true;
+
+    const promiseArray = [];
+
+    promiseArray.push(
+      this.sessionsRepo.updateTitleAndTouch({
+        sessionId,
+        newTitle,
+      }),
+    );
 
     if (assembledResponse.length > 0) {
-      await this.chatbotMessagesRepo.create({
-        content: assembledResponse,
-        role: MessageRole.ASSISTANT,
-        sessionId,
-      });
+      promiseArray.push(
+        this.chatbotMessagesRepo.create({
+          content: assembledResponse,
+          role: MessageRole.ASSISTANT,
+          sessionId,
+        }),
+      );
     }
 
-    await this.sessionsRepo.touch(sessionId);
-
+    await Promise.all(promiseArray);
     return true;
   }
 
@@ -392,17 +457,19 @@ export default class ChatbotService {
 
   private handleStreamCompletion({
     stream,
-    assembledResponse,
+    newTitle,
     persisted,
     sessionId,
+    assembledResponse,
   }: Pick<HandleStreamEventsPayload, 'stream'> &
-    PersistStreamedMessagePayload) {
+    PersistStreamedMessageAndTitlePayload) {
     stream.on('end', () => {
       if (assembledResponse.length !== 0) {
-        this.persistAssistantMessage({
+        this.persistAssistantMessageAndUpdateSessionTitle({
+          newTitle,
           persisted,
-          assembledResponse,
           sessionId,
+          assembledResponse,
         }).catch((err) => {
           logger.error('Failed to persist assistant message on stream end', {
             error: err,
@@ -410,5 +477,31 @@ export default class ChatbotService {
         });
       }
     });
+  }
+
+  private base64ToBuffer(file: string): Buffer {
+    // base64 => file
+    return Buffer.from(file, 'base64');
+  }
+
+  private async getMessageAttachmentCreateInput({
+    file,
+    type,
+    voiceDuration,
+  }: {
+    file: string;
+    type: AttachmentType;
+    voiceDuration?: number | undefined;
+  }): Promise<Omit<Prisma.MessageAttachmentUncheckedCreateInput, 'messageId'>> {
+    const buffer = this.base64ToBuffer(file);
+
+    return {
+      url: file,
+      type,
+      mimeType:
+        (await fileTypeFromBuffer(buffer))?.mime || 'application/octet-stream',
+      sizeBytes: Buffer.byteLength(file, 'base64'),
+      durationSeconds: voiceDuration ?? null,
+    };
   }
 }

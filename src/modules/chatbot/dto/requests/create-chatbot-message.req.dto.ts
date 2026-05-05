@@ -1,6 +1,14 @@
 import { MessageType } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import {
+  IsBase64,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 import { sanitizeToText } from 'src/common/utils/transform.utils';
 
@@ -13,4 +21,16 @@ export class CreateChatbotMessageReqDto {
 
   @IsEnum(MessageType, { message: 'Type must be a valid MessageType' })
   type?: MessageType = MessageType.TEXT;
+
+  @IsOptional()
+  @IsBase64({}, { message: 'File must be a valid base64 string' })
+  image?: string | undefined;
+
+  @IsOptional()
+  @IsBase64({}, { message: 'Voice must be a valid base64 string' })
+  voice?: string | undefined;
+
+  @IsNumber({}, { message: 'Voice duration must be a number' })
+  @IsOptional()
+  voiceDuration?: number;
 }

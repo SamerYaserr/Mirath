@@ -66,7 +66,7 @@ export default class ChatbotController {
     });
   }
 
-  @Get('sessions/:id/messages')
+  @Get('sessions/:id/history')
   @ApiOperation({
     summary: 'List chatbot messages',
     description:

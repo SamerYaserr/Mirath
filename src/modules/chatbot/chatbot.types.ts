@@ -22,7 +22,7 @@ export type ProcessMessagePayload = CreateChatbotMessageReqDto & {
 
 export type RenameChatSessionPayload = {
   sessionId: string;
-  newTitle: string;
+  newTitle: string | undefined;
   userId: string;
 };
 
@@ -44,7 +44,14 @@ export type RenameChatSessionExternalApiPayload = {
 
 export type ExternalApiStreamResponse = {
   type: 'chunk' | 'error' | 'end' | 'metadata';
-  content?: string;
+  content?:
+    | string
+    | [
+        {
+          type: 'text';
+          text: string;
+        },
+      ];
   chat_title?: string;
 };
 
@@ -53,8 +60,9 @@ export type HandleStreamEventsPayload = {
   subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
 };
 
-export type PersistStreamedMessagePayload = {
+export type PersistStreamedMessageAndTitlePayload = {
   persisted: boolean;
   assembledResponse: string;
   sessionId: string;
+  newTitle: string | undefined;
 };

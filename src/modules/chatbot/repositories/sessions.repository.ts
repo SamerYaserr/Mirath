@@ -54,12 +54,12 @@ export default class ChatSessionsRepository {
   }
 
   async updateTitle({
+    newTitle,
     sessionId,
-    newTitle: title,
   }: Omit<RenameChatSessionPayload, 'userId'>) {
     await this.prisma.chatSession.update({
       where: { id: sessionId },
-      data: { title },
+      data: { title: newTitle! },
     });
   }
 
@@ -67,6 +67,16 @@ export default class ChatSessionsRepository {
     await this.prisma.chatSession.update({
       where: { id: sessionId },
       data: { updatedAt: new Date() },
+    });
+  }
+
+  async updateTitleAndTouch({
+    sessionId,
+    newTitle,
+  }: Omit<RenameChatSessionPayload, 'userId'>) {
+    await this.prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { ...(newTitle && { title: newTitle }), updatedAt: new Date() },
     });
   }
 }
