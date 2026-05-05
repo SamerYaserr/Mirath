@@ -1,5 +1,5 @@
 import { Subscriber } from 'rxjs';
-import { ChatMessage } from '@prisma/client';
+import { AttachmentType, ChatMessage, MessageRole, MessageType } from '@prisma/client';
 
 import { SseEvent } from 'src/common/types/api.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -65,4 +65,28 @@ export type PersistStreamedMessageAndTitlePayload = {
   assembledResponse: string;
   sessionId: string;
   newTitle: string | undefined;
+};
+
+export type CreateMessageData = {
+  sessionId: string;
+  role: MessageRole;
+  type: MessageType;
+  content: string;
+};
+
+export type CreateAttachmentData = {
+  type: AttachmentType;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationSeconds?: number | null;
+};
+
+export type ProcessImageMessagePayload = {
+  userId: string;
+  sessionId: string;
+  file: Express.Multer.File;
+  content: string;
+  abortController: AbortController;
+  subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
 };
