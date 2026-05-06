@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 
-import { ChatbotService } from './chatbot.service';
-import { PrismaModule } from '../prisma/prisma.module';
-import { ChatbotController } from './chatbot.controller';
-import { CloudinaryModule } from '../cloudinary/cloudinary.module';
-import { ChatSessionsRepository } from './repositories/chat-sessions.repository';
+import ChatbotService from './chatbot.service';
+import ChatbotController from './chatbot.controller';
+import ChatSessionsRepository from './repositories/sessions.repository';
+import ChatMessagesRepository from './repositories/messages.repository';
 
 @Module({
+  imports: [HttpModule],
   controllers: [ChatbotController],
-  imports: [PrismaModule, CloudinaryModule],
-  providers: [ChatbotService, ChatSessionsRepository],
+  providers: [ChatSessionsRepository, ChatMessagesRepository, ChatbotService],
 })
-export class ChatbotModule {}
+export default class ChatbotModule {}
