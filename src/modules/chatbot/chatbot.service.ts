@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -7,18 +8,20 @@ import FormData from 'form-data';
 import { Readable } from 'stream';
 import { firstValueFrom } from 'rxjs';
 import { HttpService } from '@nestjs/axios';
-import { MessageRole } from '@prisma/client';
+import { AttachmentType, MessageRole, MessageType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
 import {
   FindMessagesPayload,
   FindSessionsPayload,
   ProcessMessagePayload,
+  ProcessImageMessagePayload,
   RenameChatSessionPayload,
   ExternalApiStreamResponse,
   HandleStreamEventsPayload,
   RenameChatSessionExternalApiPayload,
   PersistStreamedMessageAndTitlePayload,
+  CallExternalChatStreamParams,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -26,9 +29,10 @@ import { SessionResDto } from './dto/responses/session.res.dto';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import ChatSessionsRepository from './repositories/sessions.repository';
 import ChatMessagesRepository from './repositories/messages.repository';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
-
+import { EXT_TO_MIME } from './chatbot.types';
 @Injectable()
 export default class ChatbotService {
   constructor(
@@ -36,6 +40,7 @@ export default class ChatbotService {
     private readonly sessionsRepo: ChatSessionsRepository,
     private readonly chatbotMessagesRepo: ChatMessagesRepository,
     private readonly configService: ConfigService<AppConfig, true>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async processMessageStream({
@@ -274,6 +279,219 @@ export default class ChatbotService {
     return { message: 'Session deleted successfully.' };
   }
 
+  async processImageMessageStream({
+    userId,
+    sessionId,
+    file,
+    content,
+    abortController,
+    subscriber,
+  }: ProcessImageMessagePayload) {
+    try {
+      await this.findSessionOrThrow(sessionId, userId);
+
+      const { secure_url } = await this.cloudinaryService.uploadFile(
+        file,
+        'mirath/chatbot',
+      );
+
+      await this.chatbotMessagesRepo.createWithAttachment(
+        {
+          sessionId,
+          role: MessageRole.USER,
+          type: MessageType.IMAGE,
+          content: content ?? '',
+        },
+        {
+          type: AttachmentType.IMAGE,
+          url: secure_url,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+        },
+      );
+
+      const hasMultipleMessages =
+        await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
+
+      if (!hasMultipleMessages) {
+        const titleCandidate = content ? content.slice(0, 60) : 'Image message';
+
+        await this.updateTitle({
+          sessionId,
+          userId,
+          newTitle: titleCandidate,
+        });
+      }
+
+      let stream: Readable;
+      try {
+        stream = await this.callExternalChatStream({
+          content,
+          file,
+          abortController,
+          userId,
+          sessionId,
+        });
+      } catch (aiError) {
+        // ai call failed after cloudinary upload
+        console.error('AI service call failed', {
+          error: aiError,
+          sessionId,
+          userId,
+        });
+        await this.cloudinaryService
+          .deleteFile(secure_url)
+          .catch((err: unknown) =>
+            logger.error('Failed to cleanup Cloudinary file after AI error', {
+              err,
+            }),
+          );
+        throw new BadGatewayException(
+          'AI service failed to process the image. Please try again later.',
+        );
+      }
+
+      let buffer = '',
+        persisted = false,
+        assembledResponse = '',
+        newTitle: string | undefined = undefined;
+
+      stream.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+
+          const jsonStr = trimmed.slice('data:'.length).trim();
+          if (!jsonStr) continue;
+
+          try {
+            const event = JSON.parse(jsonStr) as ExternalApiStreamResponse;
+
+            switch (event.type) {
+              case 'chunk':
+                if (event.content) {
+                  const delta = Array.isArray(event.content)
+                    ? event.content[0].text
+                    : event.content;
+
+                  assembledResponse += delta;
+                  subscriber.next({ data: { delta } });
+                }
+                break;
+
+              case 'end':
+                this.persistAssistantImageMessage({
+                  persisted,
+                  sessionId,
+                  assembledResponse,
+                  newTitle,
+                })
+                  .then(({ persisted: p, messageId }) => {
+                    persisted = p;
+
+                    // persist any image URLs found in ai response
+                    if (messageId) {
+                      this.persistAiImageAttachments(
+                        messageId,
+                        assembledResponse,
+                      ).catch((err: unknown) =>
+                        logger.error('Failed to persist AI image attachments', {
+                          err,
+                        }),
+                      );
+                    }
+
+                    subscriber.next({ data: '[DONE]' });
+                    subscriber.complete();
+                  })
+                  .catch((err: unknown) => {
+                    logger.error('Failed to persist assistant image message', {
+                      err,
+                    });
+                    subscriber.next({ data: '[DONE]' });
+                    subscriber.complete();
+                  });
+                break;
+
+              case 'error':
+                subscriber.next({
+                  data: {
+                    error:
+                      'Failed to process the message, please try again later.',
+                  },
+                });
+                this.cloudinaryService
+                  .deleteFile(secure_url)
+                  .catch((err: unknown) =>
+                    logger.error(
+                      'Failed to cleanup Cloudinary file after AI stream error',
+                      { err },
+                    ),
+                  );
+
+                subscriber.complete();
+                break;
+
+              case 'metadata':
+                newTitle = event.chat_title;
+                break;
+            }
+          } catch {
+            // malformed JSON - skip
+          }
+        }
+      });
+
+      this.handleStreamErrors({ stream, subscriber });
+
+      stream.on('end', () => {
+        if (!persisted && assembledResponse.length > 0) {
+          this.persistAssistantImageMessage({
+            persisted,
+            sessionId,
+            assembledResponse,
+            newTitle,
+          })
+            .then(({ messageId }) => {
+              if (messageId) {
+                return this.persistAiImageAttachments(
+                  messageId,
+                  assembledResponse,
+                );
+              }
+              return;
+            })
+            .catch((err: unknown) => {
+              logger.error(
+                'Failed to persist assistant message on stream end',
+                { err },
+              );
+            });
+        }
+      });
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException ||
+        error instanceof BadGatewayException
+      ) {
+        subscriber.error(error);
+      } else {
+        logger.error('processImageMessageStream failed', { error });
+        subscriber.next({
+          data: {
+            error: 'Failed to process the image, please try again later.',
+          },
+        });
+        subscriber.complete();
+      }
+    }
+  }
+
   // === Helpers ===
   private async findSessionOrThrow(sessionId: string, userId: string) {
     const session = await this.sessionsRepo.findById(sessionId);
@@ -338,12 +556,22 @@ export default class ChatbotService {
 
   private async callExternalChatStream({
     userId,
+    file,
     content,
     sessionId,
     abortController,
-  }: Omit<ProcessMessagePayload, 'subscriber'>) {
+  }: CallExternalChatStreamParams) {
     const form = new FormData();
-    form.append('message', content);
+    if (content) {
+      form.append('message', content);
+    }
+
+    if (file) {
+      form.append('image', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype,
+      });
+    }
 
     const { data: stream } = await firstValueFrom(
       this.httpService.post<Readable>(
@@ -434,5 +662,62 @@ export default class ChatbotService {
         });
       }
     });
+  }
+
+  /**
+   * persist the assistant message from an image stream and update the session title.
+   * returns the created message's id so callers can attach image-url attachments to it.
+   */
+  private async persistAssistantImageMessage({
+    persisted,
+    sessionId,
+    assembledResponse,
+    newTitle,
+  }: PersistStreamedMessageAndTitlePayload): Promise<{
+    persisted: boolean;
+    messageId: string | undefined;
+  }> {
+    if (persisted) return { persisted: true, messageId: undefined };
+
+    await this.sessionsRepo.updateTitleAndTouch({ sessionId, newTitle });
+
+    if (assembledResponse.length === 0) {
+      return { persisted: true, messageId: undefined };
+    }
+
+    const message = await this.chatbotMessagesRepo.create({
+      content: assembledResponse,
+      role: MessageRole.ASSISTANT,
+      sessionId,
+      type: MessageType.TEXT,
+    });
+
+    return { persisted: true, messageId: message.id };
+  }
+
+  /* extract image urls from an ai response string and persist them as
+  messageAttachment rows linked to the given assistant message */
+  private async persistAiImageAttachments(
+    messageId: string,
+    text: string,
+  ): Promise<void> {
+    const URL_REGEX = /https?:\/\/[^\s"'<>)]+\.(?:jpg|jpeg|png|webp|gif)/gi;
+    const urls = text.match(URL_REGEX);
+    if (!urls || urls.length === 0) return;
+
+    const unique = [...new Set(urls)];
+
+    await Promise.all(
+      unique.map((url) => {
+        const ext = url.split('.').pop()?.toLowerCase() ?? '';
+        const mimeType = EXT_TO_MIME[ext] ?? 'image/jpeg';
+        return this.chatbotMessagesRepo.createAttachment(messageId, {
+          type: AttachmentType.IMAGE,
+          url,
+          mimeType,
+          sizeBytes: 0,
+        });
+      }),
+    );
   }
 }
