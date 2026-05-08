@@ -2,16 +2,18 @@ import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateAttachmentData, CreateMessageData, FindManyParams } from '../chatbot.types';
+import {
+  CreateAttachmentData,
+  CreateMessageData,
+  FindManyParams,
+} from '../chatbot.types';
 
 @Injectable()
 export default class ChatMessagesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: Prisma.ChatMessageUncheckedCreateInput) {
-    return await this.prisma.chatMessage.create({
-      data,
-    });
+    return await this.prisma.chatMessage.create({ data });
   }
 
   async createWithAttachment(
@@ -19,30 +21,26 @@ export default class ChatMessagesRepository {
     attachmentData: CreateAttachmentData,
   ) {
     return await this.prisma.$transaction(async (tx) => {
-      const message = await tx.chatMessage.create({
-        data: messageData,
-      });
+      const message = await tx.chatMessage.create({ data: messageData });
 
       const attachment = await tx.messageAttachment.create({
-        data: {
-          ...attachmentData,
-          messageId: message.id,
-        },
+        data: { ...attachmentData, messageId: message.id },
       });
 
       return { message, attachment };
     });
   }
 
-  async createAttachment(
-    messageId: string,
-    data: CreateAttachmentData,
-  ) {
+  async createAttachment(messageId: string, data: CreateAttachmentData) {
     return await this.prisma.messageAttachment.create({
-      data: {
-        ...data,
-        messageId,
-      },
+      data: { ...data, messageId },
+    });
+  }
+
+  async updateContent(messageId: string, content: string) {
+    return await this.prisma.chatMessage.update({
+      where: { id: messageId },
+      data: { content },
     });
   }
 
@@ -57,14 +55,10 @@ export default class ChatMessagesRepository {
 
   async findMany({ sessionId, skip, limit: take }: FindManyParams) {
     return await this.prisma.chatMessage.findMany({
-      where: {
-        sessionId,
-      },
+      where: { sessionId },
       skip,
       take,
-      orderBy: {
-        createdAt: 'asc',
-      },
+      orderBy: { createdAt: 'asc' },
       select: {
         id: true,
         role: true,
@@ -95,10 +89,6 @@ export default class ChatMessagesRepository {
   }
 
   async count(sessionId: string) {
-    return await this.prisma.chatMessage.count({
-      where: {
-        sessionId,
-      },
-    });
+    return await this.prisma.chatMessage.count({ where: { sessionId } });
   }
 }

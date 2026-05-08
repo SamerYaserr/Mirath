@@ -12,11 +12,13 @@ import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-messag
 import { Readable } from 'stream';
 
 export type ChatbotMessageDataEvent =
-  | {
-      delta: string;
-    }
+  | { delta: string }
   | { error: string }
   | '[DONE]';
+
+export type ChatbotAudioDataEvent =
+  | { transcription: string }
+  | ChatbotMessageDataEvent;
 
 export type ProcessMessagePayload = CreateChatbotMessageReqDto & {
   userId: string;
@@ -103,6 +105,22 @@ export type CallExternalChatStreamParams = {
   content: string;
   file?: Express.Multer.File;
   abortController: AbortController;
+};
+
+export type CallExternalAudioStreamParams = {
+  userId: string;
+  sessionId: string;
+  audioFile: Express.Multer.File;
+  abortController: AbortController;
+};
+
+export type ProcessAudioMessagePayload = {
+  userId: string;
+  sessionId: string;
+  audioFile: Express.Multer.File;
+  durationSeconds: number;
+  abortController: AbortController;
+  subscriber: Subscriber<SseEvent<ChatbotAudioDataEvent>>;
 };
 
 export const EXT_TO_MIME: Record<string, string> = {
