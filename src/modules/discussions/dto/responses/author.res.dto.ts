@@ -39,4 +39,16 @@ export class AuthorResDto {
     example: false,
   })
   isPremium: boolean;
+
+  @ApiProperty({
+    description: 'Whether this author is the currently authenticated user',
+    example: false,
+  })
+  isMe: boolean;
+
+  @ApiProperty({
+    description: 'Whether the currently authenticated user follows this author',
+    example: false,
+  })
+  isFollowing: boolean;
 }

@@ -13,14 +13,20 @@ import {
 export class DiscussionsRepository {
   constructor(private prisma: PrismaService) {}
 
-  private readonly authorSelectCard: Prisma.UserSelect = {
-    id: true,
-    bio: true,
-    fullName: true,
-    username: true,
-    photoUrl: true,
-    isPremium: true,
-  };
+  private authorSelect(userId: string): Prisma.UserSelect {
+    return {
+      id: true,
+      bio: true,
+      fullName: true,
+      username: true,
+      photoUrl: true,
+      isPremium: true,
+      followers: {
+        where: { followerId: userId },
+        select: { followerId: true },
+      },
+    };
+  }
 
   private readonly paperSelectCard: Prisma.PaperSelect = {
     id: true,
@@ -54,9 +60,7 @@ export class DiscussionsRepository {
         },
       },
       include: {
-        author: {
-          select: this.authorSelectCard,
-        },
+        author: { select: this.authorSelect(authorId as string) },
         topics: {
           include: {
             interest: true,
@@ -108,9 +112,7 @@ export class DiscussionsRepository {
             interest: true,
           },
         },
-        author: {
-          select: this.authorSelectCard,
-        },
+        author: { select: this.authorSelect(userId as string) },
         votes: {
           where: {
             userId,
@@ -131,7 +133,7 @@ export class DiscussionsRepository {
       where: { id },
       include: {
         author: {
-          select: this.authorSelectCard,
+          select: this.authorSelect(userId as string),
         },
         topics: {
           include: {

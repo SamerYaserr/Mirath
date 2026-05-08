@@ -26,12 +26,21 @@ export class DetailedCommentResDto extends CommentResDto {
 
   static fromDetailedEntity(
     comment: CommentWithRelations,
+    userId: string,
   ): DetailedCommentResDto {
     const { votes, ...rest } = comment!;
     const userVote = votes[0];
 
+    const isMe = userId === rest.authorId;
+    const isFollowing = !isMe && (rest.author as any).followers?.length > 0;
+
     return Object.assign(new DetailedCommentResDto(), {
       ...rest,
+      author: {
+        ...rest.author,
+        isMe,
+        isFollowing,
+      },
       hasVoted: !!userVote,
       userVoteType: userVote?.type,
     });

@@ -8,14 +8,20 @@ import { UpdateVoteCounts } from '../comments.types';
 export class CommentsRepository {
   constructor(private prisma: PrismaService) {}
 
-  private readonly authorSelectCard: Prisma.UserSelect = {
-    id: true,
-    bio: true,
-    fullName: true,
-    username: true,
-    photoUrl: true,
-    isPremium: true,
-  };
+  private authorSelect(userId: string): Prisma.UserSelect {
+    return {
+      id: true,
+      bio: true,
+      fullName: true,
+      username: true,
+      photoUrl: true,
+      isPremium: true,
+      followers: {
+        where: { followerId: userId },
+        select: { followerId: true },
+      },
+    };
+  }
 
   async create(
     data: Prisma.CommentUncheckedCreateInput,
@@ -35,7 +41,7 @@ export class CommentsRepository {
       where: { discussionId },
       include: {
         author: {
-          select: this.authorSelectCard,
+          select: this.authorSelect(userId as string),
         },
         votes: {
           where: {
@@ -55,7 +61,7 @@ export class CommentsRepository {
       where: { id },
       include: {
         author: {
-          select: this.authorSelectCard,
+          select: this.authorSelect(userId as string),
         },
         votes: {
           where: {

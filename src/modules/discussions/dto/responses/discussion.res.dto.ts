@@ -136,13 +136,24 @@ export class DiscussionResDto {
   })
   updatedAt: Date;
 
-  static fromEntity(discussion: DiscussionWithRelations): DiscussionResDto {
+  static fromEntity(
+    discussion: DiscussionWithRelations,
+    userId: string,
+  ): DiscussionResDto {
     const { votes, topics, ...base } = discussion;
 
     const userVote = votes[0];
 
+    const isMe = userId === base.authorId;
+    const isFollowing = !isMe && (base.author as any).followers?.length > 0;
+
     return Object.assign(new DiscussionResDto(), {
       ...base,
+      author: {
+        ...base.author,
+        isMe,
+        isFollowing,
+      },
       topics: topics.map((t) => t.interest),
       hasVoted: !!userVote,
       userVoteType: userVote?.type,

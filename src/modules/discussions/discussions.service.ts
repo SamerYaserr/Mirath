@@ -61,7 +61,7 @@ export class DiscussionsService {
 
     return {
       message: 'discussion created successfully',
-      data: DiscussionResDto.fromEntity(discussion),
+      data: DiscussionResDto.fromEntity(discussion, userId),
     };
   }
 
@@ -84,7 +84,7 @@ export class DiscussionsService {
     });
 
     const transformedDiscussions = discussions.map((d) => {
-      return DiscussionResDto.fromEntity(d);
+      return DiscussionResDto.fromEntity(d, userId);
     });
 
     return {
@@ -101,7 +101,7 @@ export class DiscussionsService {
 
     return {
       message: 'Discussion retrieved successfully',
-      data: DiscussionResDto.fromEntity(discussion),
+      data: DiscussionResDto.fromEntity(discussion, userId),
     };
   }
 
@@ -281,7 +281,7 @@ export class DiscussionsService {
     );
 
     const transformedComment = comments.map((c) =>
-      DetailedCommentResDto.fromDetailedEntity(c),
+      DetailedCommentResDto.fromDetailedEntity(c, userId),
     );
 
     return {
