@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import {
   Req,
   Sse,
@@ -12,7 +12,11 @@ import {
   HttpCode,
   Controller,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
+  Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiBody,
@@ -25,6 +29,7 @@ import {
   ApiNotFoundResponse,
   ApiForbiddenResponse,
   ApiUnauthorizedResponse,
+  ApiConsumes,
 } from '@nestjs/swagger';
 
 import { IdDto } from 'src/common/dto/id.dto';
@@ -35,7 +40,9 @@ import { SessionResDto } from './dto/responses/session.res.dto';
 import { HttpResponse, SseEvent } from 'src/common/types/api.types';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
+import { UploadChatImageReqDto } from './dto/requests/upload-chat-image.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
+import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -104,6 +111,82 @@ export default class ChatbotController {
       return () => {
         abortController.abort();
       };
+    });
+  }
+
+  @Post('sessions/:id/messages/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({
+    summary: 'Upload an image and stream a chatbot reply',
+    description:
+      'Accepts a multipart/form-data body with an image file (max 10 MB, jpg/jpeg/png/webp/gif) and an optional text message. Uploads the image to Cloudinary, persists the user message, and streams the AI reply as SSE.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file (jpg, jpeg, png, webp, gif - max 10 MB)',
+        },
+        content: {
+          type: 'string',
+          description: 'Optional text message to accompany the image',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'SSE stream opened. Same format as the text message endpoint.',
+  })
+  @ApiNotFoundResponse({ description: 'Chat session not found' })
+  @ApiForbiddenResponse({
+    description: 'You do not have access to this chat session',
+  })
+  async streamImageMessage(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param() { id }: IdDto,
+    @Body() dto: UploadChatImageReqDto,
+    @UploadedFile(ChatImagePipe) file: Express.Multer.File,
+  ): Promise<void> {
+    // Set SSE headers and flush immediately so client knows stream is open
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const abortController = new AbortController();
+    req.on('close', () => abortController.abort());
+
+    return new Promise((resolve) => {
+      const subscriber = {
+        next: (event: SseEvent<ChatbotMessageDataEvent>) => {
+          res.write(`data: ${JSON.stringify(event.data)}\n\n`);
+        },
+        error: () => {
+          res.end();
+          resolve();
+        },
+        complete: () => {
+          res.end();
+          resolve();
+        },
+      };
+
+      this.chatbotService.processImageMessageStream({
+        userId: req.user!.id,
+        sessionId: id,
+        file,
+        content: dto.content ?? '',
+        abortController,
+        subscriber: subscriber as any,
+      });
     });
   }
 

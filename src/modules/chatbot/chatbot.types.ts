@@ -1,5 +1,10 @@
 import { Subscriber } from 'rxjs';
-import { ChatMessage } from '@prisma/client';
+import {
+  AttachmentType,
+  ChatMessage,
+  MessageRole,
+  MessageType,
+} from '@prisma/client';
 
 import { SseEvent } from 'src/common/types/api.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -16,6 +21,7 @@ export type ChatbotMessageDataEvent =
 export type ProcessMessagePayload = CreateChatbotMessageReqDto & {
   userId: string;
   sessionId: string;
+  file?: Express.Multer.File;
   abortController: AbortController;
   subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
 };
@@ -65,4 +71,44 @@ export type PersistStreamedMessageAndTitlePayload = {
   assembledResponse: string;
   sessionId: string;
   newTitle: string | undefined;
+};
+
+export type CreateMessageData = {
+  sessionId: string;
+  role: MessageRole;
+  type: MessageType;
+  content: string;
+};
+
+export type CreateAttachmentData = {
+  type: AttachmentType;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationSeconds?: number | null;
+};
+
+export type ProcessImageMessagePayload = {
+  userId: string;
+  sessionId: string;
+  file: Express.Multer.File;
+  content: string;
+  abortController: AbortController;
+  subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
+};
+
+export type CallExternalChatStreamParams = {
+  userId: string;
+  sessionId: string;
+  content: string;
+  file?: Express.Multer.File;
+  abortController: AbortController;
+};
+
+export const EXT_TO_MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
 };
