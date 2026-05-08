@@ -30,19 +30,25 @@ import {
   ApiForbiddenResponse,
   ApiUnauthorizedResponse,
   ApiConsumes,
+  ApiBadGatewayResponse,
 } from '@nestjs/swagger';
 
 import { IdDto } from 'src/common/dto/id.dto';
 import ChatbotService from './chatbot.service';
-import { ChatbotMessageDataEvent } from './chatbot.types';
+import {
+  ChatbotAudioDataEvent,
+  ChatbotMessageDataEvent,
+} from './chatbot.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SessionResDto } from './dto/responses/session.res.dto';
 import { HttpResponse, SseEvent } from 'src/common/types/api.types';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
 import { UploadChatImageReqDto } from './dto/requests/upload-chat-image.req.dto';
+import { ChatAudioReqDto } from './dto/requests/chat-audio.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
+import { ChatAudioPipe } from '../../common/pipes/chat-audio.pipe';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -52,22 +58,16 @@ export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 
   @Sse('sessions/:id/messages')
-  @ApiOperation({
-    summary: 'Stream a chatbot reply for a session message',
-  })
-  @ApiBody({
-    type: CreateChatbotMessageReqDto,
-  })
+  @ApiOperation({ summary: 'Stream a chatbot reply for a session message' })
+  @ApiBody({ type: CreateChatbotMessageReqDto })
   @ApiResponse({
     status: HttpStatus.OK,
     description:
-      'Stream opened successfully. The client should keep reading SSE data frames until it receives the `[DONE]` sentinel or an error event.',
+      'Stream opened. Read SSE frames until `[DONE]` or an error event.',
     content: {
       'text/event-stream': {
         schema: {
           type: 'string',
-          description:
-            'Raw SSE frame. The payload after `data:` is a JSON string for chunk and error events, or the string `[DONE]` for completion.',
           example: 'data: {"delta":"The paper argues that..."}\n\n',
         },
         examples: {
@@ -80,10 +80,7 @@ export default class ChatbotController {
             value:
               'data: {"error":"Failed to process the message, please try again later."}\n\n',
           },
-          done: {
-            summary: 'Completion sentinel',
-            value: 'data: "[DONE]"\n\n',
-          },
+          done: { summary: 'Completion sentinel', value: 'data: "[DONE]"\n\n' },
         },
       },
     },
@@ -108,9 +105,7 @@ export default class ChatbotController {
         ...dto,
       });
 
-      return () => {
-        abortController.abort();
-      };
+      return () => abortController.abort();
     });
   }
 
@@ -119,7 +114,9 @@ export default class ChatbotController {
   @ApiOperation({
     summary: 'Upload an image and stream a chatbot reply',
     description:
-      'Accepts a multipart/form-data body with an image file (max 10 MB, jpg/jpeg/png/webp/gif) and an optional text message. Uploads the image to Cloudinary, persists the user message, and streams the AI reply as SSE.',
+      'Accepts multipart/form-data with an image file (max 10 MB, jpg/jpeg/png/webp/gif) ' +
+      'and an optional text message. Uploads the image to Cloudinary, persists the user ' +
+      'message, and streams the AI reply as SSE.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -130,7 +127,7 @@ export default class ChatbotController {
         file: {
           type: 'string',
           format: 'binary',
-          description: 'Image file (jpg, jpeg, png, webp, gif - max 10 MB)',
+          description: 'Image file (jpg, jpeg, png, webp, gif — max 10 MB)',
         },
         content: {
           type: 'string',
@@ -141,7 +138,7 @@ export default class ChatbotController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'SSE stream opened. Same format as the text message endpoint.',
+    description: 'SSE stream opened. Same frame format as the text endpoint.',
   })
   @ApiNotFoundResponse({ description: 'Chat session not found' })
   @ApiForbiddenResponse({
@@ -154,7 +151,6 @@ export default class ChatbotController {
     @Body() dto: UploadChatImageReqDto,
     @UploadedFile(ChatImagePipe) file: Express.Multer.File,
   ): Promise<void> {
-    // Set SSE headers and flush immediately so client knows stream is open
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -190,11 +186,143 @@ export default class ChatbotController {
     });
   }
 
+  @Post('sessions/:id/messages/audio')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({
+    summary: 'Upload a voice message and stream the AI reply',
+    description:
+      'Records are uploaded as standard multipart blobs; the backend ' +
+      'never manages a live audio stream.  The file is uploaded to Cloudinary ' +
+      '(resource_type: video), forwarded to the AI service for transcription, ' +
+      'and the transcript + AI reply are streamed back as SSE.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'durationSeconds'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Audio file (mp3, mp4, wav, webm, m4a, ogg — max 25 MB)',
+        },
+        durationSeconds: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 600,
+          description: 'Duration of the recorded clip in whole seconds',
+          example: 42,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'SSE stream opened.',
+    content: {
+      'text/event-stream': {
+        schema: { type: 'string' },
+        examples: {
+          transcription: {
+            summary: 'First event - transcription',
+            value:
+              'data: {"transcription":"What does it take to solve the measurement problem?"}\n\n',
+          },
+          delta: {
+            summary: 'Assistant chunk event',
+            value: 'data: {"delta":"The measurement problem refers to..."}\n\n',
+          },
+          done: { summary: 'Completion sentinel', value: 'data: "[DONE]"\n\n' },
+          error: {
+            summary: 'AI-layer error',
+            value:
+              'data: {"error":"AI service failed to process the voice message."}\n\n',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description:
+      'File too large (>25 MB), unsupported audio format, or durationSeconds out of range.',
+  })
+  @ApiNotFoundResponse({ description: 'Chat session not found' })
+  @ApiForbiddenResponse({
+    description: 'You do not have access to this chat session',
+  })
+  @ApiBadGatewayResponse({
+    description:
+      'Cloudinary upload succeeded but the AI service call failed. ' +
+      'The uploaded file is automatically deleted.',
+  })
+  async streamAudioMessage(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param() { id }: IdDto,
+    @Body() dto: ChatAudioReqDto,
+    @UploadedFile(ChatAudioPipe) file: Express.Multer.File,
+  ): Promise<void> {
+    let headersFlushed = false;
+
+    const flushHeaders = () => {
+      if (!headersFlushed) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+        res.flushHeaders();
+        headersFlushed = true;
+      }
+    };
+
+    const abortController = new AbortController();
+    req.on('close', () => abortController.abort());
+
+    return new Promise((resolve) => {
+      const subscriber = {
+        next: (event: SseEvent<ChatbotAudioDataEvent>) => {
+          flushHeaders();
+          res.write(`data: ${JSON.stringify(event.data)}\n\n`);
+        },
+        error: (err: unknown) => {
+          if (!headersFlushed) {
+            res.destroy(err instanceof Error ? err : new Error(String(err)));
+          } else {
+            res.end();
+          }
+          resolve();
+        },
+        complete: () => {
+          flushHeaders();
+          res.end();
+          resolve();
+        },
+      };
+
+      this.chatbotService
+        .processAudioMessageStream({
+          userId: req.user!.id,
+          sessionId: id,
+          audioFile: file,
+          durationSeconds: dto.durationSeconds,
+          abortController,
+          subscriber: subscriber as any,
+        })
+        .catch((err: unknown) => {
+          subscriber.error(err);
+        });
+    });
+  }
+
   @Get('sessions/:id/history')
   @ApiOperation({
     summary: 'List chatbot messages',
     description:
-      'Returns the messages for a chat session in chronological order.',
+      'Returns the messages for a chat session in chronological order. ' +
+      'Audio messages include an attachment with durationSeconds for the ' +
+      'waveform playback counter.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -249,8 +377,7 @@ export default class ChatbotController {
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   create(@Req() req: Request) {
-    const userId = req.user!.id;
-    return this.chatbotService.create(userId);
+    return this.chatbotService.create(req.user!.id);
   }
 
   @Get('sessions')
@@ -277,8 +404,7 @@ export default class ChatbotController {
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   findAll(@Req() req: Request, @Query() { limit, skip }: PaginationDto) {
-    const userId = req.user!.id;
-    return this.chatbotService.findAll({ userId, limit, skip });
+    return this.chatbotService.findAll({ userId: req.user!.id, limit, skip });
   }
 
   @Get('sessions/:id')
@@ -291,11 +417,7 @@ export default class ChatbotController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    schema: {
-      properties: {
-        data: { $ref: getSchemaPath(SessionResDto) },
-      },
-    },
+    schema: { properties: { data: { $ref: getSchemaPath(SessionResDto) } } },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   @ApiNotFoundResponse({ description: 'No session found with this id.' })
@@ -318,11 +440,6 @@ export default class ChatbotController {
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
     description: 'Chat session deleted successfully.',
-    schema: {
-      properties: {
-        message: { type: 'string', example: 'Session deleted successfully.' },
-      },
-    },
   })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   @ApiNotFoundResponse({ description: 'No session found with this id.' })
@@ -330,7 +447,6 @@ export default class ChatbotController {
     description: 'You do not have permission to delete this chat session.',
   })
   deleteOne(@Req() req: Request, @Param() { id }: IdDto) {
-    const userId = req.user!.id;
-    return this.chatbotService.deleteOne(id, userId);
+    return this.chatbotService.deleteOne(id, req.user!.id);
   }
 }
