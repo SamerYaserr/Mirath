@@ -7,7 +7,7 @@ import { PrismaService } from 'src/modules/prisma/prisma.service';
 export default class MessageFeedbacksRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(
+  async upsertFeedback(
     userId: string,
     messageId: string,
     type: FeedbackType,
@@ -21,13 +21,17 @@ export default class MessageFeedbacksRepository {
     return feedback;
   }
 
-  async delete(id: string, tx?: Prisma.TransactionClient) {
+  async deleteFeedback(id: string, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
 
     return await client.messageFeedback.delete({ where: { id } });
   }
 
-  async update(id: string, type: FeedbackType, tx?: Prisma.TransactionClient) {
+  async updateFeedback(
+    id: string,
+    type: FeedbackType,
+    tx?: Prisma.TransactionClient,
+  ) {
     const client = tx || this.prisma;
 
     return await client.messageFeedback.update({

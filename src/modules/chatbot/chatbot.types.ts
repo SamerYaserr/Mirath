@@ -114,7 +114,7 @@ export const EXT_TO_MIME: Record<string, string> = {
   gif: 'image/gif',
 };
 
-export type AddFeedbackParams = {
+export type SubmitFeedbackParams = {
   sessionId: string;
   messageId: string;
   userId: string;

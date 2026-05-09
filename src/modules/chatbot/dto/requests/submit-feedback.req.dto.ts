@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { FeedbackType } from '@prisma/client';
 import { IsEnum, IsUUID } from 'class-validator';
 
-export class AddFeedbackReqBodyDto {
+export class SubmitFeedbackReqBodyDto {
   @ApiProperty({
     description:
       'Feedback type an authenticated user can add (THUMBS_UP | THUMBS_DOWN)',
@@ -15,7 +15,7 @@ export class AddFeedbackReqBodyDto {
   feedbackType: FeedbackType;
 }
 
-export class AddFeedbackReqParamsDto {
+export class SubmitFeedbackReqParamsDto {
   @ApiProperty({
     description: 'Unique identifier of the message',
     example: '770e8400-e29b-41d4-a716-446655440777',

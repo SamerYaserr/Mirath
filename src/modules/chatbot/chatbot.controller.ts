@@ -44,9 +44,9 @@ import { UploadChatImageReqDto } from './dto/requests/upload-chat-image.req.dto'
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
 import {
-  AddFeedbackReqBodyDto,
-  AddFeedbackReqParamsDto,
-} from './dto/requests/add-feedback.req.dto';
+  SubmitFeedbackReqBodyDto,
+  SubmitFeedbackReqParamsDto,
+} from './dto/requests/submit-feedback.req.dto';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -339,13 +339,13 @@ export default class ChatbotController {
   }
 
   @Post('sessions/:sessionId/messages/:messageId/feedback')
-  addFeedback(
+  submitFeedback(
     @Req() req: Request,
-    @Body() dto: AddFeedbackReqBodyDto,
-    @Param() { sessionId, messageId }: AddFeedbackReqParamsDto,
+    @Body() dto: SubmitFeedbackReqBodyDto,
+    @Param() { sessionId, messageId }: SubmitFeedbackReqParamsDto,
   ) {
     const userId = req.user!.id;
-    return this.chatbotService.addFeedback({
+    return this.chatbotService.submitFeedback({
       userId,
       sessionId,
       messageId,

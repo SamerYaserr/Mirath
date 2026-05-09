@@ -23,7 +23,7 @@ import {
   RenameChatSessionExternalApiPayload,
   PersistStreamedMessageAndTitlePayload,
   CallExternalChatStreamParams,
-  AddFeedbackParams,
+  SubmitFeedbackParams,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -499,12 +499,12 @@ export default class ChatbotService {
     }
   }
 
-  async addFeedback({
+  async submitFeedback({
     userId,
     sessionId,
     messageId,
     feedbackType,
-  }: AddFeedbackParams): Promise<HttpResponse> {
+  }: SubmitFeedbackParams): Promise<HttpResponse> {
     await this.findSessionOrThrow(sessionId, userId);
     const message = await this.findMessageOrThrow(messageId, sessionId);
 
@@ -513,7 +513,7 @@ export default class ChatbotService {
 
     const active = await this.prisma.$transaction(async (tx) => {
       if (!message.feedback) {
-        await this.messageFeedbacksRepo.create(
+        await this.messageFeedbacksRepo.upsertFeedback(
           userId,
           messageId,
           feedbackType,
@@ -521,10 +521,10 @@ export default class ChatbotService {
         );
         return true;
       } else if (message.feedback.type === feedbackType) {
-        await this.messageFeedbacksRepo.delete(message.feedback.id, tx);
+        await this.messageFeedbacksRepo.deleteFeedback(message.feedback.id, tx);
         return false;
       } else {
-        await this.messageFeedbacksRepo.update(
+        await this.messageFeedbacksRepo.updateFeedback(
           message.feedback.id,
           feedbackType,
           tx,
@@ -561,9 +561,10 @@ export default class ChatbotService {
 
   private async findMessageOrThrow(messageId: string, sessionId: string) {
     const message = await this.chatbotMessagesRepo.findOne(messageId);
-    if (!message || message.sessionId !== sessionId) {
-      throw new NotFoundException('Message not found');
-    }
+    if (!message) throw new NotFoundException('Message not found');
+
+    if (message.sessionId !== sessionId)
+      throw new ForbiddenException('Message does not belong to this session');
 
     return message;
   }
