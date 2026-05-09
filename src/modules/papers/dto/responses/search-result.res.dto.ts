@@ -35,7 +35,7 @@ export class SearchResultResDto {
     description: 'List of tags associated with the paper',
     example: ['quantum computing', 'advances'],
   })
-  tags: string[];
+  categories: string[];
 
   @ApiProperty({
     description: 'List of authors of the paper',
@@ -50,7 +50,7 @@ export class SearchResultResDto {
     dto.isSaved = searchResult.isSaved;
     dto.abstract = searchResult.abstract;
     dto.publishedAt = searchResult.publishedAt;
-    dto.tags = searchResult.categories;
+    dto.categories = searchResult.categories;
     dto.authors = searchResult.authors;
     return dto;
   }
