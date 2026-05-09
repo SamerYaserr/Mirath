@@ -2,7 +2,11 @@ import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { CreateAttachmentData, CreateMessageData, FindManyParams } from '../chatbot.types';
+import {
+  CreateAttachmentData,
+  CreateMessageData,
+  FindManyParams,
+} from '../chatbot.types';
 
 @Injectable()
 export default class ChatMessagesRepository {
@@ -34,10 +38,7 @@ export default class ChatMessagesRepository {
     });
   }
 
-  async createAttachment(
-    messageId: string,
-    data: CreateAttachmentData,
-  ) {
+  async createAttachment(messageId: string, data: CreateAttachmentData) {
     return await this.prisma.messageAttachment.create({
       data: {
         ...data,
@@ -100,5 +101,24 @@ export default class ChatMessagesRepository {
         sessionId,
       },
     });
+  }
+
+  async findOne(id: string) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        role: true,
+        sessionId: true,
+        feedback: {
+          select: {
+            id: true,
+            type: true,
+          },
+        },
+      },
+    });
+
+    return message;
   }
 }

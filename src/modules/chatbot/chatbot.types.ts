@@ -2,6 +2,7 @@ import { Subscriber } from 'rxjs';
 import {
   AttachmentType,
   ChatMessage,
+  FeedbackType,
   MessageRole,
   MessageType,
 } from '@prisma/client';
@@ -111,4 +112,11 @@ export const EXT_TO_MIME: Record<string, string> = {
   png: 'image/png',
   webp: 'image/webp',
   gif: 'image/gif',
+};
+
+export type AddFeedbackParams = {
+  sessionId: string;
+  messageId: string;
+  userId: string;
+  feedbackType: FeedbackType;
 };
