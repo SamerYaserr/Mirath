@@ -54,6 +54,18 @@ export class PapersRepository {
     return results;
   }
 
+  async listCategories(limit: number, offset: number): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ category: string }[]>`
+      SELECT DISTINCT UNNEST(p.categories) AS category
+      FROM "Paper" p
+      ORDER BY category ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+
+    return rows.map((row) => row.category);
+  }
+
   async findDetailed(paperId: string) {
     // Don't return the fullText in the result if U don't need to
     return this.prisma.paper.findUnique({

@@ -19,6 +19,8 @@ import { SavedPaperResDto } from './dto/responses/saved-paper.res.dto';
 import { SearchResultResDto } from './dto/responses/search-result.res.dto';
 import { SearchInPaperResDto } from './dto/responses/search-in-paper.res.dto';
 import { SavedPapersRepository } from './repositories/saved-papers.repository';
+import { PaperCategoriesReqDto } from './dto/requests/paper-categories.req.dto';
+import { PaperCategoryResDto } from './dto/responses/paper-category.res.dto';
 
 type SearchReqBody = {
   question: string;
@@ -143,6 +145,22 @@ export class PapersService {
     return {
       query: q,
       ...result,
+    };
+  }
+
+  async getCategories(
+    dto: PaperCategoriesReqDto,
+  ): Promise<HttpResponse<PaperCategoryResDto[]>> {
+    const { limit, skip } = dto;
+    const categories = await this.papersRepository.listCategories(limit, skip);
+    const data = categories.map((category) =>
+      PaperCategoryResDto.fromValue(category),
+    );
+
+    return {
+      message: 'Paper categories retrieved successfully',
+      data,
+      size: data.length,
     };
   }
 

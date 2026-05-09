@@ -32,6 +32,8 @@ import { SearchPaperReqDto } from './dto/requests/search-paper.req.dto';
 import { SearchResultResDto } from './dto/responses/search-result.res.dto';
 import { SearchInPaperReqDto } from './dto/requests/search-in-paper.req.dto';
 import { SearchInPaperResDto } from './dto/responses/search-in-paper.res.dto';
+import { PaperCategoriesReqDto } from './dto/requests/paper-categories.req.dto';
+import { PaperCategoryResDto } from './dto/responses/paper-category.res.dto';
 
 @ApiTags('Papers')
 @ApiBearerAuth()
@@ -41,6 +43,7 @@ import { SearchInPaperResDto } from './dto/responses/search-in-paper.res.dto';
   SavedPaperResDto,
   SearchResultResDto,
   SearchInPaperResDto,
+  PaperCategoryResDto,
 )
 export class PapersController {
   constructor(private readonly papersService: PapersService) {}
@@ -115,6 +118,33 @@ export class PapersController {
   async search(@Req() req: Request, @Query() searchDto: SearchPaperReqDto) {
     const userId = req.user!.id;
     return this.papersService.search(userId, searchDto);
+  }
+
+  @Get('categories')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get paper categories',
+    description: 'Fetches a paginated list of unique paper categories.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Paper categories retrieved successfully.',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Paper categories retrieved successfully.',
+        },
+        size: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(PaperCategoryResDto) },
+        },
+      },
+    },
+  })
+  async getCategories(@Query() query: PaperCategoriesReqDto) {
+    return this.papersService.getCategories(query);
   }
 
   @ApiOperation({
