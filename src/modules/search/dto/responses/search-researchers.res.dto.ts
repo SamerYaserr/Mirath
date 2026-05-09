@@ -43,7 +43,7 @@ export class ResearcherSearchResDto {
     dto.university = result.university;
     dto.country = result.country;
     dto.photoUrl = result.photoUrl;
-    dto.isFollowing = result.followers.length > 0;
+    dto.isFollowing = result.followings.length > 0;
     dto.levelOfEducation = result.levelOfEducation;
     return dto;
   }

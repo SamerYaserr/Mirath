@@ -5,7 +5,7 @@ export interface UserSource {
   fullName: string | null;
   username: string;
   photoUrl: string | null;
-  followers: { followerId: string }[];
+  followings: { followerId: string }[];
 }
 
 export interface DiscussionResult {
@@ -48,6 +48,6 @@ export interface ResearcherResult {
   university: string | null;
   country: string | null;
   photoUrl: string | null;
-  followers: { followerId: string }[];
+  followings: { followerId: string }[];
   levelOfEducation: LevelOfEducation | null;
 }

@@ -21,7 +21,7 @@ export class DiscussionsRepository {
       username: true,
       photoUrl: true,
       isPremium: true,
-      followers: {
+      followings: {
         where: { followerId: userId },
         select: { followerId: true },
       },

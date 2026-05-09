@@ -31,13 +31,14 @@ export class DetailedCommentResDto extends CommentResDto {
     const { votes, ...rest } = comment!;
     const userVote = votes[0];
 
+    const { followings, ...author } = rest.author;
     const isMe = userId === rest.authorId;
-    const isFollowing = !isMe && (rest.author as any).followers?.length > 0;
+    const isFollowing = !isMe && (followings?.length ?? 0) > 0;
 
     return Object.assign(new DetailedCommentResDto(), {
       ...rest,
       author: {
-        ...rest.author,
+        ...author,
         isMe,
         isFollowing,
       },

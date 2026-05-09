@@ -26,7 +26,7 @@ export class SearchRepository {
             fullName: true,
             username: true,
             photoUrl: true,
-            followers: {
+            followings: {
               where: { followerId: userId },
               select: { followerId: true },
             },
@@ -66,7 +66,7 @@ export class SearchRepository {
             fullName: true,
             username: true,
             photoUrl: true,
-            followers: {
+            followings: {
               where: { followerId: userId },
               select: { followerId: true },
             },
@@ -112,7 +112,7 @@ export class SearchRepository {
         levelOfEducation: true,
         university: true,
 
-        followers: {
+        followings: {
           where: { followerId: currentUserId },
           select: { followerId: true },
         },

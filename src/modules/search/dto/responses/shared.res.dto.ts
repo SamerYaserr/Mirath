@@ -27,7 +27,7 @@ export class SearchUserResDto {
     dto.username = user.username;
     dto.photoUrl = user.photoUrl;
     dto.isMe = user.id === currentUserId;
-    dto.isFollowing = user.followers.length > 0;
+    dto.isFollowing = user.followings.length > 0;
     return dto;
   }
 }

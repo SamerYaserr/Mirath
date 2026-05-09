@@ -144,13 +144,14 @@ export class DiscussionResDto {
 
     const userVote = votes[0];
 
+    const { followings, ...author } = base.author;
     const isMe = userId === base.authorId;
-    const isFollowing = !isMe && (base.author as any).followers?.length > 0;
+    const isFollowing = !isMe && (followings?.length ?? 0) > 0;
 
     return Object.assign(new DiscussionResDto(), {
       ...base,
       author: {
-        ...base.author,
+        ...author,
         isMe,
         isFollowing,
       },
