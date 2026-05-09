@@ -10,6 +10,8 @@ export interface SearchResult {
   abstract: string;
   publishedAt: Date;
   isSaved: boolean;
+  authors: string[];
+  categories: string[];
 }
 
 @Injectable()
@@ -27,6 +29,8 @@ export class PapersRepository {
         p.id, 
         p.title, 
         p."publishedAt",
+        p.authors,
+        p.categories,
         CASE 
           WHEN LENGTH(p.abstract) > 200 THEN LEFT(p.abstract, 200) || '...' 
           ELSE p.abstract 

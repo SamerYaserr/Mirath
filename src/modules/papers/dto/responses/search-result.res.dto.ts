@@ -31,6 +31,18 @@ export class SearchResultResDto {
   })
   isSaved: boolean;
 
+  @ApiProperty({
+    description: 'List of tags associated with the paper',
+    example: ['quantum computing', 'advances'],
+  })
+  tags: string[];
+
+  @ApiProperty({
+    description: 'List of authors of the paper',
+    example: ['Alice Smith', 'Bob Johnson'],
+  })
+  authors: string[];
+
   static fromEntity(searchResult: Record<string, any>): SearchResultResDto {
     const dto = new SearchResultResDto();
     dto.id = searchResult.id;
@@ -38,6 +50,8 @@ export class SearchResultResDto {
     dto.isSaved = searchResult.isSaved;
     dto.abstract = searchResult.abstract;
     dto.publishedAt = searchResult.publishedAt;
+    dto.tags = searchResult.categories;
+    dto.authors = searchResult.authors;
     return dto;
   }
 }
