@@ -17,6 +17,7 @@ import {
   FindSessionsPayload,
   ProcessMessagePayload,
   ProcessImageMessagePayload,
+  ProcessAudioMessagePayload,
   RenameChatSessionPayload,
   ExternalApiStreamResponse,
   HandleStreamEventsPayload,
@@ -24,6 +25,8 @@ import {
   PersistStreamedMessageAndTitlePayload,
   CallExternalChatStreamParams,
   SubmitFeedbackParams,
+  CallExternalAudioStreamParams,
+  EXT_TO_MIME,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -35,9 +38,9 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
-import { EXT_TO_MIME } from './chatbot.types';
 import { PrismaService } from '../prisma/prisma.service';
 import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
+import { ExternalAiVoiceEvent } from './dto/external-ai-voice-response.dto';
 
 @Injectable()
 export default class ChatbotService {
@@ -59,21 +62,17 @@ export default class ChatbotService {
     abortController,
   }: ProcessMessagePayload) {
     try {
-      // Check if the session exists and belongs to the user
       const session = await this.findSessionOrThrow(sessionId, userId);
 
-      // Save user message in the database before using AI service
       await this.chatbotMessagesRepo.create({
         content,
         role: MessageRole.USER,
         sessionId: session.id,
       });
 
-      // Check if session had more than 1 messages
       const hasMultipleMessages =
         await this.chatbotMessagesRepo.hasMultipleMessages(session.id);
 
-      // This was the first message in the session?? Need to update the session's title (temporarly until we have the better title generation from the model)
       if (!hasMultipleMessages) {
         await this.updateTitle({
           sessionId: session.id,
@@ -82,7 +81,6 @@ export default class ChatbotService {
         });
       }
 
-      // Make the external API call to process the message and stream the response back to the client
       const stream = await this.callExternalChatStream({
         content,
         abortController,
@@ -94,20 +92,14 @@ export default class ChatbotService {
         persisted = false,
         assembledResponse = '',
         newTitle: string | undefined = undefined;
+
       stream.on('data', (chunk: Buffer) => {
         buffer += chunk.toString();
-
-        // These are the processable / completed lines received so far
         const lines = buffer.split('\n');
-
-        // Keep the last (potentially incomplete) line in the buffer
-        // This is needed to make sure we don't parse incomplete lines
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
           const trimmed = line.trim();
-
-          // Make sure that the line is a valid data event
           if (!trimmed.startsWith('data:')) continue;
 
           const jsonStr = trimmed.slice('data:'.length).trim();
@@ -119,22 +111,16 @@ export default class ChatbotService {
             switch (event.type) {
               case 'chunk':
                 if (event.content) {
-                  // This is needed to persist the message in the database once the stream ends
-                  const content = Array.isArray(event.content)
+                  const delta = Array.isArray(event.content)
                     ? event.content[0].text
                     : event.content;
 
-                  assembledResponse += content;
-
-                  // Stream the chunk to the client
-                  subscriber.next({
-                    data: { delta: content },
-                  });
+                  assembledResponse += delta;
+                  subscriber.next({ data: { delta } });
                 }
                 break;
 
               case 'end':
-                // Stream completed
                 this.persistAssistantMessageAndUpdateSessionTitle({
                   newTitle,
                   persisted,
@@ -142,44 +128,32 @@ export default class ChatbotService {
                   assembledResponse,
                 })
                   .then((p) => {
+                    persisted = p;
                     subscriber.next({ data: '[DONE]' });
                     subscriber.complete();
-
-                    persisted = p;
                   })
                   .catch((err: unknown) => {
-                    logger.error(
-                      'Failed to save assistant message in database',
-                      {
-                        error: err,
-                      },
-                    );
-
+                    logger.error('Failed to save assistant message', { err });
                     subscriber.next({ data: '[DONE]' });
                     subscriber.complete();
                   });
                 break;
 
               case 'error':
-                // AI service error
                 subscriber.next({
                   data: {
                     error:
                       'Failed to process the message, please try again later.',
                   },
                 });
-
                 this.persistAssistantMessageAndUpdateSessionTitle({
                   newTitle,
                   persisted,
                   sessionId,
                   assembledResponse,
                 }).catch((err: unknown) => {
-                  logger.error('Failed to persist on AI error', {
-                    error: err,
-                  });
+                  logger.error('Failed to persist on AI error', { err });
                 });
-
                 subscriber.complete();
                 break;
 
@@ -188,12 +162,11 @@ export default class ChatbotService {
                 break;
             }
           } catch {
-            // Malformed JSON line — skip
+            // malformed JSON — skip
           }
         }
       });
 
-      // Handle Stream Completion
       this.handleStreamCompletion({
         stream,
         persisted,
@@ -202,8 +175,7 @@ export default class ChatbotService {
         newTitle,
       });
 
-      // Handle Stream Errors
-      this.handleStreamErrors({ stream, subscriber: subscriber });
+      this.handleStreamErrors({ stream, subscriber });
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -212,79 +184,14 @@ export default class ChatbotService {
         subscriber.error(error);
       } else {
         logger.error('processMessageStream failed', { error });
-
         subscriber.next({
           data: {
             error: 'Failed to process the message, please try again later.',
           },
         });
-
         subscriber.complete();
       }
     }
-  }
-
-  async findMessages({
-    sessionId,
-    userId,
-    limit,
-    skip,
-  }: FindMessagesPayload): Promise<HttpResponse<ChatbotMessageResDto[]>> {
-    await this.findSessionOrThrow(sessionId, userId);
-
-    const [messages, size] = await Promise.all([
-      this.chatbotMessagesRepo.findMany({
-        sessionId,
-        limit,
-        skip,
-      }),
-      this.chatbotMessagesRepo.count(sessionId),
-    ]);
-
-    return {
-      data: messages.map((message) => ChatbotMessageResDto.fromEntity(message)),
-      size,
-    };
-  }
-
-  async create(userId: string): Promise<HttpResponse> {
-    const session = await this.sessionsRepo.create(userId);
-
-    return {
-      message: 'session created successfully',
-      data: SessionResDto.fromEntity(session),
-    };
-  }
-
-  async findAll({
-    userId,
-    limit,
-    skip,
-  }: FindSessionsPayload): Promise<HttpResponse> {
-    const sessions = await this.sessionsRepo.findAll(userId, limit, skip);
-
-    return {
-      size: sessions.length,
-      data: sessions.map((session) =>
-        GetUserSessionsResDto.fromEntity(session),
-      ),
-    };
-  }
-
-  async findOne(id: string, userId: string): Promise<HttpResponse> {
-    const session = await this.findSessionOrThrow(id, userId);
-    return { data: SessionResDto.fromEntity(session) };
-  }
-
-  async deleteOne(id: string, userId: string): Promise<HttpResponse> {
-    const session = await this.findSessionOrThrow(id, userId);
-
-    if (session.isTemporary) {
-      await this.deleteTemporarySessionFromExternalApi(id);
-    }
-
-    await this.sessionsRepo.deleteOne(id);
-    return { message: 'Session deleted successfully.' };
   }
 
   async processImageMessageStream({
@@ -322,12 +229,10 @@ export default class ChatbotService {
         await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
 
       if (!hasMultipleMessages) {
-        const titleCandidate = content ? content.slice(0, 60) : 'Image message';
-
         await this.updateTitle({
           sessionId,
           userId,
-          newTitle: titleCandidate,
+          newTitle: content ? content.slice(0, 60) : 'Image message',
         });
       }
 
@@ -341,8 +246,7 @@ export default class ChatbotService {
           sessionId,
         });
       } catch (aiError) {
-        // ai call failed after cloudinary upload
-        console.error('AI service call failed', {
+        logger.error('AI service call failed after image upload', {
           error: aiError,
           sessionId,
           userId,
@@ -401,7 +305,6 @@ export default class ChatbotService {
                   .then(({ persisted: p, messageId }) => {
                     persisted = p;
 
-                    // persist any image URLs found in ai response
                     if (messageId) {
                       this.persistAiImageAttachments(
                         messageId,
@@ -440,7 +343,6 @@ export default class ChatbotService {
                       { err },
                     ),
                   );
-
                 subscriber.complete();
                 break;
 
@@ -545,11 +447,254 @@ export default class ChatbotService {
   }
 
   // === Helpers ===
+  async processAudioMessageStream({
+    userId,
+    sessionId,
+    audioFile,
+    durationSeconds,
+    abortController,
+    subscriber,
+  }: ProcessAudioMessagePayload): Promise<void> {
+    await this.findSessionOrThrow(sessionId, userId);
+
+    const { secure_url } = await this.cloudinaryService.uploadFile(
+      audioFile,
+      'mirath/chatbot/audio',
+      'video',
+    );
+
+    const { message: userMessage } =
+      await this.chatbotMessagesRepo.createWithAttachment(
+        {
+          sessionId,
+          role: MessageRole.USER,
+          type: MessageType.AUDIO,
+          content: '',
+        },
+        {
+          type: AttachmentType.AUDIO,
+          url: secure_url,
+          mimeType: audioFile.mimetype,
+          sizeBytes: audioFile.size,
+          durationSeconds,
+        },
+      );
+
+    const hasMultipleMessages =
+      await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
+
+    if (!hasMultipleMessages) {
+      await this.updateTitle({
+        sessionId,
+        userId,
+        newTitle: 'Voice message',
+      });
+    }
+
+    let stream: Readable;
+    try {
+      stream = await this.callExternalAudioStream({
+        userId,
+        sessionId,
+        audioFile,
+        abortController,
+      });
+    } catch (aiError) {
+      logger.error('AI service call failed after audio upload', {
+        error: aiError,
+        sessionId,
+        userId,
+      });
+
+      await this.cloudinaryService
+        .deleteFile(secure_url)
+        .catch((err: unknown) =>
+          logger.error(
+            'Failed to cleanup Cloudinary audio file after AI call failure',
+            { err },
+          ),
+        );
+
+      throw new BadGatewayException(
+        'AI service failed to process the voice message. Please try again later.',
+      );
+    }
+
+    let buffer = '';
+    let assembledResponse = '';
+    let transcriptionText = '';
+    let transcriptionEmitted = false;
+    let persisted = false;
+    let newTitle: string | undefined = undefined;
+
+    stream.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+
+        const jsonStr = trimmed.slice('data:'.length).trim();
+        if (!jsonStr) continue;
+
+        try {
+          const event = JSON.parse(jsonStr) as ExternalAiVoiceEvent;
+
+          switch (event.type) {
+            case 'transcription':
+              transcriptionText = event.transcription ?? '';
+              if (!transcriptionEmitted) {
+                subscriber.next({
+                  data: { transcription: transcriptionText },
+                });
+                transcriptionEmitted = true;
+              }
+              break;
+
+            case 'chunk':
+              if (event.content) {
+                const delta = Array.isArray(event.content)
+                  ? event.content[0].text
+                  : event.content;
+
+                assembledResponse += delta;
+                subscriber.next({ data: { delta } });
+              }
+              break;
+
+            case 'end':
+              this.finaliseAudioStream({
+                persisted,
+                sessionId,
+                assembledResponse,
+                newTitle,
+                userMessageId: userMessage.id,
+                transcriptionText,
+              })
+                .then((p) => {
+                  persisted = p;
+                  subscriber.next({ data: '[DONE]' });
+                  subscriber.complete();
+                })
+                .catch((err: unknown) => {
+                  logger.error('Failed to finalise audio stream', { err });
+                  subscriber.next({ data: '[DONE]' });
+                  subscriber.complete();
+                });
+              break;
+
+            case 'error':
+              subscriber.next({
+                data: {
+                  error: 'AI service failed to process the voice message.',
+                },
+              });
+              subscriber.complete();
+              break;
+
+            case 'metadata':
+              newTitle = event.chat_title;
+              break;
+          }
+        } catch {
+          // malformed JSON line - skip
+        }
+      }
+    });
+
+    stream.on('end', () => {
+      if (!persisted) {
+        this.finaliseAudioStream({
+          persisted,
+          sessionId,
+          assembledResponse,
+          newTitle,
+          userMessageId: userMessage.id,
+          transcriptionText,
+        }).catch((err: unknown) => {
+          logger.error(
+            'Failed to finalise audio stream on stream-end fallback',
+            { err },
+          );
+        });
+      }
+    });
+
+    stream.on('error', (err: Error) => {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
+
+      logger.error('AI audio stream transport error', { error: err });
+      subscriber.next({
+        data: {
+          error: 'Failed to process the voice message, please try again later.',
+        },
+      });
+      subscriber.complete();
+    });
+  }
+
+  async findMessages({
+    sessionId,
+    userId,
+    limit,
+    skip,
+  }: FindMessagesPayload): Promise<HttpResponse<ChatbotMessageResDto[]>> {
+    await this.findSessionOrThrow(sessionId, userId);
+
+    const [messages, size] = await Promise.all([
+      this.chatbotMessagesRepo.findMany({ sessionId, limit, skip }),
+      this.chatbotMessagesRepo.count(sessionId),
+    ]);
+
+    return {
+      data: messages.map((message) => ChatbotMessageResDto.fromEntity(message)),
+      size,
+    };
+  }
+
+  async create(userId: string): Promise<HttpResponse> {
+    const session = await this.sessionsRepo.create(userId);
+    return {
+      message: 'session created successfully',
+      data: SessionResDto.fromEntity(session),
+    };
+  }
+
+  async findAll({
+    userId,
+    limit,
+    skip,
+  }: FindSessionsPayload): Promise<HttpResponse> {
+    const sessions = await this.sessionsRepo.findAll(userId, limit, skip);
+    return {
+      size: sessions.length,
+      data: sessions.map((session) =>
+        GetUserSessionsResDto.fromEntity(session),
+      ),
+    };
+  }
+
+  async findOne(id: string, userId: string): Promise<HttpResponse> {
+    const session = await this.findSessionOrThrow(id, userId);
+    return { data: SessionResDto.fromEntity(session) };
+  }
+
+  async deleteOne(id: string, userId: string): Promise<HttpResponse> {
+    const session = await this.findSessionOrThrow(id, userId);
+
+    if (session.isTemporary) {
+      await this.deleteTemporarySessionFromExternalApi(id);
+    }
+
+    await this.sessionsRepo.deleteOne(id);
+    return { message: 'Session deleted successfully.' };
+  }
+
   private async findSessionOrThrow(sessionId: string, userId: string) {
     const session = await this.sessionsRepo.findById(sessionId);
-    if (!session) {
-      throw new NotFoundException('Chat session not found');
-    }
+    if (!session) throw new NotFoundException('Chat session not found');
 
     if (session.userId !== userId) {
       throw new ForbiddenException(
@@ -577,21 +722,13 @@ export default class ChatbotService {
     userId,
   }: RenameChatSessionPayload) {
     await Promise.all([
-      this.sessionsRepo.updateTitle({
-        sessionId,
-        newTitle,
-      }),
+      this.sessionsRepo.updateTitle({ sessionId, newTitle }),
       firstValueFrom(
         this.httpService.post<unknown, RenameChatSessionExternalApiPayload>(
           `${this.configService.get('EXTERNAL_API_BASE_URL')}/rename/chat`,
-          {
-            thread_id: sessionId,
-            new_title: newTitle!,
-            user_id: userId,
-          },
+          { thread_id: sessionId, new_title: newTitle!, user_id: userId },
         ),
       ).catch((error) => {
-        // Request failed?? No one cares, just log it and move on
         logger.error(
           `Failed to update chat session title for session ${sessionId} via external API`,
           { error },
@@ -604,9 +741,7 @@ export default class ChatbotService {
     await firstValueFrom(
       this.httpService.delete(
         `${this.configService.get('EXTERNAL_API_BASE_URL')}/temporary/chat`,
-        {
-          data: { thread_id: sessionId },
-        },
+        { data: { thread_id: sessionId } },
       ),
     ).catch((error) => {
       logger.error(
@@ -622,11 +757,9 @@ export default class ChatbotService {
     content,
     sessionId,
     abortController,
-  }: CallExternalChatStreamParams) {
+  }: CallExternalChatStreamParams): Promise<Readable> {
     const form = new FormData();
-    if (content) {
-      form.append('message', content);
-    }
+    if (content) form.append('message', content);
 
     if (file) {
       form.append('image', file.buffer, {
@@ -641,8 +774,8 @@ export default class ChatbotService {
         form,
         {
           headers: form.getHeaders(),
-          responseType: 'stream', // Tells axios not to buffer the response and return a ReadableStream instead
-          signal: abortController.signal, // Link the request to AbortController, if `.abort()` is called => the request will be cancelled mid flight
+          responseType: 'stream',
+          signal: abortController.signal,
         },
       ),
     );
@@ -650,25 +783,88 @@ export default class ChatbotService {
     return stream;
   }
 
+  private async callExternalAudioStream({
+    userId,
+    sessionId,
+    audioFile,
+    abortController,
+  }: CallExternalAudioStreamParams): Promise<Readable> {
+    const form = new FormData();
+    form.append('voice', audioFile.buffer, {
+      filename: audioFile.originalname,
+      contentType: audioFile.mimetype,
+    });
+
+    const { data: stream } = await firstValueFrom(
+      this.httpService.post<Readable>(
+        `${this.configService.get('EXTERNAL_API_BASE_URL')}/chat/${userId}/${sessionId}`,
+        form,
+        {
+          headers: form.getHeaders(),
+          responseType: 'stream',
+          signal: abortController.signal,
+        },
+      ),
+    );
+
+    return stream;
+  }
+  private async finaliseAudioStream({
+    persisted,
+    sessionId,
+    assembledResponse,
+    newTitle,
+    userMessageId,
+    transcriptionText,
+  }: PersistStreamedMessageAndTitlePayload & {
+    userMessageId: string;
+    transcriptionText: string;
+  }): Promise<boolean> {
+    if (persisted) return true;
+
+    await this.sessionsRepo.updateTitleAndTouch({ sessionId, newTitle });
+
+    if (assembledResponse.length > 0) {
+      await this.chatbotMessagesRepo
+        .create({
+          content: assembledResponse,
+          role: MessageRole.ASSISTANT,
+          sessionId,
+          type: MessageType.TEXT,
+        })
+        .catch((err: unknown) => {
+          logger.error('Failed to persist assistant audio reply', { err });
+        });
+    }
+
+    if (transcriptionText) {
+      await this.chatbotMessagesRepo
+        .updateContent(userMessageId, transcriptionText)
+        .catch((err: unknown) => {
+          logger.error('Failed to update user audio message transcription', {
+            err,
+            userMessageId,
+          });
+        });
+    }
+
+    return true;
+  }
+
   private async persistAssistantMessageAndUpdateSessionTitle({
     newTitle,
     persisted,
     sessionId,
     assembledResponse,
-  }: PersistStreamedMessageAndTitlePayload) {
+  }: PersistStreamedMessageAndTitlePayload): Promise<boolean> {
     if (persisted) return true;
 
-    const promiseArray = [];
-
-    promiseArray.push(
-      this.sessionsRepo.updateTitleAndTouch({
-        sessionId,
-        newTitle,
-      }),
-    );
+    const promises: Promise<unknown>[] = [
+      this.sessionsRepo.updateTitleAndTouch({ sessionId, newTitle }),
+    ];
 
     if (assembledResponse.length > 0) {
-      promiseArray.push(
+      promises.push(
         this.chatbotMessagesRepo.create({
           content: assembledResponse,
           role: MessageRole.ASSISTANT,
@@ -677,7 +873,7 @@ export default class ChatbotService {
       );
     }
 
-    await Promise.all(promiseArray);
+    await Promise.all(promises);
     return true;
   }
 
@@ -686,10 +882,7 @@ export default class ChatbotService {
     subscriber,
   }: HandleStreamEventsPayload) {
     stream.on('error', (err: Error) => {
-      // Aborted requests are expected when client disconnects
-      if (err.name === 'CanceledError' || err.name === 'AbortError') {
-        return;
-      }
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
 
       logger.error('AI stream error', { error: err });
       subscriber.next({
@@ -697,7 +890,6 @@ export default class ChatbotService {
           error: 'Failed to process the message, please try again later.',
         },
       });
-
       subscriber.complete();
     });
   }
@@ -726,10 +918,6 @@ export default class ChatbotService {
     });
   }
 
-  /**
-   * persist the assistant message from an image stream and update the session title.
-   * returns the created message's id so callers can attach image-url attachments to it.
-   */
   private async persistAssistantImageMessage({
     persisted,
     sessionId,
@@ -757,8 +945,6 @@ export default class ChatbotService {
     return { persisted: true, messageId: message.id };
   }
 
-  /* extract image urls from an ai response string and persist them as
-  messageAttachment rows linked to the given assistant message */
   private async persistAiImageAttachments(
     messageId: string,
     text: string,

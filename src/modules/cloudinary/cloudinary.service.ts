@@ -6,6 +6,7 @@ import {
 } from 'cloudinary';
 import { Readable } from 'stream';
 import { winstonLogger as logger } from 'src/config/logger.config';
+export type CloudinaryResourceType = 'image' | 'video' | 'auto';
 
 @Injectable()
 export class CloudinaryService {
@@ -14,12 +15,13 @@ export class CloudinaryService {
   async uploadFile(
     file: Express.Multer.File,
     folder: string = this.uploadToFolder,
-  ): Promise<{ secure_url: string }> {
+    resourceType: CloudinaryResourceType = 'auto',
+  ): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder,
-          resource_type: 'auto',
+          resource_type: resourceType,
           quality: 'auto',
           fetch_format: 'auto',
         },
@@ -29,11 +31,12 @@ export class CloudinaryService {
         ) => {
           if (error) {
             logger.error('Cloudinary file upload failed', {
-              error: error,
+              error,
               filesize: file.size,
               filename: file.originalname,
+              resourceType,
             });
-            reject(new BadRequestException(`Cloudinary image upload failed`));
+            reject(new BadRequestException('Cloudinary file upload failed'));
           } else if (result) {
             resolve(result);
           }
@@ -52,12 +55,10 @@ export class CloudinaryService {
       await cloudinary.uploader.destroy(publicId);
     } catch (error) {
       logger.error(
-        `Failed to delete file with publicId: ${publicId} from cloudinary`,
-        {
-          error: error,
-        },
+        `Failed to delete file with publicId: ${publicId} from Cloudinary`,
+        { error },
       );
-      throw new BadRequestException(`Failed to delete image from cloudinary`);
+      throw new BadRequestException('Failed to delete file from Cloudinary');
     }
   }
 
@@ -65,9 +66,9 @@ export class CloudinaryService {
   // This is needed for file removal
   private extractPublicIdFromUrl(url: string): string {
     const parts = url.split('/upload/');
+    let pathAfterUpload = parts[1] ?? '';
 
-    let pathAfterUpload = parts[1];
-    pathAfterUpload = pathAfterUpload!.replace(/^v\d+\//, '');
+    pathAfterUpload = pathAfterUpload.replace(/^v\d+\//, '');
 
     const publicId = pathAfterUpload.replace(/\.[^/.]+$/, '');
     return publicId;
