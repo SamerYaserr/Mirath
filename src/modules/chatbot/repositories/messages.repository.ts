@@ -91,4 +91,23 @@ export default class ChatMessagesRepository {
   async count(sessionId: string) {
     return await this.prisma.chatMessage.count({ where: { sessionId } });
   }
+
+  async findOne(id: string) {
+    const message = await this.prisma.chatMessage.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        role: true,
+        sessionId: true,
+        feedback: {
+          select: {
+            id: true,
+            type: true,
+          },
+        },
+      },
+    });
+
+    return message;
+  }
 }

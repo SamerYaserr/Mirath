@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -23,6 +24,7 @@ import {
   RenameChatSessionExternalApiPayload,
   PersistStreamedMessageAndTitlePayload,
   CallExternalChatStreamParams,
+  SubmitFeedbackParams,
   CallExternalAudioStreamParams,
   EXT_TO_MIME,
 } from './chatbot.types';
@@ -35,6 +37,9 @@ import ChatMessagesRepository from './repositories/messages.repository';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
+import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
+import { PrismaService } from '../prisma/prisma.service';
+import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
 import { ExternalAiVoiceEvent } from './dto/external-ai-voice-response.dto';
 
 @Injectable()
@@ -43,8 +48,10 @@ export default class ChatbotService {
     private readonly httpService: HttpService,
     private readonly sessionsRepo: ChatSessionsRepository,
     private readonly chatbotMessagesRepo: ChatMessagesRepository,
+    private readonly messageFeedbacksRepo: MessageFeedbacksRepository,
     private readonly configService: ConfigService<AppConfig, true>,
     private readonly cloudinaryService: CloudinaryService,
+    private prisma: PrismaService,
   ) {}
 
   async processMessageStream({
@@ -395,6 +402,51 @@ export default class ChatbotService {
     }
   }
 
+  async submitFeedback({
+    userId,
+    sessionId,
+    messageId,
+    feedbackType,
+  }: SubmitFeedbackParams): Promise<HttpResponse> {
+    await this.findSessionOrThrow(sessionId, userId);
+    const message = await this.findMessageOrThrow(messageId, sessionId);
+
+    if (message.role !== 'ASSISTANT')
+      throw new BadRequestException('You can only rate AI responses');
+
+    const active = await this.prisma.$transaction(async (tx) => {
+      if (!message.feedback) {
+        await this.messageFeedbacksRepo.upsertFeedback(
+          userId,
+          messageId,
+          feedbackType,
+          tx,
+        );
+        return true;
+      } else if (message.feedback.type === feedbackType) {
+        await this.messageFeedbacksRepo.deleteFeedback(message.feedback.id, tx);
+        return false;
+      } else {
+        await this.messageFeedbacksRepo.updateFeedback(
+          message.feedback.id,
+          feedbackType,
+          tx,
+        );
+        return true;
+      }
+    });
+
+    return {
+      message: `Feedback ${active ? 'added' : 'removed'}`,
+      data: SubmitFeedbackResDto.fromEntity({
+        messageId,
+        type: feedbackType,
+        active,
+      }),
+    };
+  }
+
+  // === Helpers ===
   async processAudioMessageStream({
     userId,
     sessionId,
@@ -653,6 +705,17 @@ export default class ChatbotService {
     return session;
   }
 
+  private async findMessageOrThrow(messageId: string, sessionId: string) {
+    const message = await this.chatbotMessagesRepo.findOne(messageId);
+    if (!message) throw new NotFoundException('Message not found');
+
+    if (message.sessionId !== sessionId)
+      throw new ForbiddenException('Message does not belong to this session');
+
+    return message;
+  }
+
+  // Helper to update the chat session title both locally and in the external API
   private async updateTitle({
     sessionId,
     newTitle,

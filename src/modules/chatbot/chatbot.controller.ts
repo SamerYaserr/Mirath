@@ -47,12 +47,22 @@ import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-messag
 import { UploadChatImageReqDto } from './dto/requests/upload-chat-image.req.dto';
 import { ChatAudioReqDto } from './dto/requests/chat-audio.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
+import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
 import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
+import {
+  SubmitFeedbackReqBodyDto,
+  SubmitFeedbackReqParamsDto,
+} from './dto/requests/submit-feedback.req.dto';
 import { ChatAudioPipe } from '../../common/pipes/chat-audio.pipe';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
-@ApiExtraModels(ChatbotMessageResDto, SessionResDto, GetUserSessionsResDto)
+@ApiExtraModels(
+  ChatbotMessageResDto,
+  SessionResDto,
+  GetUserSessionsResDto,
+  SubmitFeedbackResDto,
+)
 @Controller('chatbot')
 export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
@@ -448,5 +458,46 @@ export default class ChatbotController {
   })
   deleteOne(@Req() req: Request, @Param() { id }: IdDto) {
     return this.chatbotService.deleteOne(id, req.user!.id);
+  }
+
+  @Post('sessions/:sessionId/messages/:messageId/feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Submit Feedback',
+    description:
+      'Allows a user to submit, update, or remove feedback (thumbs up/down) for an AI response.',
+  })
+  @ApiBody({ type: SubmitFeedbackReqBodyDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Feedback added/removed.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Feedback added' },
+        data: { $ref: getSchemaPath(SubmitFeedbackResDto) },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'You can only rate AI responses',
+  })
+  @ApiNotFoundResponse({ description: 'Chat session/message not found' })
+  @ApiForbiddenResponse({
+    description: 'You do not have access to this chat session/message',
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  submitFeedback(
+    @Req() req: Request,
+    @Body() dto: SubmitFeedbackReqBodyDto,
+    @Param() { sessionId, messageId }: SubmitFeedbackReqParamsDto,
+  ) {
+    const userId = req.user!.id;
+    return this.chatbotService.submitFeedback({
+      userId,
+      sessionId,
+      messageId,
+      ...dto,
+    });
   }
 }
