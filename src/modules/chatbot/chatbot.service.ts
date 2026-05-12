@@ -34,6 +34,7 @@ import ChatMessagesRepository from './repositories/messages.repository';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
+import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
 import { EXT_TO_MIME } from './chatbot.types';
 import { PrismaService } from '../prisma/prisma.service';
 import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
@@ -535,11 +536,11 @@ export default class ChatbotService {
 
     return {
       message: `Feedback ${active ? 'added' : 'removed'}`,
-      data: {
+      data: SubmitFeedbackResDto.fromEntity({
         messageId,
         type: feedbackType,
         active,
-      },
+      }),
     };
   }
 

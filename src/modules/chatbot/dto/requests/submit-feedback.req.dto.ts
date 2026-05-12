@@ -4,8 +4,7 @@ import { IsEnum, IsUUID } from 'class-validator';
 
 export class SubmitFeedbackReqBodyDto {
   @ApiProperty({
-    description:
-      'Feedback type an authenticated user can add (THUMBS_UP | THUMBS_DOWN)',
+    description: 'Feedback type an authenticated user can add',
     enum: FeedbackType,
     example: FeedbackType.THUMBS_UP,
   })

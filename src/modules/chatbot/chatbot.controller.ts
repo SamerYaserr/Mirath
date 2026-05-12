@@ -42,6 +42,7 @@ import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
 import { UploadChatImageReqDto } from './dto/requests/upload-chat-image.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
+import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
 import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
 import {
   SubmitFeedbackReqBodyDto,
@@ -50,7 +51,12 @@ import {
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
-@ApiExtraModels(ChatbotMessageResDto, SessionResDto, GetUserSessionsResDto)
+@ApiExtraModels(
+  ChatbotMessageResDto,
+  SessionResDto,
+  GetUserSessionsResDto,
+  SubmitFeedbackResDto,
+)
 @Controller('chatbot')
 export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
@@ -339,6 +345,32 @@ export default class ChatbotController {
   }
 
   @Post('sessions/:sessionId/messages/:messageId/feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Submit Feedback',
+    description:
+      'Allows a user to submit, update, or remove feedback (thumbs up/down) for an AI response.',
+  })
+  @ApiBody({ type: SubmitFeedbackReqBodyDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Feedback added/removed.',
+    schema: {
+      properties: {
+        message: { type: 'string', example: 'Feedback added' },
+        data: { $ref: getSchemaPath(SubmitFeedbackResDto) },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'You can only rate AI responses',
+  })
+  @ApiNotFoundResponse({ description: 'Chat session/message not found' })
+  @ApiForbiddenResponse({
+    description: 'You do not have access to this chat session/message',
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   submitFeedback(
     @Req() req: Request,
     @Body() dto: SubmitFeedbackReqBodyDto,
