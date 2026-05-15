@@ -14,6 +14,9 @@ import { UpdateHighlightReqDto } from './dto/requests/update-highlight.req.dto';
 import { HighlightResDto } from './dto/responses/Highlight.res.dto';
 import { HighlightColor } from '@prisma/client';
 import { AiServicesProxy } from './proxies/ai-services.proxy';
+import { IdDto } from 'src/common/dto/id.dto';
+import { SummarizeDto } from './dto/requests/summarize.req.dto';
+import { AiServiceResDto } from './dto/responses/ai-service.res.dto';
 
 @Injectable()
 export class PaperAnnotationsService {
@@ -217,6 +220,25 @@ export class PaperAnnotationsService {
     return {
       size,
       data: notes.map((note) => HighlightResDto.fromEntity(note)),
+    };
+  }
+
+  async summarizeText({
+    id: paperId,
+    selectedText,
+  }: IdDto & SummarizeDto): Promise<HttpResponse<AiServiceResDto>> {
+    const paper = await this.papersRepository.find(paperId);
+    if (!paper) throw new NotFoundException('Paper not found');
+
+    const summary = await this.aiServicesProxy.call({
+      service: 'summarize_snippet',
+      input_text: selectedText,
+    });
+
+    return {
+      data: {
+        answer: AiServiceResDto.fromAnswer(summary).answer,
+      },
     };
   }
 }
