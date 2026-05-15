@@ -74,6 +74,7 @@ export type PersistStreamedMessageAndTitlePayload = {
   assembledResponse: string;
   sessionId: string;
   newTitle: string | undefined;
+  isTemporary: boolean;
 };
 
 export type CreateMessageData = {

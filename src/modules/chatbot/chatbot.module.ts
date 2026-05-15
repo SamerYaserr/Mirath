@@ -8,6 +8,7 @@ import ChatMessagesRepository from './repositories/messages.repository';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
 import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
+import { ChatbotCleanupService } from './chatbot.cleanup.service';
 
 @Module({
   imports: [HttpModule, CloudinaryModule],
@@ -18,6 +19,7 @@ import MessageFeedbacksRepository from './repositories/message-feedbacks.reposit
     MessageFeedbacksRepository,
     ChatbotService,
     ChatImagePipe,
+    ChatbotCleanupService,
   ],
 })
 export default class ChatbotModule {}

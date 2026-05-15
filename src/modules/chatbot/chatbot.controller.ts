@@ -54,6 +54,7 @@ import {
   SubmitFeedbackReqParamsDto,
 } from './dto/requests/submit-feedback.req.dto';
 import { ChatAudioPipe } from '../../common/pipes/chat-audio.pipe';
+import { TemporarySessionResDto } from './dto/responses/temporary-session.res.dto';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -62,6 +63,7 @@ import { ChatAudioPipe } from '../../common/pipes/chat-audio.pipe';
   SessionResDto,
   GetUserSessionsResDto,
   SubmitFeedbackResDto,
+  TemporarySessionResDto,
 )
 @Controller('chatbot')
 export default class ChatbotController {
@@ -367,6 +369,56 @@ export default class ChatbotController {
     });
   }
 
+  @Post('sessions/temporary')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a temporary chat session',
+    description:
+      'Creates a short-lived chat session that is never shown in the session ' +
+      'history list. The session expires after 24 hours of inactivity; ' +
+      'the TTL is reset on every new message. Use ' +
+      'DELETE /chatbot/sessions/temporary/:id to end it early.',
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Temporary chat session created successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(TemporarySessionResDto) },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  createTemporary(@Req() req: Request) {
+    return this.chatbotService.createTemporary(req.user!.id);
+  }
+
+  @Delete('sessions/temporary/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Explicitly end a temporary chat session',
+    description:
+      'Immediately deletes a temporary session, all its messages, and ' +
+      'cleans up the AI-side thread. Returns 400 if the session is not ' +
+      'temporary — use DELETE /chatbot/sessions/:id for regular sessions.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Temporary session deleted successfully.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'The specified session is not a temporary session.',
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiNotFoundResponse({ description: 'No session found with this id.' })
+  @ApiForbiddenResponse({
+    description: 'You do not have permission to delete this temporary session.',
+  })
+  deleteTemporary(@Req() req: Request, @Param() { id }: IdDto) {
+    return this.chatbotService.deleteTemporary(id, req.user!.id);
+  }
+
   @Post('sessions')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -396,7 +448,8 @@ export default class ChatbotController {
     summary: 'Get all chat sessions for the current user',
     description:
       'Returns a paginated list of chat sessions belonging to the authenticated user, ' +
-      'ordered by most recently updated. Each session includes a preview of the last message.',
+      'ordered by most recently updated. Each session includes a preview of the last message. ' +
+      'Temporary sessions are excluded from this list.',
   })
   @ApiQuery({ type: PaginationDto })
   @ApiResponse({
@@ -423,7 +476,8 @@ export default class ChatbotController {
     summary: 'Get a single chat session by ID',
     description:
       'Retrieves the full details of a specific chat session. ' +
-      'The session must belong to the authenticated user.',
+      'The session must belong to the authenticated user. ' +
+      'Temporary sessions are accessible via direct ID lookup.',
   })
   @ApiResponse({
     status: HttpStatus.OK,

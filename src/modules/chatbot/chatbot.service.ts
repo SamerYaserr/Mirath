@@ -41,6 +41,7 @@ import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
 import { ExternalAiVoiceEvent } from './dto/external-ai-voice-response.dto';
+import { TemporarySessionResDto } from './dto/responses/temporary-session.res.dto';
 
 @Injectable()
 export default class ChatbotService {
@@ -64,6 +65,10 @@ export default class ChatbotService {
     try {
       const session = await this.findSessionOrThrow(sessionId, userId);
 
+      if (session.isTemporary) {
+        await this.sessionsRepo.extendExpiry(sessionId);
+      }
+
       await this.chatbotMessagesRepo.create({
         content,
         role: MessageRole.USER,
@@ -73,7 +78,7 @@ export default class ChatbotService {
       const hasMultipleMessages =
         await this.chatbotMessagesRepo.hasMultipleMessages(session.id);
 
-      if (!hasMultipleMessages) {
+      if (!session.isTemporary && !hasMultipleMessages) {
         await this.updateTitle({
           sessionId: session.id,
           userId,
@@ -126,6 +131,7 @@ export default class ChatbotService {
                   persisted,
                   sessionId,
                   assembledResponse,
+                  isTemporary: session.isTemporary,
                 })
                   .then((p) => {
                     persisted = p;
@@ -151,6 +157,7 @@ export default class ChatbotService {
                   persisted,
                   sessionId,
                   assembledResponse,
+                  isTemporary: session.isTemporary,
                 }).catch((err: unknown) => {
                   logger.error('Failed to persist on AI error', { err });
                 });
@@ -173,6 +180,7 @@ export default class ChatbotService {
         sessionId,
         assembledResponse,
         newTitle,
+        isTemporary: session.isTemporary,
       });
 
       this.handleStreamErrors({ stream, subscriber });
@@ -203,7 +211,11 @@ export default class ChatbotService {
     subscriber,
   }: ProcessImageMessagePayload) {
     try {
-      await this.findSessionOrThrow(sessionId, userId);
+      const session = await this.findSessionOrThrow(sessionId, userId);
+
+      if (session.isTemporary) {
+        await this.sessionsRepo.extendExpiry(sessionId);
+      }
 
       const { secure_url } = await this.cloudinaryService.uploadFile(
         file,
@@ -228,7 +240,7 @@ export default class ChatbotService {
       const hasMultipleMessages =
         await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
 
-      if (!hasMultipleMessages) {
+      if (!session.isTemporary && !hasMultipleMessages) {
         await this.updateTitle({
           sessionId,
           userId,
@@ -301,6 +313,7 @@ export default class ChatbotService {
                   sessionId,
                   assembledResponse,
                   newTitle,
+                  isTemporary: session.isTemporary,
                 })
                   .then(({ persisted: p, messageId }) => {
                     persisted = p;
@@ -365,6 +378,7 @@ export default class ChatbotService {
             sessionId,
             assembledResponse,
             newTitle,
+            isTemporary: session.isTemporary,
           })
             .then(({ messageId }) => {
               if (messageId) {
@@ -446,7 +460,6 @@ export default class ChatbotService {
     };
   }
 
-  // === Helpers ===
   async processAudioMessageStream({
     userId,
     sessionId,
@@ -455,7 +468,11 @@ export default class ChatbotService {
     abortController,
     subscriber,
   }: ProcessAudioMessagePayload): Promise<void> {
-    await this.findSessionOrThrow(sessionId, userId);
+    const session = await this.findSessionOrThrow(sessionId, userId);
+
+    if (session.isTemporary) {
+      await this.sessionsRepo.extendExpiry(sessionId);
+    }
 
     const { secure_url } = await this.cloudinaryService.uploadFile(
       audioFile,
@@ -483,7 +500,7 @@ export default class ChatbotService {
     const hasMultipleMessages =
       await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
 
-    if (!hasMultipleMessages) {
+    if (!session.isTemporary && !hasMultipleMessages) {
       await this.updateTitle({
         sessionId,
         userId,
@@ -570,6 +587,7 @@ export default class ChatbotService {
                 sessionId,
                 assembledResponse,
                 newTitle,
+                isTemporary: session.isTemporary,
                 userMessageId: userMessage.id,
                 transcriptionText,
               })
@@ -611,6 +629,7 @@ export default class ChatbotService {
           sessionId,
           assembledResponse,
           newTitle,
+          isTemporary: session.isTemporary,
           userMessageId: userMessage.id,
           transcriptionText,
         }).catch((err: unknown) => {
@@ -660,6 +679,39 @@ export default class ChatbotService {
       message: 'session created successfully',
       data: SessionResDto.fromEntity(session),
     };
+  }
+
+  async createTemporary(userId: string): Promise<HttpResponse> {
+    const session = await this.sessionsRepo.createTemporary(userId);
+
+    return {
+      data: TemporarySessionResDto.fromEntity(session),
+    };
+  }
+
+  async deleteTemporary(id: string, userId: string): Promise<void> {
+    const session = await this.sessionsRepo.findById(id);
+
+    if (!session) {
+      throw new NotFoundException('Chat session not found');
+    }
+
+    if (session.userId !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to delete this chat session',
+      );
+    }
+
+    if (!session.isTemporary) {
+      throw new BadRequestException(
+        'This endpoint only accepts temporary sessions. ' +
+          'Use DELETE /chatbot/sessions/:id to delete a regular session.',
+      );
+    }
+
+    await this.deleteTemporarySessionFromExternalApi(id);
+
+    await this.sessionsRepo.deleteOne(id);
   }
 
   async findAll({
@@ -809,11 +861,13 @@ export default class ChatbotService {
 
     return stream;
   }
+
   private async finaliseAudioStream({
     persisted,
     sessionId,
     assembledResponse,
     newTitle,
+    isTemporary,
     userMessageId,
     transcriptionText,
   }: PersistStreamedMessageAndTitlePayload & {
@@ -822,7 +876,10 @@ export default class ChatbotService {
   }): Promise<boolean> {
     if (persisted) return true;
 
-    await this.sessionsRepo.updateTitleAndTouch({ sessionId, newTitle });
+    await this.sessionsRepo.updateTitleAndTouch({
+      sessionId,
+      newTitle: isTemporary ? undefined : newTitle,
+    });
 
     if (assembledResponse.length > 0) {
       await this.chatbotMessagesRepo
@@ -851,32 +908,6 @@ export default class ChatbotService {
     return true;
   }
 
-  private async persistAssistantMessageAndUpdateSessionTitle({
-    newTitle,
-    persisted,
-    sessionId,
-    assembledResponse,
-  }: PersistStreamedMessageAndTitlePayload): Promise<boolean> {
-    if (persisted) return true;
-
-    const promises: Promise<unknown>[] = [
-      this.sessionsRepo.updateTitleAndTouch({ sessionId, newTitle }),
-    ];
-
-    if (assembledResponse.length > 0) {
-      promises.push(
-        this.chatbotMessagesRepo.create({
-          content: assembledResponse,
-          role: MessageRole.ASSISTANT,
-          sessionId,
-        }),
-      );
-    }
-
-    await Promise.all(promises);
-    return true;
-  }
-
   private handleStreamErrors({
     stream,
     subscriber,
@@ -900,6 +931,7 @@ export default class ChatbotService {
     persisted,
     sessionId,
     assembledResponse,
+    isTemporary,
   }: Pick<HandleStreamEventsPayload, 'stream'> &
     PersistStreamedMessageAndTitlePayload) {
     stream.on('end', () => {
@@ -909,6 +941,7 @@ export default class ChatbotService {
           persisted,
           sessionId,
           assembledResponse,
+          isTemporary,
         }).catch((err) => {
           logger.error('Failed to persist assistant message on stream end', {
             error: err,
@@ -923,13 +956,17 @@ export default class ChatbotService {
     sessionId,
     assembledResponse,
     newTitle,
+    isTemporary,
   }: PersistStreamedMessageAndTitlePayload): Promise<{
     persisted: boolean;
     messageId: string | undefined;
   }> {
     if (persisted) return { persisted: true, messageId: undefined };
 
-    await this.sessionsRepo.updateTitleAndTouch({ sessionId, newTitle });
+    await this.sessionsRepo.updateTitleAndTouch({
+      sessionId,
+      newTitle: isTemporary ? undefined : newTitle,
+    });
 
     if (assembledResponse.length === 0) {
       return { persisted: true, messageId: undefined };
@@ -967,5 +1004,35 @@ export default class ChatbotService {
         });
       }),
     );
+  }
+
+  private async persistAssistantMessageAndUpdateSessionTitle({
+    newTitle,
+    persisted,
+    sessionId,
+    assembledResponse,
+    isTemporary,
+  }: PersistStreamedMessageAndTitlePayload): Promise<boolean> {
+    if (persisted) return true;
+
+    const promises: Promise<unknown>[] = [
+      this.sessionsRepo.updateTitleAndTouch({
+        sessionId,
+        newTitle: isTemporary ? undefined : newTitle,
+      }),
+    ];
+
+    if (assembledResponse.length > 0) {
+      promises.push(
+        this.chatbotMessagesRepo.create({
+          content: assembledResponse,
+          role: MessageRole.ASSISTANT,
+          sessionId,
+        }),
+      );
+    }
+
+    await Promise.all(promises);
+    return true;
   }
 }
