@@ -13,12 +13,14 @@ import { CreateHighlightReqDto } from './dto/requests/create-highlight.req.dto';
 import { UpdateHighlightReqDto } from './dto/requests/update-highlight.req.dto';
 import { HighlightResDto } from './dto/responses/Highlight.res.dto';
 import { HighlightColor } from '@prisma/client';
+import { AiServicesProxy } from './proxies/ai-services.proxy';
 
 @Injectable()
 export class PaperAnnotationsService {
   constructor(
     private readonly highlightsRepository: HighlightsRepository,
     private readonly papersRepository: PapersRepository,
+    private readonly aiServicesProxy: AiServicesProxy,
   ) {}
 
   async create(
