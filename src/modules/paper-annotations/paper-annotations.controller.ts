@@ -38,6 +38,7 @@ import { IdDto } from 'src/common/dto/id.dto';
 import { NoteReqDto } from './dto/requests/note.req.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { HighlightParamsDto } from './dto/highlight-params.dto';
+import { ExplainReqDto } from './dto/requests/explain.req.dto';
 import { SummarizeDto } from './dto/requests/summarize.req.dto';
 import { AiServiceResDto } from './dto/responses/ai-service.res.dto';
 
@@ -334,5 +335,28 @@ export class PaperAnnotationsController {
       id,
       ...dto,
     });
+  }
+
+  @Post('/explain')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Explain a highlighted text',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Text explained successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(AiServiceResDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'No paper found with this is.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  explain(
+    @Param() { id }: IdDto,
+    @Body() dto: ExplainReqDto,
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    return this.paperAnnotationsService.explainText({ id, ...dto });
   }
 }
