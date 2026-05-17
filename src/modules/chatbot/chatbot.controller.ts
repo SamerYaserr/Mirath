@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 import {
   Req,
   Sse,
@@ -14,7 +14,7 @@ import {
   HttpStatus,
   UploadedFile,
   UseInterceptors,
-  Res,
+  RequestMethod,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -69,7 +69,7 @@ import { TemporarySessionResDto } from './dto/responses/temporary-session.res.dt
 export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 
-  @Sse('sessions/:id/messages')
+  @Sse('sessions/:id/messages', { method: RequestMethod.POST })
   @ApiOperation({ summary: 'Stream a chatbot reply for a session message' })
   @ApiBody({ type: CreateChatbotMessageReqDto })
   @ApiResponse({
@@ -83,8 +83,12 @@ export default class ChatbotController {
           example: 'data: {"delta":"The paper argues that..."}\n\n',
         },
         examples: {
+          status: {
+            summary: 'AI progress update event',
+            value: 'data: {"status":"Searching knowledge base..."}\n\n',
+          },
           chunk: {
-            summary: 'Assistant chunk event',
+            summary: 'Assistant answer event',
             value: 'data: {"delta":"The paper argues that..."}\n\n',
           },
           error: {
@@ -117,11 +121,12 @@ export default class ChatbotController {
         ...dto,
       });
 
+      // Teardown: abort the upstream AI request when the client disconnects.
       return () => abortController.abort();
     });
   }
 
-  @Post('sessions/:id/messages/upload')
+  @Sse('sessions/:id/messages/upload', { method: RequestMethod.POST })
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
     summary: 'Upload an image and stream a chatbot reply',
@@ -150,61 +155,69 @@ export default class ChatbotController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'SSE stream opened. Same frame format as the text endpoint.',
+    description: 'SSE stream opened.',
+    content: {
+      'text/event-stream': {
+        schema: { type: 'string' },
+        examples: {
+          status: {
+            summary: 'AI progress update event',
+            value: 'data: {"status":"Analysing the image..."}\n\n',
+          },
+          chunk: {
+            summary: 'Assistant answer event',
+            value: 'data: {"delta":"The image shows..."}\n\n',
+          },
+          error: {
+            summary: 'Stream error event',
+            value:
+              'data: {"error":"Failed to process the image, please try again later."}\n\n',
+          },
+          done: { summary: 'Completion sentinel', value: 'data: "[DONE]"\n\n' },
+        },
+      },
+    },
   })
   @ApiNotFoundResponse({ description: 'Chat session not found' })
   @ApiForbiddenResponse({
     description: 'You do not have access to this chat session',
   })
-  async streamImageMessage(
+  @ApiBadGatewayResponse({
+    description:
+      'Cloudinary upload succeeded but the AI service call failed. ' +
+      'The uploaded file is automatically deleted.',
+  })
+  streamImageMessage(
     @Req() req: Request,
-    @Res() res: Response,
     @Param() { id }: IdDto,
     @Body() dto: UploadChatImageReqDto,
     @UploadedFile(ChatImagePipe) file: Express.Multer.File,
-  ): Promise<void> {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders();
+  ): Observable<SseEvent<ChatbotMessageDataEvent>> {
+    return new Observable((subscriber) => {
+      const abortController = new AbortController();
 
-    const abortController = new AbortController();
-    req.on('close', () => abortController.abort());
+      this.chatbotService
+        .processImageMessageStream({
+          userId: req.user!.id,
+          sessionId: id,
+          file,
+          content: dto.content ?? '',
+          abortController,
+          subscriber,
+        })
+        .catch((err: unknown) => subscriber.error(err));
 
-    return new Promise((resolve) => {
-      const subscriber = {
-        next: (event: SseEvent<ChatbotMessageDataEvent>) => {
-          res.write(`data: ${JSON.stringify(event.data)}\n\n`);
-        },
-        error: () => {
-          res.end();
-          resolve();
-        },
-        complete: () => {
-          res.end();
-          resolve();
-        },
-      };
-
-      this.chatbotService.processImageMessageStream({
-        userId: req.user!.id,
-        sessionId: id,
-        file,
-        content: dto.content ?? '',
-        abortController,
-        subscriber: subscriber as any,
-      });
+      return () => abortController.abort();
     });
   }
 
-  @Post('sessions/:id/messages/audio')
+  @Sse('sessions/:id/messages/audio', { method: RequestMethod.POST })
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
     summary: 'Upload a voice message and stream the AI reply',
     description:
       'Records are uploaded as standard multipart blobs; the backend ' +
-      'never manages a live audio stream.  The file is uploaded to Cloudinary ' +
+      'never manages a live audio stream. The file is uploaded to Cloudinary ' +
       '(resource_type: video), forwarded to the AI service for transcription, ' +
       'and the transcript + AI reply are streamed back as SSE.',
   })
@@ -237,12 +250,16 @@ export default class ChatbotController {
         schema: { type: 'string' },
         examples: {
           transcription: {
-            summary: 'First event - transcription',
+            summary: 'First event — transcript of the voice clip',
             value:
               'data: {"transcription":"What does it take to solve the measurement problem?"}\n\n',
           },
+          status: {
+            summary: 'AI progress update event',
+            value: 'data: {"status":"Thinking..."}\n\n',
+          },
           delta: {
-            summary: 'Assistant chunk event',
+            summary: 'Assistant answer event',
             value: 'data: {"delta":"The measurement problem refers to..."}\n\n',
           },
           done: { summary: 'Completion sentinel', value: 'data: "[DONE]"\n\n' },
@@ -269,49 +286,14 @@ export default class ChatbotController {
       'Cloudinary upload succeeded but the AI service call failed. ' +
       'The uploaded file is automatically deleted.',
   })
-  async streamAudioMessage(
+  streamAudioMessage(
     @Req() req: Request,
-    @Res() res: Response,
     @Param() { id }: IdDto,
     @Body() dto: ChatAudioReqDto,
     @UploadedFile(ChatAudioPipe) file: Express.Multer.File,
-  ): Promise<void> {
-    let headersFlushed = false;
-
-    const flushHeaders = () => {
-      if (!headersFlushed) {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-        res.flushHeaders();
-        headersFlushed = true;
-      }
-    };
-
-    const abortController = new AbortController();
-    req.on('close', () => abortController.abort());
-
-    return new Promise((resolve) => {
-      const subscriber = {
-        next: (event: SseEvent<ChatbotAudioDataEvent>) => {
-          flushHeaders();
-          res.write(`data: ${JSON.stringify(event.data)}\n\n`);
-        },
-        error: (err: unknown) => {
-          if (!headersFlushed) {
-            res.destroy(err instanceof Error ? err : new Error(String(err)));
-          } else {
-            res.end();
-          }
-          resolve();
-        },
-        complete: () => {
-          flushHeaders();
-          res.end();
-          resolve();
-        },
-      };
+  ): Observable<SseEvent<ChatbotAudioDataEvent>> {
+    return new Observable((subscriber) => {
+      const abortController = new AbortController();
 
       this.chatbotService
         .processAudioMessageStream({
@@ -320,11 +302,11 @@ export default class ChatbotController {
           audioFile: file,
           durationSeconds: dto.durationSeconds,
           abortController,
-          subscriber: subscriber as any,
+          subscriber,
         })
-        .catch((err: unknown) => {
-          subscriber.error(err);
-        });
+        .catch((err: unknown) => subscriber.error(err));
+
+      return () => abortController.abort();
     });
   }
 
@@ -489,8 +471,7 @@ export default class ChatbotController {
     description: 'You do not have permission to access this chat session.',
   })
   findOne(@Req() req: Request, @Param() { id }: IdDto) {
-    const userId = req.user!.id;
-    return this.chatbotService.findOne(id, userId);
+    return this.chatbotService.findOne(id, req.user!.id);
   }
 
   @Delete('sessions/:id')
@@ -546,9 +527,8 @@ export default class ChatbotController {
     @Body() dto: SubmitFeedbackReqBodyDto,
     @Param() { sessionId, messageId }: SubmitFeedbackReqParamsDto,
   ) {
-    const userId = req.user!.id;
     return this.chatbotService.submitFeedback({
-      userId,
+      userId: req.user!.id,
       sessionId,
       messageId,
       ...dto,

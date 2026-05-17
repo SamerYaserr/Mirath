@@ -15,7 +15,9 @@ export class ChatAudioPipe implements PipeTransform {
       fileIsRequired: true,
       validators: [
         new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 }), // 25 MB
-        new FileTypeValidator({ fileType: /(mp3|mp4|wav|webm|m4a|ogg)$/i }),
+        new FileTypeValidator({
+          fileType: /(mpeg|mp3|mp4|wav|wave|webm|m4a|ogg)$/i,
+        }),
       ],
     });
 
@@ -26,7 +28,7 @@ export class ChatAudioPipe implements PipeTransform {
         error instanceof Error && error.message.includes('File too large')
           ? 'Audio file size must not exceed 25 MB'
           : error instanceof Error && error.message.includes('file type')
-            ? 'Audio must be in MP3, MP4, WAV, WebM, M4A, or OGG format'
+            ? 'Audio must be in MPEG, MP3, MP4, WAV, Wave, WebM, M4A, or OGG format'
             : 'Invalid audio file';
 
       throw new BadRequestException(msg);

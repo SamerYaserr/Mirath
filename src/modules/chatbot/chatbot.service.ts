@@ -114,15 +114,19 @@ export default class ChatbotService {
             const event = JSON.parse(jsonStr) as ExternalApiStreamResponse;
 
             switch (event.type) {
-              case 'chunk':
+              case 'model_answer':
                 if (event.content) {
-                  const delta = Array.isArray(event.content)
-                    ? event.content[0].text
-                    : event.content;
-
-                  assembledResponse += delta;
-                  subscriber.next({ data: { delta } });
+                  assembledResponse = event.content;
+                  subscriber.next({ data: { delta: event.content } });
                 }
+                break;
+
+              case 'status':
+                subscriber.next({ data: { status: event.content ?? '' } });
+                break;
+
+              case 'chat_title':
+                newTitle = event.content;
                 break;
 
               case 'end':
@@ -149,6 +153,7 @@ export default class ChatbotService {
                 subscriber.next({
                   data: {
                     error:
+                      event.content ??
                       'Failed to process the message, please try again later.',
                   },
                 });
@@ -162,10 +167,6 @@ export default class ChatbotService {
                   logger.error('Failed to persist on AI error', { err });
                 });
                 subscriber.complete();
-                break;
-
-              case 'metadata':
-                newTitle = event.chat_title;
                 break;
             }
           } catch {
@@ -296,15 +297,20 @@ export default class ChatbotService {
             const event = JSON.parse(jsonStr) as ExternalApiStreamResponse;
 
             switch (event.type) {
-              case 'chunk':
+              // Full answer in one shot — same logic as the text stream processor.
+              case 'model_answer':
                 if (event.content) {
-                  const delta = Array.isArray(event.content)
-                    ? event.content[0].text
-                    : event.content;
-
-                  assembledResponse += delta;
-                  subscriber.next({ data: { delta } });
+                  assembledResponse = event.content;
+                  subscriber.next({ data: { delta: event.content } });
                 }
+                break;
+
+              case 'status':
+                subscriber.next({ data: { status: event.content ?? '' } });
+                break;
+
+              case 'chat_title':
+                newTitle = event.content;
                 break;
 
               case 'end':
@@ -345,6 +351,7 @@ export default class ChatbotService {
                 subscriber.next({
                   data: {
                     error:
+                      event.content ??
                       'Failed to process the message, please try again later.',
                   },
                 });
@@ -358,13 +365,9 @@ export default class ChatbotService {
                   );
                 subscriber.complete();
                 break;
-
-              case 'metadata':
-                newTitle = event.chat_title;
-                break;
             }
           } catch {
-            // malformed JSON - skip
+            // Malformed JSON line — skip silently.
           }
         }
       });
@@ -468,6 +471,10 @@ export default class ChatbotService {
     abortController,
     subscriber,
   }: ProcessAudioMessagePayload): Promise<void> {
+    logger.info('Starting to process audio message stream', {
+      userId,
+      sessionId,
+    });
     const session = await this.findSessionOrThrow(sessionId, userId);
 
     if (session.isTemporary) {
@@ -570,15 +577,19 @@ export default class ChatbotService {
               }
               break;
 
-            case 'chunk':
+            case 'model_answer':
               if (event.content) {
-                const delta = Array.isArray(event.content)
-                  ? event.content[0].text
-                  : event.content;
-
-                assembledResponse += delta;
-                subscriber.next({ data: { delta } });
+                assembledResponse = event.content;
+                subscriber.next({ data: { delta: event.content } });
               }
+              break;
+
+            case 'status':
+              subscriber.next({ data: { status: event.content ?? '' } });
+              break;
+
+            case 'chat_title':
+              newTitle = event.content;
               break;
 
             case 'end':
@@ -606,18 +617,16 @@ export default class ChatbotService {
             case 'error':
               subscriber.next({
                 data: {
-                  error: 'AI service failed to process the voice message.',
+                  error:
+                    event.content ??
+                    'AI service failed to process the voice message.',
                 },
               });
               subscriber.complete();
               break;
-
-            case 'metadata':
-              newTitle = event.chat_title;
-              break;
           }
         } catch {
-          // malformed JSON line - skip
+          // Malformed JSON line — skip silently.
         }
       }
     });
@@ -767,7 +776,6 @@ export default class ChatbotService {
     return message;
   }
 
-  // Helper to update the chat session title both locally and in the external API
   private async updateTitle({
     sessionId,
     newTitle,
