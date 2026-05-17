@@ -31,6 +31,16 @@ export class SavedPapersResDto {
         items: { type: 'string' },
         example: ['John Smith', 'Jane Doe'],
       },
+      publishedAt: {
+        type: 'string',
+        format: 'date-time',
+        example: '2025-01-15T00:00:00.000Z',
+      },
+      categories: {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['Computer Science', 'Artificial Intelligence'],
+      },
     },
   })
   paper: Record<string, unknown>;
@@ -40,7 +50,17 @@ export class SavedPapersResDto {
     dto.userId = savedPaper.userId;
     dto.paperId = savedPaper.paperId;
     dto.createdAt = savedPaper.createdAt;
-    dto.paper = savedPaper.paper;
+    dto.paper = {
+      id: savedPaper.paper.id,
+      title: savedPaper.paper.title,
+      abstract:
+        savedPaper.paper.abstract.length > 200
+          ? savedPaper.paper.abstract.substring(0, 200) + '...'
+          : savedPaper.paper.abstract,
+      authors: savedPaper.paper.authors,
+      publishedAt: savedPaper.paper.publishedAt,
+      categories: savedPaper.paper.categories,
+    };
     return dto;
   }
 }
