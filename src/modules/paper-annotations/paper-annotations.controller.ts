@@ -39,13 +39,18 @@ import { NoteReqDto } from './dto/requests/note.req.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { HighlightParamsDto } from './dto/highlight-params.dto';
 import { ExplainReqDto } from './dto/requests/explain.req.dto';
+import { SummarizeDto } from './dto/requests/summarize.req.dto';
 import { AiServiceResDto } from './dto/responses/ai-service.res.dto';
 
 @ApiTags('Paper Annotations')
 @ApiBearerAuth()
-@ApiExtraModels(HighlightResDto, HighlightParamsDto, NoteReqDto)
+@ApiExtraModels(
+  NoteReqDto,
+  HighlightResDto,
+  AiServiceResDto,
+  HighlightParamsDto,
+)
 @Controller('papers/:id/highlights')
-@ApiExtraModels(HighlightResDto)
 export class PaperAnnotationsController {
   constructor(
     private readonly paperAnnotationsService: PaperAnnotationsService,
@@ -302,6 +307,34 @@ export class PaperAnnotationsController {
     const userId = req.user!.id;
     const { page, limit } = q;
     return this.paperAnnotationsService.getNotes(userId, id, page, limit);
+  }
+
+  @Post('/summarize')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Summarize a text snippet',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Text summarized successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(AiServiceResDto) },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Paper not found.',
+  })
+  summarize(
+    @Param() { id }: IdDto,
+    @Body() dto: SummarizeDto,
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    return this.paperAnnotationsService.summarizeText({
+      id,
+      ...dto,
+    });
   }
 
   @Post('/explain')
