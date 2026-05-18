@@ -13,12 +13,19 @@ import { CreateHighlightReqDto } from './dto/requests/create-highlight.req.dto';
 import { UpdateHighlightReqDto } from './dto/requests/update-highlight.req.dto';
 import { HighlightResDto } from './dto/responses/Highlight.res.dto';
 import { HighlightColor } from '@prisma/client';
+import { ExplainReqDto } from './dto/requests/explain.req.dto';
+import { AiServicesProxy } from './proxies/ai-services.proxy';
+import { IdDto } from 'src/common/dto/id.dto';
+import { SummarizeDto } from './dto/requests/summarize.req.dto';
+import { AiServiceResDto } from './dto/responses/ai-service.res.dto';
+import { TranslateReqDto } from './dto/requests/translate.req.dto';
 
 @Injectable()
 export class PaperAnnotationsService {
   constructor(
     private readonly highlightsRepository: HighlightsRepository,
     private readonly papersRepository: PapersRepository,
+    private readonly aiServicesProxy: AiServicesProxy,
   ) {}
 
   async create(
@@ -215,6 +222,60 @@ export class PaperAnnotationsService {
     return {
       size,
       data: notes.map((note) => HighlightResDto.fromEntity(note)),
+    };
+  }
+
+  async explainText({
+    id: paperId,
+    selectedText,
+  }: IdDto & ExplainReqDto): Promise<HttpResponse<AiServiceResDto>> {
+    const paper = await this.papersRepository.find(paperId);
+    if (!paper) throw new NotFoundException('No paper fount with this id.');
+
+    const explanation = await this.aiServicesProxy.call({
+      service: 'explain',
+      input_text: selectedText,
+    });
+
+    return { data: { answer: AiServiceResDto.fromAnswer(explanation).answer } };
+  }
+  async summarizeText({
+    id: paperId,
+    selectedText,
+  }: IdDto & SummarizeDto): Promise<HttpResponse<AiServiceResDto>> {
+    const paper = await this.papersRepository.find(paperId);
+    if (!paper) throw new NotFoundException('Paper not found');
+
+    const summary = await this.aiServicesProxy.call({
+      service: 'summarize_snippet',
+      input_text: selectedText,
+    });
+
+    return {
+      data: {
+        answer: AiServiceResDto.fromAnswer(summary).answer,
+      },
+    };
+  }
+
+  async translateText(
+    paperId: string,
+    selectedText: string,
+    targetLanguage: TranslateReqDto['targetLanguage'],
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    const paper = await this.papersRepository.find(paperId);
+    if (!paper) throw new NotFoundException('Paper not found');
+
+    const translation = await this.aiServicesProxy.call({
+      service: 'translate',
+      input_text: selectedText,
+      target_language: targetLanguage,
+    });
+
+    return {
+      data: { 
+        answer: AiServiceResDto.fromAnswer(translation).answer,
+      },
     };
   }
 }
