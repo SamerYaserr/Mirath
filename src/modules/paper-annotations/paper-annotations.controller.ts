@@ -41,6 +41,7 @@ import { HighlightParamsDto } from './dto/highlight-params.dto';
 import { ExplainReqDto } from './dto/requests/explain.req.dto';
 import { SummarizeDto } from './dto/requests/summarize.req.dto';
 import { AiServiceResDto } from './dto/responses/ai-service.res.dto';
+import { TranslateReqDto } from './dto/requests/translate.req.dto';
 
 @ApiTags('Paper Annotations')
 @ApiBearerAuth()
@@ -358,5 +359,38 @@ export class PaperAnnotationsController {
     @Body() dto: ExplainReqDto,
   ): Promise<HttpResponse<AiServiceResDto>> {
     return this.paperAnnotationsService.explainText({ id, ...dto });
+  }
+
+  @Post('/translate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Translate a highlighted text',
+    description:
+      'Translates the selected text into the specified target language ' +
+      'by proxying to the AI service. The source language is detected automatically ' +
+      'by the AI service.',
+  })
+  @ApiBody({ type: TranslateReqDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Text translated successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(AiServiceResDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'No paper found with this id.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiBadRequestResponse({ description: 'Validation failed.' })
+  translate(
+    @Param() { id }: IdDto,
+    @Body() dto: TranslateReqDto,
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    return this.paperAnnotationsService.translateText(
+      id,
+      dto.selectedText,
+      dto.targetLanguage,
+    );
   }
 }
