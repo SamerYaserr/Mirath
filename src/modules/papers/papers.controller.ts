@@ -34,6 +34,7 @@ import { SearchInPaperReqDto } from './dto/requests/search-in-paper.req.dto';
 import { SearchInPaperResDto } from './dto/responses/search-in-paper.res.dto';
 import { PaperCategoriesReqDto } from './dto/requests/paper-categories.req.dto';
 import { PaperCategoryResDto } from './dto/responses/paper-category.res.dto';
+import { SupportedLanguage } from '../paper-annotations/enums/supported-language.enum';
 
 @ApiTags('Papers')
 @ApiBearerAuth()
@@ -145,6 +146,31 @@ export class PapersController {
   })
   async getCategories(@Query() query: PaperCategoriesReqDto) {
     return this.papersService.getCategories(query);
+  }
+
+  @Get('languages')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'List supported translation languages',
+    description: 
+      'Returns the full list of languages supported by the translate endpoint. ' +
+      'Frontend can use this to populate the language picker dynamically.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Supported languages retrieved successfully.',
+    schema: {
+      properties: {
+        data: {
+          type: 'array',
+          items: { type: 'string'},
+          example: ['Arabic', 'English', 'French'],
+        },
+      },
+    },
+  })
+  getLanguages() {
+    return { data: Object.values(SupportedLanguage) };
   }
 
   @ApiOperation({
