@@ -13,20 +13,17 @@ import { AttachmentType, MessageRole, MessageType } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
 import {
+  EXT_TO_MIME,
+  ExternalApiStreamResponse,
   FindMessagesPayload,
   FindSessionsPayload,
-  ProcessMessagePayload,
-  ProcessImageMessagePayload,
-  ProcessAudioMessagePayload,
-  RenameChatSessionPayload,
-  ExternalApiStreamResponse,
-  HandleStreamEventsPayload,
-  RenameChatSessionExternalApiPayload,
   PersistStreamedMessageAndTitlePayload,
+  ProcessAudioStreamPayload,
+  ProcessImageStreamPayload,
+  ProcessStreamPayload,
+  RenameChatSessionExternalApiPayload,
+  RenameChatSessionPayload,
   CallExternalChatStreamParams,
-  SubmitFeedbackParams,
-  CallExternalAudioStreamParams,
-  EXT_TO_MIME,
 } from './chatbot.types';
 import { AppConfig } from 'src/config/configuration';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -34,14 +31,17 @@ import { SessionResDto } from './dto/responses/session.res.dto';
 import { winstonLogger as logger } from 'src/config/logger.config';
 import ChatSessionsRepository from './repositories/sessions.repository';
 import ChatMessagesRepository from './repositories/messages.repository';
+import ChatFilesRepository from './repositories/chat-files.repository';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
-import { ExternalAiVoiceEvent } from './dto/external-ai-voice-response.dto';
 import { TemporarySessionResDto } from './dto/responses/temporary-session.res.dto';
+import { ChatFileResDto } from './dto/responses/chat-file.res.dto';
+import { UploadChatFileReqDto } from './dto/requests/upload-chat-file.req.dto';
+import { FeedbackType } from '@prisma/client';
 
 @Injectable()
 export default class ChatbotService {
@@ -49,38 +49,114 @@ export default class ChatbotService {
     private readonly httpService: HttpService,
     private readonly sessionsRepo: ChatSessionsRepository,
     private readonly chatbotMessagesRepo: ChatMessagesRepository,
+    private readonly chatFilesRepo: ChatFilesRepository,
     private readonly messageFeedbacksRepo: MessageFeedbacksRepository,
     private readonly configService: ConfigService<AppConfig, true>,
     private readonly cloudinaryService: CloudinaryService,
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  async processMessageStream({
+  async uploadFile(
+    userId: string,
+    file: Express.Multer.File,
+    dto: UploadChatFileReqDto,
+  ): Promise<HttpResponse<ChatFileResDto>> {
+    const isAudio = dto.type === AttachmentType.AUDIO;
+
+    const { secure_url } = await this.cloudinaryService.uploadFile(
+      file,
+      isAudio ? 'mirath/chatbot/audio' : 'mirath/chatbot',
+      isAudio ? 'video' : 'auto',
+    );
+
+    const chatFile = await this.chatFilesRepo.create({
+      userId,
+      type: dto.type,
+      url: secure_url,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      durationSeconds: dto.durationSeconds ?? null,
+    });
+
+    return { data: ChatFileResDto.fromEntity(chatFile) };
+  }
+
+  async processStream({
+    userId,
+    sessionId,
+    content,
+    fileId,
+    abortController,
+    subscriber,
+  }: ProcessStreamPayload): Promise<void> {
+    if (!content && !fileId) {
+      subscriber.error(
+        new BadRequestException('Please provide a message or attach a file.'),
+      );
+      return;
+    }
+
+    if (!fileId) {
+      return this.processTextStream({
+        userId,
+        sessionId,
+        content: content!,
+        abortController,
+        subscriber,
+      });
+    }
+
+    // Validate ownership in the same query — no extra round-trip.
+    const chatFile = await this.chatFilesRepo.findByIdAndUser(fileId, userId);
+    if (!chatFile) {
+      subscriber.error(new NotFoundException('File not found.'));
+      return;
+    }
+
+    if (chatFile.type === AttachmentType.AUDIO) {
+      return this.processAudioStream({
+        userId,
+        sessionId,
+        chatFile,
+        abortController,
+        subscriber,
+      });
+    }
+
+    return this.processImageStream({
+      userId,
+      sessionId,
+      content: content ?? '',
+      chatFile,
+      abortController,
+      subscriber,
+    });
+  }
+
+  private async processTextStream({
     userId,
     content,
     sessionId,
     subscriber,
     abortController,
-  }: ProcessMessagePayload) {
+  }: Omit<ProcessStreamPayload, 'fileId'> & {
+    content: string;
+  }): Promise<void> {
     try {
       const session = await this.findSessionOrThrow(sessionId, userId);
-
-      if (session.isTemporary) {
-        await this.sessionsRepo.extendExpiry(sessionId);
-      }
+      if (session.isTemporary) await this.sessionsRepo.extendExpiry(sessionId);
 
       await this.chatbotMessagesRepo.create({
         content,
         role: MessageRole.USER,
-        sessionId: session.id,
+        sessionId,
       });
 
-      const hasMultipleMessages =
-        await this.chatbotMessagesRepo.hasMultipleMessages(session.id);
-
-      if (!session.isTemporary && !hasMultipleMessages) {
+      const hasMultiple =
+        await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
+      if (!session.isTemporary && !hasMultiple) {
         await this.updateTitle({
-          sessionId: session.id,
+          sessionId,
           userId,
           newTitle: content.slice(0, 60),
         });
@@ -93,155 +169,61 @@ export default class ChatbotService {
         sessionId,
       });
 
-      let buffer = '',
-        persisted = false,
-        assembledResponse = '',
-        newTitle: string | undefined = undefined;
-
-      stream.on('data', (chunk: Buffer) => {
-        buffer += chunk.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('data:')) continue;
-
-          const jsonStr = trimmed.slice('data:'.length).trim();
-          if (!jsonStr) continue;
-
-          try {
-            const event = JSON.parse(jsonStr) as ExternalApiStreamResponse;
-
-            switch (event.type) {
-              case 'model_answer':
-                if (event.content) {
-                  assembledResponse = event.content;
-                  subscriber.next({ data: { delta: event.content } });
-                }
-                break;
-
-              case 'status':
-                subscriber.next({ data: { status: event.content ?? '' } });
-                break;
-
-              case 'chat_title':
-                newTitle = event.content;
-                break;
-
-              case 'end':
-                this.persistAssistantMessageAndUpdateSessionTitle({
-                  newTitle,
-                  persisted,
-                  sessionId,
-                  assembledResponse,
-                  isTemporary: session.isTemporary,
-                })
-                  .then((p) => {
-                    persisted = p;
-                    subscriber.next({ data: '[DONE]' });
-                    subscriber.complete();
-                  })
-                  .catch((err: unknown) => {
-                    logger.error('Failed to save assistant message', { err });
-                    subscriber.next({ data: '[DONE]' });
-                    subscriber.complete();
-                  });
-                break;
-
-              case 'error':
-                subscriber.next({
-                  data: {
-                    error:
-                      event.content ??
-                      'Failed to process the message, please try again later.',
-                  },
-                });
-                this.persistAssistantMessageAndUpdateSessionTitle({
-                  newTitle,
-                  persisted,
-                  sessionId,
-                  assembledResponse,
-                  isTemporary: session.isTemporary,
-                }).catch((err: unknown) => {
-                  logger.error('Failed to persist on AI error', { err });
-                });
-                subscriber.complete();
-                break;
-            }
-          } catch {
-            // malformed JSON — skip
-          }
-        }
-      });
-
-      this.handleStreamCompletion({
+      this.driveStream({
         stream,
-        persisted,
+        subscriber,
         sessionId,
-        assembledResponse,
-        newTitle,
         isTemporary: session.isTemporary,
+        onEnd: async (assembledResponse, newTitle, persisted) => {
+          await this.persistAssistantMessage({
+            assembledResponse,
+            newTitle,
+            persisted,
+            sessionId,
+            isTemporary: session.isTemporary,
+          });
+        },
       });
-
-      this.handleStreamErrors({ stream, subscriber });
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ForbiddenException
-      ) {
-        subscriber.error(error);
-      } else {
-        logger.error('processMessageStream failed', { error });
-        subscriber.next({
-          data: {
-            error: 'Failed to process the message, please try again later.',
-          },
-        });
-        subscriber.complete();
-      }
+      this.handleError(error, subscriber);
     }
   }
 
-  async processImageMessageStream({
+  private async processImageStream({
     userId,
     sessionId,
-    file,
     content,
+    chatFile,
     abortController,
     subscriber,
-  }: ProcessImageMessagePayload) {
+  }: ProcessImageStreamPayload): Promise<void> {
     try {
       const session = await this.findSessionOrThrow(sessionId, userId);
-
-      if (session.isTemporary) {
-        await this.sessionsRepo.extendExpiry(sessionId);
-      }
-
-      const { secure_url } = await this.cloudinaryService.uploadFile(
-        file,
-        'mirath/chatbot',
-      );
+      if (session.isTemporary) await this.sessionsRepo.extendExpiry(sessionId);
 
       await this.chatbotMessagesRepo.createWithAttachment(
-        {
-          sessionId,
-          role: MessageRole.USER,
-          type: MessageType.IMAGE,
-          content: content ?? '',
-        },
+        { sessionId, role: MessageRole.USER, type: MessageType.IMAGE, content },
         {
           type: AttachmentType.IMAGE,
-          url: secure_url,
-          mimeType: file.mimetype,
-          sizeBytes: file.size,
+          url: chatFile.url,
+          mimeType: chatFile.mimeType,
+          sizeBytes: chatFile.sizeBytes,
         },
       );
 
-      const hasMultipleMessages =
-        await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
+      this.chatFilesRepo.deleteOne(chatFile.id).catch((err: unknown) =>
+        logger.error(
+          'Failed to delete staging ChatFile after MessageAttachment created',
+          {
+            err,
+            chatFileId: chatFile.id,
+          },
+        ),
+      );
 
-      if (!session.isTemporary && !hasMultipleMessages) {
+      const hasMultiple =
+        await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
+      if (!session.isTemporary && !hasMultiple) {
         await this.updateTitle({
           sessionId,
           userId,
@@ -249,37 +231,106 @@ export default class ChatbotService {
         });
       }
 
-      let stream: Readable;
-      try {
-        stream = await this.callExternalChatStream({
-          content,
-          file,
-          abortController,
-          userId,
-          sessionId,
-        });
-      } catch (aiError) {
-        logger.error('AI service call failed after image upload', {
-          error: aiError,
-          sessionId,
-          userId,
-        });
-        await this.cloudinaryService
-          .deleteFile(secure_url)
-          .catch((err: unknown) =>
-            logger.error('Failed to cleanup Cloudinary file after AI error', {
-              err,
-            }),
-          );
-        throw new BadGatewayException(
-          'AI service failed to process the image. Please try again later.',
+      const stream = await this.callExternalChatStream({
+        content,
+        imageUrl: chatFile.url,
+        imageMimeType: chatFile.mimeType,
+        abortController,
+        userId,
+        sessionId,
+      });
+
+      this.driveStream({
+        stream,
+        subscriber,
+        sessionId,
+        isTemporary: session.isTemporary,
+        onEnd: async (assembledResponse, newTitle, persisted) => {
+          const { messageId } = await this.persistAssistantImageMessage({
+            assembledResponse,
+            newTitle,
+            persisted,
+            sessionId,
+            isTemporary: session.isTemporary,
+          });
+          if (messageId) {
+            await this.persistAiImageAttachments(
+              messageId,
+              assembledResponse,
+            ).catch((err: unknown) =>
+              logger.error('Failed to persist AI image attachments', { err }),
+            );
+          }
+        },
+      });
+    } catch (error) {
+      this.handleError(error, subscriber);
+    }
+  }
+
+  private async processAudioStream({
+    userId,
+    sessionId,
+    chatFile,
+    abortController,
+    subscriber,
+  }: ProcessAudioStreamPayload): Promise<void> {
+    try {
+      const session = await this.findSessionOrThrow(sessionId, userId);
+      if (session.isTemporary) await this.sessionsRepo.extendExpiry(sessionId);
+
+      const { message: userMessage } =
+        await this.chatbotMessagesRepo.createWithAttachment(
+          {
+            sessionId,
+            role: MessageRole.USER,
+            type: MessageType.AUDIO,
+            content: '',
+          },
+          {
+            type: AttachmentType.AUDIO,
+            url: chatFile.url,
+            mimeType: chatFile.mimeType,
+            sizeBytes: chatFile.sizeBytes,
+            durationSeconds: chatFile.durationSeconds,
+          },
         );
+
+      this.chatFilesRepo.deleteOne(chatFile.id).catch((err: unknown) =>
+        logger.error(
+          'Failed to delete staging ChatFile after audio MessageAttachment created',
+          {
+            err,
+            chatFileId: chatFile.id,
+          },
+        ),
+      );
+
+      const hasMultiple =
+        await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
+      if (!session.isTemporary && !hasMultiple) {
+        await this.updateTitle({
+          sessionId,
+          userId,
+          newTitle: 'Voice message',
+        });
       }
 
-      let buffer = '',
-        persisted = false,
-        assembledResponse = '',
-        newTitle: string | undefined = undefined;
+      const stream = await this.callExternalChatStream({
+        content: '',
+        audioUrl: chatFile.url,
+        audioMimeType: chatFile.mimeType,
+        abortController,
+        userId,
+        sessionId,
+      });
+
+      let buffer = '';
+      let assembledResponse = '';
+      let transcriptionText = '';
+      let transcriptionEmitted = false;
+      let persisted = false;
+      let newTitle: string | undefined;
 
       stream.on('data', (chunk: Buffer) => {
         buffer += chunk.toString();
@@ -289,15 +340,25 @@ export default class ChatbotService {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed.startsWith('data:')) continue;
-
           const jsonStr = trimmed.slice('data:'.length).trim();
           if (!jsonStr) continue;
 
           try {
-            const event = JSON.parse(jsonStr) as ExternalApiStreamResponse;
+            const event = JSON.parse(jsonStr) as
+              | ExternalApiStreamResponse
+              | { type: 'transcription'; transcription: string };
 
             switch (event.type) {
-              // Full answer in one shot — same logic as the text stream processor.
+              case 'transcription':
+                transcriptionText = event.transcription ?? '';
+                if (!transcriptionEmitted) {
+                  subscriber.next({
+                    data: { transcription: transcriptionText },
+                  });
+                  transcriptionEmitted = true;
+                }
+                break;
+
               case 'model_answer':
                 if (event.content) {
                   assembledResponse = event.content;
@@ -314,34 +375,22 @@ export default class ChatbotService {
                 break;
 
               case 'end':
-                this.persistAssistantImageMessage({
+                this.finaliseAudioStream({
                   persisted,
                   sessionId,
                   assembledResponse,
                   newTitle,
                   isTemporary: session.isTemporary,
+                  userMessageId: userMessage.id,
+                  transcriptionText,
                 })
-                  .then(({ persisted: p, messageId }) => {
+                  .then((p) => {
                     persisted = p;
-
-                    if (messageId) {
-                      this.persistAiImageAttachments(
-                        messageId,
-                        assembledResponse,
-                      ).catch((err: unknown) =>
-                        logger.error('Failed to persist AI image attachments', {
-                          err,
-                        }),
-                      );
-                    }
-
                     subscriber.next({ data: '[DONE]' });
                     subscriber.complete();
                   })
                   .catch((err: unknown) => {
-                    logger.error('Failed to persist assistant image message', {
-                      err,
-                    });
+                    logger.error('Failed to finalise audio stream', { err });
                     subscriber.next({ data: '[DONE]' });
                     subscriber.complete();
                   });
@@ -352,17 +401,9 @@ export default class ChatbotService {
                   data: {
                     error:
                       event.content ??
-                      'Failed to process the message, please try again later.',
+                      'AI service failed to process the voice message.',
                   },
                 });
-                this.cloudinaryService
-                  .deleteFile(secure_url)
-                  .catch((err: unknown) =>
-                    logger.error(
-                      'Failed to cleanup Cloudinary file after AI stream error',
-                      { err },
-                    ),
-                  );
                 subscriber.complete();
                 break;
             }
@@ -372,51 +413,144 @@ export default class ChatbotService {
         }
       });
 
-      this.handleStreamErrors({ stream, subscriber });
-
       stream.on('end', () => {
-        if (!persisted && assembledResponse.length > 0) {
-          this.persistAssistantImageMessage({
+        if (!persisted) {
+          this.finaliseAudioStream({
             persisted,
             sessionId,
             assembledResponse,
             newTitle,
             isTemporary: session.isTemporary,
-          })
-            .then(({ messageId }) => {
-              if (messageId) {
-                return this.persistAiImageAttachments(
-                  messageId,
-                  assembledResponse,
-                );
-              }
-              return;
-            })
-            .catch((err: unknown) => {
-              logger.error(
-                'Failed to persist assistant message on stream end',
-                { err },
-              );
-            });
+            userMessageId: userMessage.id,
+            transcriptionText,
+          }).catch((err: unknown) =>
+            logger.error('Persist fallback failed on audio stream end', {
+              err,
+            }),
+          );
         }
       });
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ForbiddenException ||
-        error instanceof BadGatewayException
-      ) {
-        subscriber.error(error);
-      } else {
-        logger.error('processImageMessageStream failed', { error });
+
+      stream.on('error', (err: Error) => {
+        if (err.name === 'CanceledError' || err.name === 'AbortError') return;
+        logger.error('AI audio stream transport error', { error: err });
         subscriber.next({
           data: {
-            error: 'Failed to process the image, please try again later.',
+            error:
+              'Failed to process the voice message, please try again later.',
           },
         });
         subscriber.complete();
-      }
+      });
+    } catch (error) {
+      this.handleError(error, subscriber);
     }
+  }
+
+  private driveStream({
+    stream,
+    subscriber,
+    sessionId,
+    isTemporary,
+    onEnd,
+  }: {
+    stream: Readable;
+    subscriber: ProcessStreamPayload['subscriber'];
+    sessionId: string;
+    isTemporary: boolean;
+    onEnd: (
+      assembledResponse: string,
+      newTitle: string | undefined,
+      persisted: boolean,
+    ) => Promise<void>;
+  }): void {
+    let buffer = '';
+    let assembledResponse = '';
+    let newTitle: string | undefined;
+    let persisted = false;
+
+    stream.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const jsonStr = trimmed.slice('data:'.length).trim();
+        if (!jsonStr) continue;
+
+        try {
+          const event = JSON.parse(jsonStr) as ExternalApiStreamResponse;
+
+          switch (event.type) {
+            case 'model_answer':
+              if (event.content) {
+                assembledResponse = event.content;
+                subscriber.next({ data: { delta: event.content } });
+              }
+              break;
+
+            case 'status':
+              subscriber.next({ data: { status: event.content ?? '' } });
+              break;
+
+            case 'chat_title':
+              newTitle = event.content;
+              break;
+
+            case 'end':
+              onEnd(assembledResponse, newTitle, persisted)
+                .then(() => {
+                  persisted = true;
+                  subscriber.next({ data: '[DONE]' });
+                  subscriber.complete();
+                })
+                .catch((err: unknown) => {
+                  logger.error(
+                    'Failed to persist assistant message on end event',
+                    { err },
+                  );
+                  subscriber.next({ data: '[DONE]' });
+                  subscriber.complete();
+                });
+              break;
+
+            case 'error':
+              subscriber.next({
+                data: {
+                  error:
+                    event.content ??
+                    'Failed to process the message, please try again later.',
+                },
+              });
+              subscriber.complete();
+              break;
+          }
+        } catch {
+          // Malformed JSON line — skip silently.
+        }
+      }
+    });
+
+    stream.on('end', () => {
+      if (!persisted && assembledResponse.length > 0) {
+        onEnd(assembledResponse, newTitle, persisted).catch((err: unknown) =>
+          logger.error('Persist fallback failed on stream end', { err }),
+        );
+      }
+    });
+
+    stream.on('error', (err: Error) => {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
+      logger.error('AI stream transport error', { error: err });
+      subscriber.next({
+        data: {
+          error: 'Failed to process the message, please try again later.',
+        },
+      });
+      subscriber.complete();
+    });
   }
 
   async submitFeedback({
@@ -424,12 +558,18 @@ export default class ChatbotService {
     sessionId,
     messageId,
     feedbackType,
-  }: SubmitFeedbackParams): Promise<HttpResponse> {
+  }: {
+    userId: string;
+    sessionId: string;
+    messageId: string;
+    feedbackType: FeedbackType;
+  }): Promise<HttpResponse> {
     await this.findSessionOrThrow(sessionId, userId);
     const message = await this.findMessageOrThrow(messageId, sessionId);
 
-    if (message.role !== 'ASSISTANT')
+    if (message.role !== 'ASSISTANT') {
       throw new BadRequestException('You can only rate AI responses');
+    }
 
     const active = await this.prisma.$transaction(async (tx) => {
       if (!message.feedback) {
@@ -463,206 +603,6 @@ export default class ChatbotService {
     };
   }
 
-  async processAudioMessageStream({
-    userId,
-    sessionId,
-    audioFile,
-    durationSeconds,
-    abortController,
-    subscriber,
-  }: ProcessAudioMessagePayload): Promise<void> {
-    logger.info('Starting to process audio message stream', {
-      userId,
-      sessionId,
-    });
-    const session = await this.findSessionOrThrow(sessionId, userId);
-
-    if (session.isTemporary) {
-      await this.sessionsRepo.extendExpiry(sessionId);
-    }
-
-    const { secure_url } = await this.cloudinaryService.uploadFile(
-      audioFile,
-      'mirath/chatbot/audio',
-      'video',
-    );
-
-    const { message: userMessage } =
-      await this.chatbotMessagesRepo.createWithAttachment(
-        {
-          sessionId,
-          role: MessageRole.USER,
-          type: MessageType.AUDIO,
-          content: '',
-        },
-        {
-          type: AttachmentType.AUDIO,
-          url: secure_url,
-          mimeType: audioFile.mimetype,
-          sizeBytes: audioFile.size,
-          durationSeconds,
-        },
-      );
-
-    const hasMultipleMessages =
-      await this.chatbotMessagesRepo.hasMultipleMessages(sessionId);
-
-    if (!session.isTemporary && !hasMultipleMessages) {
-      await this.updateTitle({
-        sessionId,
-        userId,
-        newTitle: 'Voice message',
-      });
-    }
-
-    let stream: Readable;
-    try {
-      stream = await this.callExternalAudioStream({
-        userId,
-        sessionId,
-        audioFile,
-        abortController,
-      });
-    } catch (aiError) {
-      logger.error('AI service call failed after audio upload', {
-        error: aiError,
-        sessionId,
-        userId,
-      });
-
-      await this.cloudinaryService
-        .deleteFile(secure_url)
-        .catch((err: unknown) =>
-          logger.error(
-            'Failed to cleanup Cloudinary audio file after AI call failure',
-            { err },
-          ),
-        );
-
-      throw new BadGatewayException(
-        'AI service failed to process the voice message. Please try again later.',
-      );
-    }
-
-    let buffer = '';
-    let assembledResponse = '';
-    let transcriptionText = '';
-    let transcriptionEmitted = false;
-    let persisted = false;
-    let newTitle: string | undefined = undefined;
-
-    stream.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('data:')) continue;
-
-        const jsonStr = trimmed.slice('data:'.length).trim();
-        if (!jsonStr) continue;
-
-        try {
-          const event = JSON.parse(jsonStr) as ExternalAiVoiceEvent;
-
-          switch (event.type) {
-            case 'transcription':
-              transcriptionText = event.transcription ?? '';
-              if (!transcriptionEmitted) {
-                subscriber.next({
-                  data: { transcription: transcriptionText },
-                });
-                transcriptionEmitted = true;
-              }
-              break;
-
-            case 'model_answer':
-              if (event.content) {
-                assembledResponse = event.content;
-                subscriber.next({ data: { delta: event.content } });
-              }
-              break;
-
-            case 'status':
-              subscriber.next({ data: { status: event.content ?? '' } });
-              break;
-
-            case 'chat_title':
-              newTitle = event.content;
-              break;
-
-            case 'end':
-              this.finaliseAudioStream({
-                persisted,
-                sessionId,
-                assembledResponse,
-                newTitle,
-                isTemporary: session.isTemporary,
-                userMessageId: userMessage.id,
-                transcriptionText,
-              })
-                .then((p) => {
-                  persisted = p;
-                  subscriber.next({ data: '[DONE]' });
-                  subscriber.complete();
-                })
-                .catch((err: unknown) => {
-                  logger.error('Failed to finalise audio stream', { err });
-                  subscriber.next({ data: '[DONE]' });
-                  subscriber.complete();
-                });
-              break;
-
-            case 'error':
-              subscriber.next({
-                data: {
-                  error:
-                    event.content ??
-                    'AI service failed to process the voice message.',
-                },
-              });
-              subscriber.complete();
-              break;
-          }
-        } catch {
-          // Malformed JSON line — skip silently.
-        }
-      }
-    });
-
-    stream.on('end', () => {
-      if (!persisted) {
-        this.finaliseAudioStream({
-          persisted,
-          sessionId,
-          assembledResponse,
-          newTitle,
-          isTemporary: session.isTemporary,
-          userMessageId: userMessage.id,
-          transcriptionText,
-        }).catch((err: unknown) => {
-          logger.error(
-            'Failed to finalise audio stream on stream-end fallback',
-            { err },
-          );
-        });
-      }
-    });
-
-    stream.on('error', (err: Error) => {
-      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
-
-      logger.error('AI audio stream transport error', { error: err });
-      subscriber.next({
-        data: {
-          error: 'Failed to process the voice message, please try again later.',
-        },
-      });
-      subscriber.complete();
-    });
-  }
-
   async findMessages({
     sessionId,
     userId,
@@ -670,14 +610,12 @@ export default class ChatbotService {
     skip,
   }: FindMessagesPayload): Promise<HttpResponse<ChatbotMessageResDto[]>> {
     await this.findSessionOrThrow(sessionId, userId);
-
     const [messages, size] = await Promise.all([
       this.chatbotMessagesRepo.findMany({ sessionId, limit, skip }),
       this.chatbotMessagesRepo.count(sessionId),
     ]);
-
     return {
-      data: messages.map((message) => ChatbotMessageResDto.fromEntity(message)),
+      data: messages.map((m) => ChatbotMessageResDto.fromEntity(m)),
       size,
     };
   }
@@ -692,34 +630,22 @@ export default class ChatbotService {
 
   async createTemporary(userId: string): Promise<HttpResponse> {
     const session = await this.sessionsRepo.createTemporary(userId);
-
-    return {
-      data: TemporarySessionResDto.fromEntity(session),
-    };
+    return { data: TemporarySessionResDto.fromEntity(session) };
   }
 
   async deleteTemporary(id: string, userId: string): Promise<void> {
     const session = await this.sessionsRepo.findById(id);
-
-    if (!session) {
-      throw new NotFoundException('Chat session not found');
-    }
-
-    if (session.userId !== userId) {
+    if (!session) throw new NotFoundException('Chat session not found');
+    if (session.userId !== userId)
       throw new ForbiddenException(
         'You do not have permission to delete this chat session',
       );
-    }
-
     if (!session.isTemporary) {
       throw new BadRequestException(
-        'This endpoint only accepts temporary sessions. ' +
-          'Use DELETE /chatbot/sessions/:id to delete a regular session.',
+        'This endpoint only accepts temporary sessions. Use DELETE /chatbot/sessions/:id to delete a regular session.',
       );
     }
-
     await this.deleteTemporarySessionFromExternalApi(id);
-
     await this.sessionsRepo.deleteOne(id);
   }
 
@@ -731,9 +657,7 @@ export default class ChatbotService {
     const sessions = await this.sessionsRepo.findAll(userId, limit, skip);
     return {
       size: sessions.length,
-      data: sessions.map((session) =>
-        GetUserSessionsResDto.fromEntity(session),
-      ),
+      data: sessions.map((s) => GetUserSessionsResDto.fromEntity(s)),
     };
   }
 
@@ -744,11 +668,8 @@ export default class ChatbotService {
 
   async deleteOne(id: string, userId: string): Promise<HttpResponse> {
     const session = await this.findSessionOrThrow(id, userId);
-
-    if (session.isTemporary) {
+    if (session.isTemporary)
       await this.deleteTemporarySessionFromExternalApi(id);
-    }
-
     await this.sessionsRepo.deleteOne(id);
     return { message: 'Session deleted successfully.' };
   }
@@ -756,23 +677,18 @@ export default class ChatbotService {
   private async findSessionOrThrow(sessionId: string, userId: string) {
     const session = await this.sessionsRepo.findById(sessionId);
     if (!session) throw new NotFoundException('Chat session not found');
-
-    if (session.userId !== userId) {
+    if (session.userId !== userId)
       throw new ForbiddenException(
         'You do not have access to this chat session',
       );
-    }
-
     return session;
   }
 
   private async findMessageOrThrow(messageId: string, sessionId: string) {
     const message = await this.chatbotMessagesRepo.findOne(messageId);
     if (!message) throw new NotFoundException('Message not found');
-
     if (message.sessionId !== sessionId)
       throw new ForbiddenException('Message does not belong to this session');
-
     return message;
   }
 
@@ -788,12 +704,11 @@ export default class ChatbotService {
           `${this.configService.get('EXTERNAL_API_BASE_URL')}/rename/chat`,
           { thread_id: sessionId, new_title: newTitle!, user_id: userId },
         ),
-      ).catch((error) => {
-        logger.error(
-          `Failed to update chat session title for session ${sessionId} via external API`,
-          { error },
-        );
-      }),
+      ).catch((error) =>
+        logger.error(`Failed to sync title for session ${sessionId}`, {
+          error,
+        }),
+      ),
     ]);
   }
 
@@ -803,28 +718,40 @@ export default class ChatbotService {
         `${this.configService.get('EXTERNAL_API_BASE_URL')}/temporary/chat`,
         { data: { thread_id: sessionId } },
       ),
-    ).catch((error) => {
+    ).catch((error) =>
       logger.error(
         `Failed to delete temporary session ${sessionId} via external API`,
         { error },
-      );
-    });
+      ),
+    );
   }
 
   private async callExternalChatStream({
     userId,
-    file,
     content,
     sessionId,
+    imageUrl,
+    imageMimeType,
+    audioUrl,
+    audioMimeType,
     abortController,
   }: CallExternalChatStreamParams): Promise<Readable> {
     const form = new FormData();
     if (content) form.append('message', content);
 
-    if (file) {
-      form.append('image', file.buffer, {
-        filename: file.originalname,
-        contentType: file.mimetype,
+    if (imageUrl) {
+      const fileBuffer = await this.fetchFileBuffer(imageUrl, abortController);
+      form.append('image', fileBuffer, {
+        filename: 'image',
+        contentType: imageMimeType ?? 'image/jpeg',
+      });
+    }
+
+    if (audioUrl) {
+      const fileBuffer = await this.fetchFileBuffer(audioUrl, abortController);
+      form.append('voice', fileBuffer, {
+        filename: 'audio',
+        contentType: audioMimeType ?? 'audio/wav',
       });
     }
 
@@ -843,178 +770,22 @@ export default class ChatbotService {
     return stream;
   }
 
-  private async callExternalAudioStream({
-    userId,
-    sessionId,
-    audioFile,
-    abortController,
-  }: CallExternalAudioStreamParams): Promise<Readable> {
-    const form = new FormData();
-    form.append('voice', audioFile.buffer, {
-      filename: audioFile.originalname,
-      contentType: audioFile.mimetype,
-    });
-
-    const { data: stream } = await firstValueFrom(
-      this.httpService.post<Readable>(
-        `${this.configService.get('EXTERNAL_API_BASE_URL')}/chat/${userId}/${sessionId}`,
-        form,
-        {
-          headers: form.getHeaders(),
-          responseType: 'stream',
-          signal: abortController.signal,
-        },
-      ),
-    );
-
-    return stream;
-  }
-
-  private async finaliseAudioStream({
-    persisted,
-    sessionId,
-    assembledResponse,
-    newTitle,
-    isTemporary,
-    userMessageId,
-    transcriptionText,
-  }: PersistStreamedMessageAndTitlePayload & {
-    userMessageId: string;
-    transcriptionText: string;
-  }): Promise<boolean> {
-    if (persisted) return true;
-
-    await this.sessionsRepo.updateTitleAndTouch({
-      sessionId,
-      newTitle: isTemporary ? undefined : newTitle,
-    });
-
-    if (assembledResponse.length > 0) {
-      await this.chatbotMessagesRepo
-        .create({
-          content: assembledResponse,
-          role: MessageRole.ASSISTANT,
-          sessionId,
-          type: MessageType.TEXT,
-        })
-        .catch((err: unknown) => {
-          logger.error('Failed to persist assistant audio reply', { err });
-        });
-    }
-
-    if (transcriptionText) {
-      await this.chatbotMessagesRepo
-        .updateContent(userMessageId, transcriptionText)
-        .catch((err: unknown) => {
-          logger.error('Failed to update user audio message transcription', {
-            err,
-            userMessageId,
-          });
-        });
-    }
-
-    return true;
-  }
-
-  private handleStreamErrors({
-    stream,
-    subscriber,
-  }: HandleStreamEventsPayload) {
-    stream.on('error', (err: Error) => {
-      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
-
-      logger.error('AI stream error', { error: err });
-      subscriber.next({
-        data: {
-          error: 'Failed to process the message, please try again later.',
-        },
-      });
-      subscriber.complete();
-    });
-  }
-
-  private handleStreamCompletion({
-    stream,
-    newTitle,
-    persisted,
-    sessionId,
-    assembledResponse,
-    isTemporary,
-  }: Pick<HandleStreamEventsPayload, 'stream'> &
-    PersistStreamedMessageAndTitlePayload) {
-    stream.on('end', () => {
-      if (assembledResponse.length !== 0) {
-        this.persistAssistantMessageAndUpdateSessionTitle({
-          newTitle,
-          persisted,
-          sessionId,
-          assembledResponse,
-          isTemporary,
-        }).catch((err) => {
-          logger.error('Failed to persist assistant message on stream end', {
-            error: err,
-          });
-        });
-      }
-    });
-  }
-
-  private async persistAssistantImageMessage({
-    persisted,
-    sessionId,
-    assembledResponse,
-    newTitle,
-    isTemporary,
-  }: PersistStreamedMessageAndTitlePayload): Promise<{
-    persisted: boolean;
-    messageId: string | undefined;
-  }> {
-    if (persisted) return { persisted: true, messageId: undefined };
-
-    await this.sessionsRepo.updateTitleAndTouch({
-      sessionId,
-      newTitle: isTemporary ? undefined : newTitle,
-    });
-
-    if (assembledResponse.length === 0) {
-      return { persisted: true, messageId: undefined };
-    }
-
-    const message = await this.chatbotMessagesRepo.create({
-      content: assembledResponse,
-      role: MessageRole.ASSISTANT,
-      sessionId,
-      type: MessageType.TEXT,
-    });
-
-    return { persisted: true, messageId: message.id };
-  }
-
-  private async persistAiImageAttachments(
-    messageId: string,
-    text: string,
-  ): Promise<void> {
-    const URL_REGEX = /https?:\/\/[^\s"'<>)]+\.(?:jpg|jpeg|png|webp|gif)/gi;
-    const urls = text.match(URL_REGEX);
-    if (!urls || urls.length === 0) return;
-
-    const unique = [...new Set(urls)];
-
-    await Promise.all(
-      unique.map((url) => {
-        const ext = url.split('.').pop()?.toLowerCase() ?? '';
-        const mimeType = EXT_TO_MIME[ext] ?? 'image/jpeg';
-        return this.chatbotMessagesRepo.createAttachment(messageId, {
-          type: AttachmentType.IMAGE,
-          url,
-          mimeType,
-          sizeBytes: 0,
-        });
+  // Fetches a file from a remote URL and returns its content as a Buffer.
+  // Used to forward Cloudinary-hosted files to the AI service as binary.
+  private async fetchFileBuffer(
+    url: string,
+    abortController: AbortController,
+  ): Promise<Buffer> {
+    const { data } = await firstValueFrom(
+      this.httpService.get<ArrayBuffer>(url, {
+        responseType: 'arraybuffer',
+        signal: abortController.signal,
       }),
     );
+    return Buffer.from(data);
   }
 
-  private async persistAssistantMessageAndUpdateSessionTitle({
+  private async persistAssistantMessage({
     newTitle,
     persisted,
     sessionId,
@@ -1042,5 +813,123 @@ export default class ChatbotService {
 
     await Promise.all(promises);
     return true;
+  }
+
+  private async persistAssistantImageMessage({
+    persisted,
+    sessionId,
+    assembledResponse,
+    newTitle,
+    isTemporary,
+  }: PersistStreamedMessageAndTitlePayload): Promise<{
+    persisted: boolean;
+    messageId: string | undefined;
+  }> {
+    if (persisted) return { persisted: true, messageId: undefined };
+
+    await this.sessionsRepo.updateTitleAndTouch({
+      sessionId,
+      newTitle: isTemporary ? undefined : newTitle,
+    });
+
+    if (assembledResponse.length === 0)
+      return { persisted: true, messageId: undefined };
+
+    const message = await this.chatbotMessagesRepo.create({
+      content: assembledResponse,
+      role: MessageRole.ASSISTANT,
+      sessionId,
+      type: MessageType.TEXT,
+    });
+
+    return { persisted: true, messageId: message.id };
+  }
+
+  private async persistAiImageAttachments(
+    messageId: string,
+    text: string,
+  ): Promise<void> {
+    const urls = text.match(
+      /https?:\/\/[^\s"'<>)]+\.(?:jpg|jpeg|png|webp|gif)/gi,
+    );
+    if (!urls?.length) return;
+
+    await Promise.all(
+      [...new Set(urls)].map((url) => {
+        const ext = url.split('.').pop()?.toLowerCase() ?? '';
+        return this.chatbotMessagesRepo.createAttachment(messageId, {
+          type: AttachmentType.IMAGE,
+          url,
+          mimeType: EXT_TO_MIME[ext] ?? 'image/jpeg',
+          sizeBytes: 0,
+        });
+      }),
+    );
+  }
+
+  private async finaliseAudioStream({
+    persisted,
+    sessionId,
+    assembledResponse,
+    newTitle,
+    isTemporary,
+    userMessageId,
+    transcriptionText,
+  }: PersistStreamedMessageAndTitlePayload & {
+    userMessageId: string;
+    transcriptionText: string;
+  }): Promise<boolean> {
+    if (persisted) return true;
+
+    await this.sessionsRepo.updateTitleAndTouch({
+      sessionId,
+      newTitle: isTemporary ? undefined : newTitle,
+    });
+
+    if (assembledResponse.length > 0) {
+      await this.chatbotMessagesRepo
+        .create({
+          content: assembledResponse,
+          role: MessageRole.ASSISTANT,
+          sessionId,
+        })
+        .catch((err: unknown) =>
+          logger.error('Failed to persist assistant audio reply', { err }),
+        );
+    }
+
+    if (transcriptionText) {
+      await this.chatbotMessagesRepo
+        .updateContent(userMessageId, transcriptionText)
+        .catch((err: unknown) =>
+          logger.error('Failed to update audio message transcription', { err }),
+        );
+    }
+
+    return true;
+  }
+
+  private handleError(
+    error: unknown,
+    subscriber: Pick<
+      ProcessStreamPayload['subscriber'],
+      'error' | 'next' | 'complete'
+    >,
+  ) {
+    if (
+      error instanceof NotFoundException ||
+      error instanceof ForbiddenException ||
+      error instanceof BadGatewayException
+    ) {
+      subscriber.error(error);
+    } else {
+      logger.error('Unhandled stream processor error', { error });
+      subscriber.next({
+        data: {
+          error: 'An unexpected error occurred. Please try again later.',
+        },
+      });
+      subscriber.complete();
+    }
   }
 }

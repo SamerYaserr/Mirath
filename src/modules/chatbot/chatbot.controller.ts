@@ -30,31 +30,26 @@ import {
   ApiForbiddenResponse,
   ApiUnauthorizedResponse,
   ApiConsumes,
-  ApiBadGatewayResponse,
 } from '@nestjs/swagger';
 
 import { IdDto } from 'src/common/dto/id.dto';
 import ChatbotService from './chatbot.service';
-import {
-  ChatbotAudioDataEvent,
-  ChatbotMessageDataEvent,
-} from './chatbot.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SessionResDto } from './dto/responses/session.res.dto';
 import { HttpResponse, SseEvent } from 'src/common/types/api.types';
 import { ChatbotMessageResDto } from './dto/responses/chatbot-message.res.dto';
 import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
-import { UploadChatImageReqDto } from './dto/requests/upload-chat-image.req.dto';
-import { ChatAudioReqDto } from './dto/requests/chat-audio.req.dto';
 import { GetUserSessionsResDto } from './dto/responses/get-user-sessions.res.dto';
 import { SubmitFeedbackResDto } from './dto/responses/submit-feedback.res.dto';
-import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
 import {
   SubmitFeedbackReqBodyDto,
   SubmitFeedbackReqParamsDto,
 } from './dto/requests/submit-feedback.req.dto';
-import { ChatAudioPipe } from '../../common/pipes/chat-audio.pipe';
 import { TemporarySessionResDto } from './dto/responses/temporary-session.res.dto';
+import { UploadChatFileReqDto } from './dto/requests/upload-chat-file.req.dto';
+import { ChatFilePipe } from 'src/common/pipes/chat-file.pipe';
+import { ChatFileResDto } from './dto/responses/chat-file.res.dto';
+import { ChatbotStreamDataEvent } from './chatbot.types';
 
 @ApiTags('Chatbot')
 @ApiBearerAuth()
@@ -69,30 +64,99 @@ import { TemporarySessionResDto } from './dto/responses/temporary-session.res.dt
 export default class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 
+  @Post('files')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({
+    summary: 'Upload a file for use in a chat message',
+    description:
+      'Step 1 of the two-step messaging flow for images and audio. ' +
+      'Upload the file here to receive a fileId, then include that fileId in ' +
+      'the POST /chatbot/sessions/:id/messages SSE body. ' +
+      'This separates file parsing from SSE streaming so both work correctly.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'type'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'Image (jpg, jpeg, png, webp, gif — max 10 MB) or ' +
+            'audio (mp3, mp4, wav, webm, m4a, ogg — max 25 MB)',
+        },
+        type: {
+          type: 'string',
+          enum: ['IMAGE', 'AUDIO'],
+          description:
+            'Declares the file type so the correct pipe validation is applied.',
+        },
+        durationSeconds: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 600,
+          description: 'Audio duration in seconds. Required when type = AUDIO.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description:
+      'File uploaded successfully. Use the returned id in the stream endpoint.',
+    schema: { properties: { data: { $ref: getSchemaPath(ChatFileResDto) } } },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description:
+      'Invalid file type, file too large, or missing durationSeconds for audio.',
+  })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  uploadFile(
+    @Req() req: Request,
+    @Body() dto: UploadChatFileReqDto,
+    @UploadedFile(ChatFilePipe) file: Express.Multer.File,
+  ): Promise<HttpResponse<ChatFileResDto>> {
+    return this.chatbotService.uploadFile(req.user!.id, file, dto);
+  }
+
   @Sse('sessions/:id/messages', { method: RequestMethod.POST })
-  @ApiOperation({ summary: 'Stream a chatbot reply for a session message' })
+  @ApiOperation({
+    summary: 'Send a message and stream the AI reply',
+    description:
+      'Step 2 of the messaging flow. Accepts a JSON body with an optional text ' +
+      'message and an optional fileId (from POST /chatbot/files). ' +
+      'The AI reply is streamed back as Server-Sent Events. ' +
+      'Audio messages additionally emit a transcription event before the AI reply.',
+  })
   @ApiBody({ type: CreateChatbotMessageReqDto })
   @ApiResponse({
     status: HttpStatus.OK,
     description:
-      'Stream opened. Read SSE frames until `[DONE]` or an error event.',
+      'SSE stream opened. Read frames until `[DONE]` or an error event.',
     content: {
       'text/event-stream': {
-        schema: {
-          type: 'string',
-          example: 'data: {"delta":"The paper argues that..."}\n\n',
-        },
+        schema: { type: 'string' },
         examples: {
+          transcription: {
+            summary:
+              'Audio only — transcript of the voice clip (emitted first)',
+            value:
+              'data: {"transcription":"What does it take to solve the measurement problem?"}\n\n',
+          },
           status: {
-            summary: 'AI progress update event',
+            summary: 'AI progress update',
             value: 'data: {"status":"Searching knowledge base..."}\n\n',
           },
-          chunk: {
-            summary: 'Assistant answer event',
-            value: 'data: {"delta":"The paper argues that..."}\n\n',
+          answer: {
+            summary: 'Complete AI answer (single event)',
+            value: 'data: {"delta":"The measurement problem refers to..."}\n\n',
           },
           error: {
-            summary: 'Stream error event',
+            summary: 'Error event',
             value:
               'data: {"error":"Failed to process the message, please try again later."}\n\n',
           },
@@ -101,210 +165,31 @@ export default class ChatbotController {
       },
     },
   })
-  @ApiNotFoundResponse({ description: 'Chat session not found' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Neither content nor fileId provided.',
+  })
+  @ApiNotFoundResponse({ description: 'Chat session or file not found.' })
   @ApiForbiddenResponse({
-    description: 'You do not have access to this chat session',
+    description: 'You do not have access to this chat session.',
   })
   streamMessage(
     @Req() req: Request,
     @Param() { id }: IdDto,
     @Body() dto: CreateChatbotMessageReqDto,
-  ): Observable<SseEvent<ChatbotMessageDataEvent>> {
+  ): Observable<SseEvent<ChatbotStreamDataEvent>> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
+      console.log(dto);
 
-      this.chatbotService.processMessageStream({
+      this.chatbotService.processStream({
         sessionId: id,
         userId: req.user!.id,
+        content: dto.content,
+        fileId: dto.fileId,
         abortController,
         subscriber,
-        ...dto,
       });
-
-      // Teardown: abort the upstream AI request when the client disconnects.
-      return () => abortController.abort();
-    });
-  }
-
-  @Sse('sessions/:id/messages/upload', { method: RequestMethod.POST })
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({
-    summary: 'Upload an image and stream a chatbot reply',
-    description:
-      'Accepts multipart/form-data with an image file (max 10 MB, jpg/jpeg/png/webp/gif) ' +
-      'and an optional text message. Uploads the image to Cloudinary, persists the user ' +
-      'message, and streams the AI reply as SSE.',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['file'],
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'Image file (jpg, jpeg, png, webp, gif — max 10 MB)',
-        },
-        content: {
-          type: 'string',
-          description: 'Optional text message to accompany the image',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'SSE stream opened.',
-    content: {
-      'text/event-stream': {
-        schema: { type: 'string' },
-        examples: {
-          status: {
-            summary: 'AI progress update event',
-            value: 'data: {"status":"Analysing the image..."}\n\n',
-          },
-          chunk: {
-            summary: 'Assistant answer event',
-            value: 'data: {"delta":"The image shows..."}\n\n',
-          },
-          error: {
-            summary: 'Stream error event',
-            value:
-              'data: {"error":"Failed to process the image, please try again later."}\n\n',
-          },
-          done: { summary: 'Completion sentinel', value: 'data: "[DONE]"\n\n' },
-        },
-      },
-    },
-  })
-  @ApiNotFoundResponse({ description: 'Chat session not found' })
-  @ApiForbiddenResponse({
-    description: 'You do not have access to this chat session',
-  })
-  @ApiBadGatewayResponse({
-    description:
-      'Cloudinary upload succeeded but the AI service call failed. ' +
-      'The uploaded file is automatically deleted.',
-  })
-  streamImageMessage(
-    @Req() req: Request,
-    @Param() { id }: IdDto,
-    @Body() dto: UploadChatImageReqDto,
-    @UploadedFile(ChatImagePipe) file: Express.Multer.File,
-  ): Observable<SseEvent<ChatbotMessageDataEvent>> {
-    return new Observable((subscriber) => {
-      const abortController = new AbortController();
-
-      this.chatbotService
-        .processImageMessageStream({
-          userId: req.user!.id,
-          sessionId: id,
-          file,
-          content: dto.content ?? '',
-          abortController,
-          subscriber,
-        })
-        .catch((err: unknown) => subscriber.error(err));
-
-      return () => abortController.abort();
-    });
-  }
-
-  @Sse('sessions/:id/messages/audio', { method: RequestMethod.POST })
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({
-    summary: 'Upload a voice message and stream the AI reply',
-    description:
-      'Records are uploaded as standard multipart blobs; the backend ' +
-      'never manages a live audio stream. The file is uploaded to Cloudinary ' +
-      '(resource_type: video), forwarded to the AI service for transcription, ' +
-      'and the transcript + AI reply are streamed back as SSE.',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['file', 'durationSeconds'],
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'Audio file (mp3, mp4, wav, webm, m4a, ogg — max 25 MB)',
-        },
-        durationSeconds: {
-          type: 'integer',
-          minimum: 1,
-          maximum: 600,
-          description: 'Duration of the recorded clip in whole seconds',
-          example: 42,
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'SSE stream opened.',
-    content: {
-      'text/event-stream': {
-        schema: { type: 'string' },
-        examples: {
-          transcription: {
-            summary: 'First event — transcript of the voice clip',
-            value:
-              'data: {"transcription":"What does it take to solve the measurement problem?"}\n\n',
-          },
-          status: {
-            summary: 'AI progress update event',
-            value: 'data: {"status":"Thinking..."}\n\n',
-          },
-          delta: {
-            summary: 'Assistant answer event',
-            value: 'data: {"delta":"The measurement problem refers to..."}\n\n',
-          },
-          done: { summary: 'Completion sentinel', value: 'data: "[DONE]"\n\n' },
-          error: {
-            summary: 'AI-layer error',
-            value:
-              'data: {"error":"AI service failed to process the voice message."}\n\n',
-          },
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description:
-      'File too large (>25 MB), unsupported audio format, or durationSeconds out of range.',
-  })
-  @ApiNotFoundResponse({ description: 'Chat session not found' })
-  @ApiForbiddenResponse({
-    description: 'You do not have access to this chat session',
-  })
-  @ApiBadGatewayResponse({
-    description:
-      'Cloudinary upload succeeded but the AI service call failed. ' +
-      'The uploaded file is automatically deleted.',
-  })
-  streamAudioMessage(
-    @Req() req: Request,
-    @Param() { id }: IdDto,
-    @Body() dto: ChatAudioReqDto,
-    @UploadedFile(ChatAudioPipe) file: Express.Multer.File,
-  ): Observable<SseEvent<ChatbotAudioDataEvent>> {
-    return new Observable((subscriber) => {
-      const abortController = new AbortController();
-
-      this.chatbotService
-        .processAudioMessageStream({
-          userId: req.user!.id,
-          sessionId: id,
-          audioFile: file,
-          durationSeconds: dto.durationSeconds,
-          abortController,
-          subscriber,
-        })
-        .catch((err: unknown) => subscriber.error(err));
 
       return () => abortController.abort();
     });
