@@ -180,7 +180,6 @@ export default class ChatbotController {
   ): Observable<SseEvent<ChatbotStreamDataEvent>> {
     return new Observable((subscriber) => {
       const abortController = new AbortController();
-      console.log(dto);
 
       this.chatbotService.processStream({
         sessionId: id,

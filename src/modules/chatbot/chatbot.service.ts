@@ -106,7 +106,6 @@ export default class ChatbotService {
       });
     }
 
-    // Validate ownership in the same query — no extra round-trip.
     const chatFile = await this.chatFilesRepo.findByIdAndUser(fileId, userId);
     if (!chatFile) {
       subscriber.error(new NotFoundException('File not found.'));
@@ -749,11 +748,16 @@ export default class ChatbotService {
 
     if (audioUrl) {
       const fileBuffer = await this.fetchFileBuffer(audioUrl, abortController);
+      const normalizedAudioMime = (audioMimeType ?? 'audio/wav')
+        .replace('audio/wave', 'audio/wav')
+        .replace('audio/x-wav', 'audio/wav');
       form.append('voice', fileBuffer, {
-        filename: 'audio',
-        contentType: audioMimeType ?? 'audio/wav',
+        filename: 'audio.wav',
+        contentType: normalizedAudioMime,
       });
     }
+
+    console.log(form);
 
     const { data: stream } = await firstValueFrom(
       this.httpService.post<Readable>(
@@ -770,8 +774,6 @@ export default class ChatbotService {
     return stream;
   }
 
-  // Fetches a file from a remote URL and returns its content as a Buffer.
-  // Used to forward Cloudinary-hosted files to the AI service as binary.
   private async fetchFileBuffer(
     url: string,
     abortController: AbortController,
