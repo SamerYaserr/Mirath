@@ -38,12 +38,20 @@ import { IdDto } from 'src/common/dto/id.dto';
 import { NoteReqDto } from './dto/requests/note.req.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { HighlightParamsDto } from './dto/highlight-params.dto';
+import { ExplainReqDto } from './dto/requests/explain.req.dto';
+import { SummarizeDto } from './dto/requests/summarize.req.dto';
+import { AiServiceResDto } from './dto/responses/ai-service.res.dto';
+import { TranslateReqDto } from './dto/requests/translate.req.dto';
 
 @ApiTags('Paper Annotations')
 @ApiBearerAuth()
-@ApiExtraModels(HighlightResDto, HighlightParamsDto, NoteReqDto)
+@ApiExtraModels(
+  NoteReqDto,
+  HighlightResDto,
+  AiServiceResDto,
+  HighlightParamsDto,
+)
 @Controller('papers/:id/highlights')
-@ApiExtraModels(HighlightResDto)
 export class PaperAnnotationsController {
   constructor(
     private readonly paperAnnotationsService: PaperAnnotationsService,
@@ -300,5 +308,89 @@ export class PaperAnnotationsController {
     const userId = req.user!.id;
     const { page, limit } = q;
     return this.paperAnnotationsService.getNotes(userId, id, page, limit);
+  }
+
+  @Post('/summarize')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Summarize a text snippet',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Text summarized successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(AiServiceResDto) },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Paper not found.',
+  })
+  summarize(
+    @Param() { id }: IdDto,
+    @Body() dto: SummarizeDto,
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    return this.paperAnnotationsService.summarizeText({
+      id,
+      ...dto,
+    });
+  }
+
+  @Post('/explain')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Explain a highlighted text',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Text explained successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(AiServiceResDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'No paper found with this is.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  explain(
+    @Param() { id }: IdDto,
+    @Body() dto: ExplainReqDto,
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    return this.paperAnnotationsService.explainText({ id, ...dto });
+  }
+
+  @Post('/translate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Translate a highlighted text',
+    description:
+      'Translates the selected text into the specified target language ' +
+      'by proxying to the AI service. The source language is detected automatically ' +
+      'by the AI service.',
+  })
+  @ApiBody({ type: TranslateReqDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Text translated successfully.',
+    schema: {
+      properties: {
+        data: { $ref: getSchemaPath(AiServiceResDto) },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'No paper found with this id.' })
+  @ApiUnauthorizedResponse({ description: 'User not logged in.' })
+  @ApiBadRequestResponse({ description: 'Validation failed.' })
+  translate(
+    @Param() { id }: IdDto,
+    @Body() dto: TranslateReqDto,
+  ): Promise<HttpResponse<AiServiceResDto>> {
+    return this.paperAnnotationsService.translateText(
+      id,
+      dto.selectedText,
+      dto.targetLanguage,
+    );
   }
 }
