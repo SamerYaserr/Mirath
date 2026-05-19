@@ -19,6 +19,8 @@ import { ReadingListsModule } from './modules/reading-lists/reading-lists.module
 import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { PaperAnnotationsModule } from './modules/paper-annotations/paper-annotations.module';
+import ChatbotModule from './modules/chatbot/chatbot.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -28,6 +30,7 @@ import { PaperAnnotationsModule } from './modules/paper-annotations/paper-annota
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
       load: [configuration],
     }),
+    ScheduleModule.forRoot(),
     HealthModule,
     AuthModule,
     MailModule,
@@ -36,14 +39,12 @@ import { PaperAnnotationsModule } from './modules/paper-annotations/paper-annota
     PapersModule,
     LibraryModule,
     SearchModule,
-    PapersModule,
-    SearchModule,
-    PapersModule,
     FeedModule,
     ReadingListsModule,
     DiscussionsModule,
     CommentsModule,
     PaperAnnotationsModule,
+    ChatbotModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },

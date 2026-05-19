@@ -54,6 +54,8 @@ export class LoggingInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap({
         next: (data: any) => {
+          if (res.getHeader('Content-Type') === 'text/event-stream') return;
+
           const { statusCode } = res;
           const duration = Date.now() - startTime;
 
