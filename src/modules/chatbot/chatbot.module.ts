@@ -5,9 +5,10 @@ import ChatbotService from './chatbot.service';
 import ChatbotController from './chatbot.controller';
 import ChatSessionsRepository from './repositories/sessions.repository';
 import ChatMessagesRepository from './repositories/messages.repository';
-import { CloudinaryModule } from '../cloudinary/cloudinary.module';
-import { ChatImagePipe } from '../../common/pipes/chat-image.pipe';
+import ChatFilesRepository from './repositories/chat-files.repository';
 import MessageFeedbacksRepository from './repositories/message-feedbacks.repository';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { ChatFilePipe } from '../../common/pipes/chat-file.pipe';
 import { ChatbotCleanupService } from './chatbot.cleanup.service';
 
 @Module({
@@ -16,9 +17,10 @@ import { ChatbotCleanupService } from './chatbot.cleanup.service';
   providers: [
     ChatSessionsRepository,
     ChatMessagesRepository,
+    ChatFilesRepository,
     MessageFeedbacksRepository,
     ChatbotService,
-    ChatImagePipe,
+    ChatFilePipe,
     ChatbotCleanupService,
   ],
 })

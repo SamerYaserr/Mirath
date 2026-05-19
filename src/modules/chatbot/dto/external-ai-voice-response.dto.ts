@@ -1,20 +1,7 @@
 export type ExternalAiVoiceEvent =
-  | {
-      type: 'transcription';
-      transcription: string;
-    }
-  | {
-      type: 'chunk';
-      content: string | [{ type: 'text'; text: string }];
-    }
-  | {
-      type: 'end';
-    }
-  | {
-      type: 'error';
-      message?: string;
-    }
-  | {
-      type: 'metadata';
-      chat_title?: string;
-    };
+  | { type: 'transcription'; transcription: string }
+  | { type: 'chat_title'; content?: string }
+  | { type: 'status'; content?: string }
+  | { type: 'model_answer'; content?: string }
+  | { type: 'end'; content?: string }
+  | { type: 'error'; content?: string };

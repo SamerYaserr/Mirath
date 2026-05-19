@@ -1,6 +1,7 @@
 import { Subscriber } from 'rxjs';
 import {
   AttachmentType,
+  ChatFile,
   ChatMessage,
   FeedbackType,
   MessageRole,
@@ -9,11 +10,10 @@ import {
 
 import { SseEvent } from 'src/common/types/api.types';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { CreateChatbotMessageReqDto } from './dto/requests/create-chatbot-message.req.dto';
-import { Readable } from 'stream';
 
 export type ChatbotMessageDataEvent =
   | { delta: string }
+  | { status: string }
   | { error: string }
   | '[DONE]';
 
@@ -21,18 +21,54 @@ export type ChatbotAudioDataEvent =
   | { transcription: string }
   | ChatbotMessageDataEvent;
 
-export type ProcessMessagePayload = CreateChatbotMessageReqDto & {
+export type ChatbotStreamDataEvent =
+  | ChatbotMessageDataEvent
+  | { transcription: string };
+
+export type ExternalApiStreamResponse =
+  | { type: 'chat_title'; content?: string }
+  | { type: 'status'; content?: string }
+  | { type: 'model_answer'; content?: string }
+  | { type: 'end'; content?: string }
+  | { type: 'error'; content?: string };
+
+export type ResolvedChatFile = Pick<
+  ChatFile,
+  'id' | 'type' | 'url' | 'mimeType' | 'sizeBytes' | 'durationSeconds'
+>;
+
+export type ProcessStreamPayload = {
   userId: string;
   sessionId: string;
-  file?: Express.Multer.File;
+  content: string | undefined;
+  fileId: string | undefined;
   abortController: AbortController;
-  subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
+  subscriber: Subscriber<SseEvent<ChatbotStreamDataEvent>>;
 };
 
-export type RenameChatSessionPayload = {
+export type ProcessImageStreamPayload = {
+  userId: string;
+  sessionId: string;
+  content: string;
+  chatFile: ResolvedChatFile;
+  abortController: AbortController;
+  subscriber: Subscriber<SseEvent<ChatbotStreamDataEvent>>;
+};
+
+export type ProcessAudioStreamPayload = {
+  userId: string;
+  sessionId: string;
+  chatFile: ResolvedChatFile;
+  abortController: AbortController;
+  subscriber: Subscriber<SseEvent<ChatbotStreamDataEvent>>;
+};
+
+export type PersistStreamedMessageAndTitlePayload = {
+  persisted: boolean;
+  assembledResponse: string;
   sessionId: string;
   newTitle: string | undefined;
-  userId: string;
+  isTemporary: boolean;
 };
 
 export type FindMessagesPayload = {
@@ -45,42 +81,10 @@ export type FindManyParams = Pick<ChatMessage, 'sessionId'> &
 
 export type FindSessionsPayload = Omit<FindMessagesPayload, 'sessionId'>;
 
-export type RenameChatSessionExternalApiPayload = {
-  thread_id: string;
-  new_title: string;
-  user_id: string;
-};
-
-export type ExternalApiStreamResponse = {
-  type: 'chunk' | 'error' | 'end' | 'metadata';
-  content?:
-    | string
-    | [
-        {
-          type: 'text';
-          text: string;
-        },
-      ];
-  chat_title?: string;
-};
-
-export type HandleStreamEventsPayload = {
-  stream: Readable;
-  subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
-};
-
-export type PersistStreamedMessageAndTitlePayload = {
-  persisted: boolean;
-  assembledResponse: string;
-  sessionId: string;
-  newTitle: string | undefined;
-  isTemporary: boolean;
-};
-
 export type CreateMessageData = {
   sessionId: string;
   role: MessageRole;
-  type: MessageType;
+  type?: MessageType;
   content: string;
 };
 
@@ -92,37 +96,34 @@ export type CreateAttachmentData = {
   durationSeconds?: number | null;
 };
 
-export type ProcessImageMessagePayload = {
-  userId: string;
+export type SubmitFeedbackParams = {
   sessionId: string;
-  file: Express.Multer.File;
-  content: string;
-  abortController: AbortController;
-  subscriber: Subscriber<SseEvent<ChatbotMessageDataEvent>>;
+  messageId: string;
+  userId: string;
+  feedbackType: FeedbackType;
+};
+
+export type RenameChatSessionPayload = {
+  sessionId: string;
+  newTitle: string | undefined;
+  userId: string;
+};
+
+export type RenameChatSessionExternalApiPayload = {
+  thread_id: string;
+  new_title: string;
+  user_id: string;
 };
 
 export type CallExternalChatStreamParams = {
   userId: string;
   sessionId: string;
   content: string;
-  file?: Express.Multer.File;
+  imageUrl?: string;
+  imageMimeType?: string;
+  audioUrl?: string;
+  audioMimeType?: string;
   abortController: AbortController;
-};
-
-export type CallExternalAudioStreamParams = {
-  userId: string;
-  sessionId: string;
-  audioFile: Express.Multer.File;
-  abortController: AbortController;
-};
-
-export type ProcessAudioMessagePayload = {
-  userId: string;
-  sessionId: string;
-  audioFile: Express.Multer.File;
-  durationSeconds: number;
-  abortController: AbortController;
-  subscriber: Subscriber<SseEvent<ChatbotAudioDataEvent>>;
 };
 
 export const EXT_TO_MIME: Record<string, string> = {
@@ -131,11 +132,4 @@ export const EXT_TO_MIME: Record<string, string> = {
   png: 'image/png',
   webp: 'image/webp',
   gif: 'image/gif',
-};
-
-export type SubmitFeedbackParams = {
-  sessionId: string;
-  messageId: string;
-  userId: string;
-  feedbackType: FeedbackType;
 };

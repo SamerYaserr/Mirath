@@ -1,30 +1,23 @@
-import { MessageType } from '@prisma/client';
-import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsString, MaxLength } from 'class-validator';
-
-import { sanitizeToText } from 'src/common/utils/transform.utils';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateChatbotMessageReqDto {
-  @ApiProperty({
-    description: 'Chatbot message content sent by the authenticated user',
-    example:
-      'Summarize the main contribution of this paper in 3 bullet points.',
-    maxLength: 4000,
+  @ApiPropertyOptional({
+    description: 'Text message content.',
+    example: 'Can you summarize this paper for me?',
   })
-  @IsString({ message: 'Content must be a string' })
-  @IsNotEmpty({ message: 'Content should not be empty' })
-  @MaxLength(4000, { message: 'Content must not exceed 4000 characters' })
-  @Transform(sanitizeToText)
-  content: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  content?: string;
 
   @ApiPropertyOptional({
     description:
-      'Optional message type. Defaults to TEXT when omitted. Use IMAGE when an image attachment is included and AUDIO when a voice attachment is included.',
-    enum: MessageType,
-    default: MessageType.TEXT,
-    example: MessageType.TEXT,
+      'ID of a previously uploaded file (image or audio). ' +
+      'Obtained from POST /chatbot/files. ' +
+      'When provided, the message type is inferred from the file type.',
   })
-  @IsEnum(MessageType, { message: 'Type must be a valid MessageType' })
-  type?: MessageType = MessageType.TEXT;
+  @IsOptional()
+  @IsUUID()
+  fileId?: string;
 }
