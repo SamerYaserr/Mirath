@@ -6,5 +6,6 @@ import { ReadingListsRepository } from './repositories/reading-lists.repository'
 @Module({
   controllers: [ReadingListsController],
   providers: [ReadingListsService, ReadingListsRepository],
+  exports: [ReadingListsRepository],
 })
 export class ReadingListsModule {}
