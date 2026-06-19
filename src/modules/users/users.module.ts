@@ -10,6 +10,6 @@ import { FollowsRepository } from './repositories/follows.repository';
   imports: [InterestsModule, CloudinaryModule],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository, FollowsRepository],
-  exports: [UsersRepository],
+  exports: [UsersRepository, UsersService, FollowsRepository],
 })
 export class UsersModule {}

@@ -10,6 +10,7 @@ export interface TokenResult {
 export interface TokenPayload {
   sub: string;
   email?: string;
+  sid?: string;
 }
 
 export interface RefreshTokenPayload extends TokenPayload {
@@ -54,7 +55,7 @@ export class TokenService {
     refreshTokenId: string,
     sessionId: string,
   ): Promise<TokenResult> {
-    const accessTokenPayload = { sub: userId, email };
+    const accessTokenPayload: TokenPayload = { sub: userId, email, sid: sessionId };
 
     const refreshTokenPayload = {
       sub: userId,

@@ -40,6 +40,7 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException('Invalid authentication token');
       }
       request['user'] = user;
+      request['sessionId'] = payload.sid;
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired token');
     }
