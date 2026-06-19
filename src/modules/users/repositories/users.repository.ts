@@ -8,7 +8,11 @@ export class UsersRepository {
   constructor(private prisma: PrismaService) {}
 
   async create(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({ data });
+    const createData: Prisma.UserCreateInput = {
+      ...data,
+      settings: { create: {} },
+    };
+    return this.prisma.user.create({ data: createData });
   }
 
   async findByEmail(email: string): Promise<User | null> {
