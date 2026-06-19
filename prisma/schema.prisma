@@ -60,6 +60,19 @@ enum FeedbackType {
   THUMBS_DOWN
 }
 
+enum ColorMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum FontSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
 model User {
   id               String            @id @default(uuid()) @db.Uuid
   username         String            @unique
@@ -75,10 +88,11 @@ model User {
   university       String?
   role             Role              @default(USER)
   status           UserStatus        @default(PENDING_VERIFICATION)
-  isEmailVisible   Boolean           @default(false)
-  isPremium        Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  isEmailVisible       Boolean           @default(false)
+  isPremium            Boolean           @default(false)
+  scheduledDeletionAt  DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   otpVerifications  OtpVerification[]
   refreshTokens     RefreshToken[]
@@ -99,6 +113,7 @@ model User {
   chatSessions      ChatSession[]
   messageFeedbacks  MessageFeedback[]
   chatFiles         ChatFile[]
+  settings          UserSettings?
 
   @@unique([providerId])
   @@index([email])
@@ -517,4 +532,38 @@ model ChatFile {
   @@index([userId])
   @@index([sessionId])
   @@map("chat_files")
+}
+
+model UserSettings {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  showRecommendedPapers  Boolean @default(true)
+  hideAlreadyReadPapers  Boolean @default(false)
+
+  saveSearchHistory Boolean @default(true)
+
+  colorMode       ColorMode @default(SYSTEM)
+  defaultFontSize FontSize  @default(MEDIUM)
+
+  defaultReadingListVisibility Boolean @default(true)
+
+  annotationHighlightColors String[]
+
+  notifyNewPapersInField    Boolean @default(true)
+  notifyReadingListActivity Boolean @default(true)
+  notifyNewFollowers        Boolean @default(true)
+  notifyDiscussionReplies   Boolean @default(true)
+  notifyCommentMentions     Boolean @default(true)
+  notifyVotesOnContent      Boolean @default(true)
+
+  isPrivateAccount                   Boolean @default(false)
+  allowProfileSearch                 Boolean @default(true)
+  allowPublicComments                Boolean @default(true)
+  useReadingBehaviorForRecommendations Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
