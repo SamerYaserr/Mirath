@@ -74,25 +74,25 @@ enum FontSize {
 }
 
 model User {
-  id               String            @id @default(uuid()) @db.Uuid
-  username         String            @unique
-  email            String            @unique
-  password         String?
-  providerId       String?
-  fullName         String?
-  photoUrl         String?
-  bio              String?
-  birthDate        DateTime?         @db.Date
-  country          String?
-  levelOfEducation LevelOfEducation?
-  university       String?
-  role             Role              @default(USER)
-  status           UserStatus        @default(PENDING_VERIFICATION)
-  isEmailVisible       Boolean           @default(false)
-  isPremium            Boolean           @default(false)
-  scheduledDeletionAt  DateTime?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  id                  String            @id @default(uuid()) @db.Uuid
+  username            String            @unique
+  email               String            @unique
+  password            String?
+  providerId          String?
+  fullName            String?
+  photoUrl            String?
+  bio                 String?
+  birthDate           DateTime?         @db.Date
+  country             String?
+  levelOfEducation    LevelOfEducation?
+  university          String?
+  role                Role              @default(USER)
+  status              UserStatus        @default(PENDING_VERIFICATION)
+  isEmailVisible      Boolean           @default(false)
+  isPremium           Boolean           @default(false)
+  scheduledDeletionAt DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   otpVerifications  OtpVerification[]
   refreshTokens     RefreshToken[]
@@ -125,6 +125,7 @@ model OtpVerification {
   userId    String     @db.Uuid
   otpCode   String
   purpose   OtpPurpose
+  newEmail  String? // has value only for EMAIL_CHANGE purpose
   expiresAt DateTime
   isUsed    Boolean    @default(false)
 
@@ -134,7 +135,6 @@ model OtpVerification {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
-  @@index([otpCode])
   @@index([expiresAt])
 }
 
@@ -538,8 +538,8 @@ model UserSettings {
   id     String @id @default(uuid()) @db.Uuid
   userId String @unique @db.Uuid
 
-  showRecommendedPapers  Boolean @default(true)
-  hideAlreadyReadPapers  Boolean @default(false)
+  showRecommendedPapers Boolean @default(true)
+  hideAlreadyReadPapers Boolean @default(false)
 
   saveSearchHistory Boolean @default(true)
 
@@ -557,9 +557,9 @@ model UserSettings {
   notifyCommentMentions     Boolean @default(true)
   notifyVotesOnContent      Boolean @default(true)
 
-  isPrivateAccount                   Boolean @default(false)
-  allowProfileSearch                 Boolean @default(true)
-  allowPublicComments                Boolean @default(true)
+  isPrivateAccount                     Boolean @default(false)
+  allowProfileSearch                   Boolean @default(true)
+  allowPublicComments                  Boolean @default(true)
   useReadingBehaviorForRecommendations Boolean @default(true)
 
   createdAt DateTime @default(now())

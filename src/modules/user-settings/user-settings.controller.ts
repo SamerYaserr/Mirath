@@ -1,5 +1,13 @@
 import type { Request } from 'express';
-import { Body, Controller, HttpStatus, Patch, Post, Req } from '@nestjs/common';
+import {
+  Req,
+  Body,
+  Post,
+  Patch,
+  HttpCode,
+  HttpStatus,
+  Controller,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiTags,
@@ -9,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 
 import { UserSettingsService } from './user-settings.service';
+import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
 import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
 import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
 
@@ -60,6 +69,7 @@ export class UserSettingsController {
   }
 
   @Post('account/email/request-change')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Request email change',
     description: `Request to change the email of the current user. A verification code will be sent to the new email address.`,
@@ -98,5 +108,36 @@ export class UserSettingsController {
     @Req() { user }: Request,
   ) {
     return this.userSettingsService.requestEmailChange(dto, user!);
+  }
+
+  @Post('account/email/confirm-change')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Confirm email change',
+    description: `Confirm the change of the email for the current user using the provided OTP.`,
+  })
+  @ApiBody({
+    description: 'Request body for confirming email change',
+    type: ConfirmEmailReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Email updated successfully',
+    schema: {
+      example: { message: 'Email updated successfully' },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid or expired OTP',
+    schema: {
+      example: { message: 'Invalid or expired OTP' },
+    },
+  })
+  async confirmEmailChange(
+    @Body() dto: ConfirmEmailReqDto,
+    @Req() { user }: Request,
+  ) {
+    return this.userSettingsService.confirmEmailChange(dto, user!);
   }
 }

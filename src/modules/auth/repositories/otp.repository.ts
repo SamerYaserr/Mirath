@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { OtpPurpose, OtpVerification } from '@prisma/client';
+import { OtpPurpose, OtpVerification, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -7,12 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class OtpRepository {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: {
-    userId: string;
-    otpCode: string;
-    purpose: OtpPurpose;
-    expiresAt: Date;
-  }) {
+  async create(data: Prisma.OtpVerificationUncheckedCreateInput) {
     return this.prisma.otpVerification.create({ data });
   }
 
@@ -33,8 +28,9 @@ export class OtpRepository {
     });
   }
 
-  async markAsUsed(id: string): Promise<void> {
-    await this.prisma.otpVerification.update({
+  async markAsUsed(id: string, tx?: Prisma.TransactionClient): Promise<void> {
+    const client = tx || this.prisma;
+    await client.otpVerification.update({
       where: { id },
       data: { isUsed: true },
     });

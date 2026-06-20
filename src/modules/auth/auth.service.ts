@@ -571,6 +571,7 @@ export class AuthService {
       otpCode: hashedOtp,
       purpose,
       expiresAt,
+      newEmail: purpose === OtpPurpose.EMAIL_CHANGE ? email : null,
     });
 
     await this.mailService.sendOtpEmail(email, otp, purpose);
