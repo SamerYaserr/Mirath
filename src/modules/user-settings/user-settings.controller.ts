@@ -34,7 +34,7 @@ import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 @Controller('users/settings')
 @ApiExtraModels(AccountSessionResDto)
 export class UserSettingsController {
-  constructor(readonly userSettingsService: UserSettingsService) {}
+  constructor(private readonly userSettingsService: UserSettingsService) {}
 
   @Patch('account/username')
   @ApiOperation({
@@ -160,10 +160,11 @@ export class UserSettingsController {
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Password updated successfully',
+    description: 'Password updated - all other sessions have been revoked',
     schema: {
       example: {
-        message: 'Password updated successfully',
+        message:
+          'Password updated successfully. You have been logged out of all other devices.',
       },
     },
   })

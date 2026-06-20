@@ -149,7 +149,8 @@ export class UserSettingsService {
     });
 
     return {
-      message: 'Password updated successfully',
+      message:
+        'Password updated successfully. You have been logged out of all other devices.',
     };
   }
 
