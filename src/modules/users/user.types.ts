@@ -18,3 +18,9 @@ export type FindByEmailOrUsernameArgs = {
   select?: Prisma.UserSelect;
   where?: Prisma.UserWhereInput;
 };
+
+export type FindByEmailArgs = {
+  email: string;
+  select?: Prisma.UserSelect;
+  where?: Prisma.UserWhereInput;
+};

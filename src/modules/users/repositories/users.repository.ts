@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, User, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { FindByEmailOrUsernameArgs } from '../user.types';
+import { FindByEmailArgs, FindByEmailOrUsernameArgs } from '../user.types';
 
 @Injectable()
 export class UsersRepository {
@@ -16,8 +16,11 @@ export class UsersRepository {
     return this.prisma.user.create({ data: createData });
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+  async findByEmail(args: FindByEmailArgs): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { email: args.email, ...args.where },
+      ...(args.select && { select: args.select }),
+    });
   }
 
   async findById(id: string, select?: Prisma.UserSelect): Promise<User | null> {

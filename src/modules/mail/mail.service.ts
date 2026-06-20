@@ -1,5 +1,27 @@
-import { MailerService } from '@nestjs-modules/mailer';
+import { OtpPurpose } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
+import { MailerService } from '@nestjs-modules/mailer';
+
+const OTP_SUBJECTS: Record<OtpPurpose, string> = {
+  [OtpPurpose.REGISTER]: 'Verify your email address',
+  [OtpPurpose.RESET_PASSWORD]: 'Reset your password',
+  [OtpPurpose.EMAIL_CHANGE]: 'Confirm your new email address',
+};
+
+const OTP_HEADINGS: Record<OtpPurpose, string> = {
+  [OtpPurpose.REGISTER]: 'Verify Your Email',
+  [OtpPurpose.RESET_PASSWORD]: 'Reset Your Password',
+  [OtpPurpose.EMAIL_CHANGE]: 'Confirm Your New Email',
+};
+
+const OTP_INTROS: Record<OtpPurpose, string> = {
+  [OtpPurpose.REGISTER]:
+    'Hi there, please use the verification code below to complete your registration.',
+  [OtpPurpose.RESET_PASSWORD]:
+    'Hi there, please use the verification code below to reset your password.',
+  [OtpPurpose.EMAIL_CHANGE]:
+    'Hi there, please use the verification code below to confirm your new email address.',
+};
 
 @Injectable()
 export class MailService {
@@ -17,14 +39,16 @@ export class MailService {
     });
   }
 
-  async sendOtpEmail(email: string, otp: string) {
+  async sendOtpEmail(email: string, otp: string, purpose: OtpPurpose) {
     await this.mailerService.sendMail({
       to: email,
-      subject: 'Verify your email address',
+      subject: OTP_SUBJECTS[purpose],
       template: 'otp',
       context: {
-        otp: otp,
+        otp,
         year: new Date().getFullYear(),
+        heading: OTP_HEADINGS[purpose],
+        intro: OTP_INTROS[purpose],
       },
     });
   }
