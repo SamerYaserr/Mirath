@@ -6,7 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   Matches,
-  MaxLength,
+  ArrayMaxSize,
   ValidateIf,
 } from 'class-validator';
 
@@ -19,7 +19,7 @@ export class UpdateReadingReqDto {
   @ApiPropertyOptional({ type: [String], example: ['#FFDD57', '#48C78E'] })
   @IsOptional()
   @IsArray()
-  @MaxLength(10, { each: true, message: 'Maximum 10 colors allowed.' })
+  @ArrayMaxSize(10, { message: 'Maximum 10 colors allowed.' })
   @Matches(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, {
     each: true,
     message: 'Each color must be a valid hex code.',

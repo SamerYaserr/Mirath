@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, User, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  FindByEmailArgs,
+  FindByEmailOrUsernameArgs,
+  UpdatePasswordArgs,
+} from '../user.types';
 
 @Injectable()
 export class UsersRepository {
@@ -15,8 +20,11 @@ export class UsersRepository {
     return this.prisma.user.create({ data: createData });
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+  async findByEmail(args: FindByEmailArgs): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { email: args.email, ...args.where },
+      ...(args.select && { select: args.select }),
+    });
   }
 
   async findById(id: string, select?: Prisma.UserSelect): Promise<User | null> {
@@ -29,13 +37,14 @@ export class UsersRepository {
   }
 
   async findByEmailOrUsername(
-    email: string,
-    username: string,
+    args: FindByEmailOrUsernameArgs,
   ): Promise<User | null> {
     return this.prisma.user.findFirst({
       where: {
-        OR: [{ email }, { username }],
+        OR: [{ email: args.email }, { username: args.username }],
+        ...args.where,
       },
+      ...(args.select && { select: args.select }),
     });
   }
 
@@ -46,10 +55,11 @@ export class UsersRepository {
     });
   }
 
-  async updatePassword(id: string, password: string): Promise<User> {
-    return this.prisma.user.update({
-      where: { id },
-      data: { password },
+  async updatePassword(args: UpdatePasswordArgs): Promise<User> {
+    const client = args.tx || this.prisma;
+    return client.user.update({
+      where: { id: args.id },
+      data: { password: args.password },
     });
   }
 

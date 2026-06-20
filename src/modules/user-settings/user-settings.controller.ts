@@ -1,22 +1,26 @@
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import {
-  Body,
-  Controller,
+  Req,
+  Res,
   Get,
+  Body,
+  Post,
+  Patch,
   HttpCode,
   HttpStatus,
-  Patch,
-  Req,
+  Controller,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
-  ApiBearerAuth,
-  ApiExtraModels,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
   ApiUnauthorizedResponse,
+  ApiBody,
+  ApiTags,
+  ApiResponse,
+  ApiOperation,
+  ApiBearerAuth,
   getSchemaPath,
+  ApiExtraModels,
 } from '@nestjs/swagger';
 
 import { HttpResponse } from 'src/common/types/api.types';
@@ -26,16 +30,27 @@ import { UpdateDisplayReqDto } from './dto/requests/update-display.req.dto';
 import { DisplaySettingsResDto } from './dto/responses/display-settings.res.dto';
 import { UpdateReadingReqDto } from './dto/requests/update-reading.req.dto';
 import { ReadingSettingsResDto } from './dto/responses/reading-settings.res.dto';
+import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
+import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
+import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
+import { clearRefreshTokenCookie } from 'src/common/utils/clear-cookie.utils';
+import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
+import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
-@Controller('users/settings/appearance')
-@ApiExtraModels(AppearanceSettingsResDto, DisplaySettingsResDto)
+@Controller('users/settings')
+@ApiExtraModels(
+  AccountSessionResDto,
+  DisplaySettingsResDto,
+  AppearanceSettingsResDto,
+  ReadingSettingsResDto,
+)
 @ApiUnauthorizedResponse({ description: 'User not logged in.' })
 export class UserSettingsController {
-  constructor(readonly userSettingsService: UserSettingsService) {}
+  constructor(private readonly userSettingsService: UserSettingsService) {}
 
-  @Get()
+  @Get('appearance')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Retrieve Reading and Appearance Settings',
@@ -60,7 +75,7 @@ export class UserSettingsController {
     return this.userSettingsService.get(userId);
   }
 
-  @Patch('display')
+  @Patch('appearance/display')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update Theme and Font Display Preferences',
@@ -86,7 +101,7 @@ export class UserSettingsController {
     return this.userSettingsService.updateDisplay(userId, dto);
   }
 
-  @Patch('reading')
+  @Patch('appearance/reading')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update Reading List Visibility and Annotation Color Palette',
@@ -110,5 +125,231 @@ export class UserSettingsController {
   updateReading(@Req() req: Request, @Body() dto: UpdateReadingReqDto) {
     const userId = req.user!.id;
     return this.userSettingsService.updateReading(userId, dto);
+  }
+
+  @Patch('account/username')
+  @ApiOperation({
+    summary: 'Change username',
+    description: `Change the username of the current user. The new username must be unique and cannot contain the "@" symbol.`,
+  })
+  @ApiBody({
+    description: 'Request body for changing the username',
+    type: ChangeUsernameReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Username updated successfully',
+    schema: {
+      example: { message: 'Username updated successfully' },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Username conflict errors',
+    content: {
+      'application/json': {
+        examples: {
+          sameUsername: {
+            value: {
+              message: 'New username is the same as the current username',
+            },
+          },
+          alreadyTaken: {
+            value: { message: 'Username is already taken' },
+          },
+        },
+      },
+    },
+  })
+  async updateUsername(
+    @Body() dto: ChangeUsernameReqDto,
+    @Req() { user }: Request,
+  ) {
+    return this.userSettingsService.updateUsername(dto, user!);
+  }
+
+  @Post('account/email/request-change')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request email change',
+    description: `Request to change the email of the current user. A verification code will be sent to the new email address.`,
+  })
+  @ApiBody({
+    description: 'Request body for requesting email change',
+    type: RequestEmailChangeReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Email change requested successfully',
+    schema: {
+      example: {
+        message: 'A verification code has been sent to your new email address',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Email conflict errors',
+    content: {
+      'application/json': {
+        examples: {
+          sameEmail: {
+            value: { message: 'New email is the same as the current email' },
+          },
+          alreadyUsed: {
+            value: { message: 'Email is already in use' },
+          },
+        },
+      },
+    },
+  })
+  async requestEmailChange(
+    @Body() dto: RequestEmailChangeReqDto,
+    @Req() { user }: Request,
+  ) {
+    return this.userSettingsService.requestEmailChange(dto, user!);
+  }
+
+  @Post('account/email/confirm-change')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Confirm email change',
+    description: `Confirm the change of the email for the current user using the provided OTP.`,
+  })
+  @ApiBody({
+    description: 'Request body for confirming email change',
+    type: ConfirmEmailReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Email updated successfully',
+    schema: {
+      example: { message: 'Email updated successfully' },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid or expired OTP',
+    schema: {
+      example: { message: 'Invalid or expired OTP' },
+    },
+  })
+  async confirmEmailChange(
+    @Body() dto: ConfirmEmailReqDto,
+    @Req() { user }: Request,
+  ) {
+    return this.userSettingsService.confirmEmailChange(dto, user!);
+  }
+
+  @Patch('account/password')
+  @ApiOperation({
+    summary: 'Update account password',
+  })
+  @ApiBody({
+    description: 'Request body for updating password',
+    type: UpdatePasswordReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Password updated - all other sessions have been revoked',
+    schema: {
+      example: {
+        message:
+          'Password updated successfully. You have been logged out of all other devices.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Account without password set (Google-only account)',
+    schema: {
+      example: {
+        message:
+          'This account uses Google sign-in and has no password to update.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Current password is incorrect',
+    schema: {
+      example: { message: 'Current password is incorrect' },
+    },
+  })
+  async updatePassword(
+    @Req() { user }: Request,
+    @Body() dto: UpdatePasswordReqDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.userSettingsService.updatePassword(dto, user!);
+    clearRefreshTokenCookie(res);
+
+    return result;
+  }
+
+  @Delete('account/linked/google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Disconnect linked Google account',
+    description: `Unlinks the Google account from the current user. Requires a password to be set first to prevent lockout.`,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Google account unlinked successfully',
+    schema: {
+      example: { message: 'Google account unlinked successfully' },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Password not set',
+    schema: {
+      example: {
+        message:
+          'Set a password first to avoid being locked out of your account.',
+      },
+    },
+  })
+  async unlinkGoogle(@Req() { user }: Request) {
+    return this.userSettingsService.unlinkGoogle(user!);
+  }
+
+  @Get('account/sessions')
+  @ApiOperation({
+    summary: 'Retrieve all active sessions',
+    description: 'Returns all active sessions for the current user',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Active sessions retrieved successfully',
+    schema: {
+      properties: {
+        size: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(AccountSessionResDto) },
+        },
+      },
+    },
+  })
+  async getSessions(@Req() { user, sessionId }: Request) {
+    return this.userSettingsService.getSessions(user!.id, sessionId!);
+  }
+
+  @Delete('account/sessions')
+  @ApiOperation({
+    summary: 'Revoke all sessions except the current one',
+    description:
+      'Revokes all active sessions for the current user except the current session, effectively logging out all other devices.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully logged out from all other devices',
+    schema: {
+      example: { message: 'Successfully logged out from all other devices' },
+    },
+  })
+  async revokeAllSessions(@Req() { user, sessionId }: Request) {
+    return this.userSettingsService.revokeAllSessions(user!.id, sessionId!);
   }
 }

@@ -48,6 +48,8 @@ import {
   AccessTokenResDto,
   ResetTokenResDto,
 } from './dto/responses/auth-token.res.dto';
+import { clearRefreshTokenCookie } from 'src/common/utils/clear-cookie.utils';
+
 @ApiTags('Authentication')
 @Controller('auth')
 @ApiExtraModels(
@@ -268,7 +270,7 @@ export class AuthController {
 
     await this.authService.logout(refreshToken);
 
-    this.clearRefreshTokenCookie(res);
+    clearRefreshTokenCookie(res);
 
     return { message: 'Logged out successfully' };
   }
@@ -500,15 +502,6 @@ If the refresh token is invalid, revoked, or expired, the operation will fail wi
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: refreshDays * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
-  }
-
-  private clearRefreshTokenCookie(res: Response) {
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: this.configService.get<string>('NODE_ENV') === 'production',
-      sameSite: 'lax',
       path: '/',
     });
   }

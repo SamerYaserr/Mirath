@@ -36,7 +36,7 @@ export class ReadingListsService {
       const userSettings = await this.prisma.userSettings.findUnique({
         where: { userId },
       });
-      data.isPublic = userSettings?.defaultReadingListVisibility ?? false;
+      data.isPublic = userSettings?.defaultReadingListVisibility ?? true;
     }
 
     const list = await this.readingListsRepository.create({
