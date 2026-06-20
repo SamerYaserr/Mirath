@@ -7,18 +7,23 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 
+import { UpdateDisplayReqDto } from './dto/requests/update-display.req.dto';
+import { DisplaySettingsResDto } from './dto/responses/display-settings.res.dto';
+import { AppearanceSettingsResDto } from './dto/responses/appearance-settings.res.dto';
+import { UpdateReadingReqDto } from './dto/requests/update-reading.req.dto';
+import { ReadingSettingsResDto } from './dto/responses/reading-settings.res.dto';
+import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
+import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
+import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
+import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
+import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
 import { OtpRepository } from '../auth/repositories/otp.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
-import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
-import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
-import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
-import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
 import { RefreshTokenRepository } from '../auth/repositories/refreshToken.repository';
 import { UserSettingsRepository } from './repositories/user-settings.repository';
-import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 
 @Injectable()
 export class UserSettingsService {
@@ -27,9 +32,37 @@ export class UserSettingsService {
     private readonly authService: AuthService,
     private readonly otpRepository: OtpRepository,
     private readonly userRepository: UsersRepository,
-    readonly userSettingsRepository: UserSettingsRepository,
+    private readonly userSettingsRepository: UserSettingsRepository,
     private readonly refreshTokenRepository: RefreshTokenRepository,
   ) {}
+
+  async get(userId: string): Promise<HttpResponse<AppearanceSettingsResDto>> {
+    const userSettings = await this.userSettingsRepository.findByUserId(userId);
+
+    return { data: AppearanceSettingsResDto.fromEntity(userSettings) };
+  }
+
+  async updateDisplay(
+    userId: string,
+    dto: UpdateDisplayReqDto,
+  ): Promise<HttpResponse<DisplaySettingsResDto>> {
+    const updatedSettings = await this.userSettingsRepository.upsert(
+      userId,
+      dto,
+    );
+    return { data: DisplaySettingsResDto.fromEntity(updatedSettings) };
+  }
+
+  async updateReading(
+    userId: string,
+    dto: UpdateReadingReqDto,
+  ): Promise<HttpResponse<ReadingSettingsResDto>> {
+    const updatedSettings = await this.userSettingsRepository.upsert(
+      userId,
+      dto.toUpsert(),
+    );
+    return { data: ReadingSettingsResDto.fromEntity(updatedSettings) };
+  }
 
   async updateUsername(
     dto: ChangeUsernameReqDto,

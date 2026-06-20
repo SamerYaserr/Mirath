@@ -12,6 +12,8 @@ import {
   Delete,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
   ApiBody,
   ApiTags,
   ApiResponse,
@@ -21,7 +23,13 @@ import {
   ApiExtraModels,
 } from '@nestjs/swagger';
 
+import { HttpResponse } from 'src/common/types/api.types';
 import { UserSettingsService } from './user-settings.service';
+import { AppearanceSettingsResDto } from './dto/responses/appearance-settings.res.dto';
+import { UpdateDisplayReqDto } from './dto/requests/update-display.req.dto';
+import { DisplaySettingsResDto } from './dto/responses/display-settings.res.dto';
+import { UpdateReadingReqDto } from './dto/requests/update-reading.req.dto';
+import { ReadingSettingsResDto } from './dto/responses/reading-settings.res.dto';
 import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
 import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
 import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
@@ -32,9 +40,92 @@ import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 @ApiTags('User Settings')
 @ApiBearerAuth()
 @Controller('users/settings')
-@ApiExtraModels(AccountSessionResDto)
+@ApiExtraModels(
+  AccountSessionResDto,
+  DisplaySettingsResDto,
+  AppearanceSettingsResDto,
+  ReadingSettingsResDto,
+)
+@ApiUnauthorizedResponse({ description: 'User not logged in.' })
 export class UserSettingsController {
   constructor(private readonly userSettingsService: UserSettingsService) {}
+
+  @Get('appearance')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retrieve Reading and Appearance Settings',
+    description:
+      'Returns the current appearance and reading preferences for the authenticated user, including color mode, font size, reading list visibility, and annotation highlight colors. If no settings have been configured, schema defaults are returned.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Reading and Appearance Settings retrieved successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(AppearanceSettingsResDto),
+        },
+      },
+    },
+  })
+  async get(
+    @Req() req: Request,
+  ): Promise<HttpResponse<AppearanceSettingsResDto>> {
+    const userId = req.user!.id;
+    return this.userSettingsService.get(userId);
+  }
+
+  @Patch('appearance/display')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update Theme and Font Display Preferences',
+    description:
+      'Updates the color mode and font size preferences for the authenticated user. At least one field must be provided.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Theme and Font Display Preferences updated successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(DisplaySettingsResDto),
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'At least one field must be provided.',
+  })
+  updateDisplay(@Req() req: Request, @Body() dto: UpdateDisplayReqDto) {
+    const userId = req.user!.id;
+    return this.userSettingsService.updateDisplay(userId, dto);
+  }
+
+  @Patch('appearance/reading')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update Reading List Visibility and Annotation Color Palette',
+    description: '',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Reading List Visibility and Annotation Color Palette updated successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(ReadingSettingsResDto),
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'At least one field must be provided.',
+  })
+  updateReading(@Req() req: Request, @Body() dto: UpdateReadingReqDto) {
+    const userId = req.user!.id;
+    return this.userSettingsService.updateReading(userId, dto);
+  }
 
   @Patch('account/username')
   @ApiOperation({
