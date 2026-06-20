@@ -32,10 +32,9 @@ export class CreateReadingListReqDto {
 
   @ApiPropertyOptional({
     description: 'Visibility of the reading list',
-    default: true,
     example: true,
   })
   @IsBoolean({ message: 'isPublic must be boolean' })
   @IsOptional()
-  isPublic?: boolean = true;
+  isPublic?: boolean;
 }
