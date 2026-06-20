@@ -61,6 +61,18 @@ export class RefreshTokenRepository {
     }
   }
 
+  async findAllByUserId(userId: string) {
+    return this.prisma.refreshToken.findMany({
+      where: {
+        userId,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   async findById(tokenId: string) {
     return this.prisma.refreshToken.findUnique({
       where: { id: tokenId },

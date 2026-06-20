@@ -9,6 +9,7 @@ import {
 
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { HttpResponse } from 'src/common/types/api.types';
 import { OtpRepository } from '../auth/repositories/otp.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
@@ -17,6 +18,7 @@ import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
 import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
 import { RefreshTokenRepository } from '../auth/repositories/refreshToken.repository';
 import { UserSettingsRepository } from './repositories/user-settings.repository';
+import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 
 @Injectable()
 export class UserSettingsService {
@@ -168,5 +170,18 @@ export class UserSettingsService {
     });
 
     return { message: 'Google account unlinked successfully' };
+  }
+
+  async getSessions(
+    userId: string,
+    sessionId: string,
+  ): Promise<HttpResponse<AccountSessionResDto[]>> {
+    const tokens = await this.refreshTokenRepository.findAllByUserId(userId);
+    return {
+      size: tokens.length,
+      data: tokens.map((token) =>
+        AccountSessionResDto.fromEntity(token, token.sessionId === sessionId),
+      ),
+    };
   }
 }

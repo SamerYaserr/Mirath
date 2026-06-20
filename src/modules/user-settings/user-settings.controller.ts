@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import {
   Req,
   Res,
+  Get,
   Body,
   Post,
   Patch,
@@ -16,6 +17,8 @@ import {
   ApiResponse,
   ApiOperation,
   ApiBearerAuth,
+  getSchemaPath,
+  ApiExtraModels,
 } from '@nestjs/swagger';
 
 import { UserSettingsService } from './user-settings.service';
@@ -24,10 +27,12 @@ import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
 import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
 import { clearRefreshTokenCookie } from 'src/common/utils/clear-cookie.utils';
 import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
+import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
 @Controller('users/settings')
+@ApiExtraModels(AccountSessionResDto)
 export class UserSettingsController {
   constructor(readonly userSettingsService: UserSettingsService) {}
 
@@ -215,5 +220,27 @@ export class UserSettingsController {
   })
   async unlinkGoogle(@Req() { user }: Request) {
     return this.userSettingsService.unlinkGoogle(user!);
+  }
+
+  @Get('account/sessions')
+  @ApiOperation({
+    summary: 'Retrieve all active sessions',
+    description: 'Returns all active sessions for the current user',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Active sessions retrieved successfully',
+    schema: {
+      properties: {
+        size: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(AccountSessionResDto) },
+        },
+      },
+    },
+  })
+  async getSessions(@Req() { user, sessionId }: Request) {
+    return this.userSettingsService.getSessions(user!.id, sessionId!);
   }
 }
