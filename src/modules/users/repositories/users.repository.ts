@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, User, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
-import { FindByEmailArgs, FindByEmailOrUsernameArgs } from '../user.types';
+import {
+  FindByEmailArgs,
+  FindByEmailOrUsernameArgs,
+  UpdatePasswordArgs,
+} from '../user.types';
 
 @Injectable()
 export class UsersRepository {
@@ -51,10 +55,11 @@ export class UsersRepository {
     });
   }
 
-  async updatePassword(id: string, password: string): Promise<User> {
-    return this.prisma.user.update({
-      where: { id },
-      data: { password },
+  async updatePassword(args: UpdatePasswordArgs): Promise<User> {
+    const client = args.tx || this.prisma;
+    return client.user.update({
+      where: { id: args.id },
+      data: { password: args.password },
     });
   }
 

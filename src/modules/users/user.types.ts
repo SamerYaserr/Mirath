@@ -24,3 +24,9 @@ export type FindByEmailArgs = {
   select?: Prisma.UserSelect;
   where?: Prisma.UserWhereInput;
 };
+
+export type UpdatePasswordArgs = {
+  id: string;
+  password: string;
+  tx?: Prisma.TransactionClient;
+};

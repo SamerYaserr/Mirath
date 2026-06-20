@@ -1,6 +1,7 @@
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import {
   Req,
+  Res,
   Body,
   Post,
   Patch,
@@ -19,6 +20,8 @@ import {
 import { UserSettingsService } from './user-settings.service';
 import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
 import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
+import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
+import { clearRefreshTokenCookie } from 'src/common/utils/clear-cookie.utils';
 import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
 
 @ApiTags('User Settings')
@@ -139,5 +142,50 @@ export class UserSettingsController {
     @Req() { user }: Request,
   ) {
     return this.userSettingsService.confirmEmailChange(dto, user!);
+  }
+
+  @Patch('account/password')
+  @ApiOperation({
+    summary: 'Update account password',
+  })
+  @ApiBody({
+    description: 'Request body for updating password',
+    type: UpdatePasswordReqDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Password updated successfully',
+    schema: {
+      example: {
+        message: 'Password updated successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Account without password set (Google-only account)',
+    schema: {
+      example: {
+        message:
+          'This account uses Google sign-in and has no password to update.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Current password is incorrect',
+    schema: {
+      example: { message: 'Current password is incorrect' },
+    },
+  })
+  async updatePassword(
+    @Req() { user }: Request,
+    @Body() dto: UpdatePasswordReqDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.userSettingsService.updatePassword(dto, user!);
+    clearRefreshTokenCookie(res);
+
+    return result;
   }
 }

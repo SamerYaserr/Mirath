@@ -1,4 +1,6 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
+
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -42,8 +44,9 @@ export class RefreshTokenRepository {
     });
   }
 
-  async deleteByUserId(userId: string) {
-    await this.prisma.refreshToken.deleteMany({
+  async deleteByUserId(userId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+    await client.refreshToken.deleteMany({
       where: { userId },
     });
   }

@@ -446,7 +446,10 @@ export class AuthService {
       );
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.usersRepository.updatePassword(user.id, hashedPassword);
+    await this.usersRepository.updatePassword({
+      id: user.id,
+      password: hashedPassword,
+    });
 
     await this.refreshTokenRepository.deleteByUserId(user.id);
 
