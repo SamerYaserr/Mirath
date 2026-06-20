@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   Controller,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -187,5 +188,32 @@ export class UserSettingsController {
     clearRefreshTokenCookie(res);
 
     return result;
+  }
+
+  @Delete('account/linked/google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Disconnect linked Google account',
+    description: `Unlinks the Google account from the current user. Requires a password to be set first to prevent lockout.`,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Google account unlinked successfully',
+    schema: {
+      example: { message: 'Google account unlinked successfully' },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Password not set',
+    schema: {
+      example: {
+        message:
+          'Set a password first to avoid being locked out of your account.',
+      },
+    },
+  })
+  async unlinkGoogle(@Req() { user }: Request) {
+    return this.userSettingsService.unlinkGoogle(user!);
   }
 }

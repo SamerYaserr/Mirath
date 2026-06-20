@@ -9,7 +9,6 @@ import {
 
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { winstonLogger as logger } from 'src/config/logger.config';
 import { OtpRepository } from '../auth/repositories/otp.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { ConfirmEmailReqDto } from './dto/requests/confirm-email.req.dto';
@@ -32,7 +31,7 @@ export class UserSettingsService {
 
   async updateUsername(
     dto: ChangeUsernameReqDto,
-    { id: userId, username, email }: User,
+    { id: userId, username }: User,
   ) {
     if (dto.newUsername === username) {
       throw new ConflictException(
@@ -56,7 +55,6 @@ export class UserSettingsService {
       data: { username: dto.newUsername },
     });
 
-    logger.info(`User ${email} successfully changed their username`);
     return { message: 'Username updated successfully' };
   }
 
@@ -87,9 +85,6 @@ export class UserSettingsService {
       OtpPurpose.EMAIL_CHANGE,
     );
 
-    logger.info(
-      `User ${email} requested to change their email to ${dto.newEmail}`,
-    );
     return {
       message: 'A verification code has been sent to your new email address',
     };
@@ -97,7 +92,7 @@ export class UserSettingsService {
 
   async confirmEmailChange(
     { newEmail, otp: newOtp }: ConfirmEmailReqDto,
-    { id: userId, username }: User,
+    { id: userId }: User,
   ) {
     const pendingOtp = await this.otpRepository.findPendingOtp(
       userId,
@@ -119,13 +114,12 @@ export class UserSettingsService {
       );
     });
 
-    logger.info(`User ${username} successfully changed their email`);
     return { message: 'Email updated successfully' };
   }
 
   async updatePassword(
     { currentPassword, newPassword }: UpdatePasswordReqDto,
-    { id: userId, email }: User,
+    { id: userId }: User,
   ) {
     const user = await this.userRepository.findById(userId, {
       password: true,
@@ -152,9 +146,27 @@ export class UserSettingsService {
       await this.refreshTokenRepository.deleteByUserId(userId, tx);
     });
 
-    logger.info(`User ${email} successfully changed their password`);
     return {
       message: 'Password updated successfully',
     };
+  }
+
+  async unlinkGoogle({ id: userId }: User) {
+    const user = await this.userRepository.findById(userId, {
+      password: true,
+    });
+
+    if (!user!.password) {
+      throw new BadRequestException(
+        'Set a password first to avoid being locked out of your account.',
+      );
+    }
+
+    await this.userRepository.update({
+      where: { id: userId },
+      data: { providerId: null },
+    });
+
+    return { message: 'Google account unlinked successfully' };
   }
 }
