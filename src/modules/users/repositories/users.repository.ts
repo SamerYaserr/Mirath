@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, User, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { FindByEmailOrUsernameArgs } from '../user.types';
 
 @Injectable()
 export class UsersRepository {
@@ -29,13 +30,14 @@ export class UsersRepository {
   }
 
   async findByEmailOrUsername(
-    email: string,
-    username: string,
+    args: FindByEmailOrUsernameArgs,
   ): Promise<User | null> {
     return this.prisma.user.findFirst({
       where: {
-        OR: [{ email }, { username }],
+        OR: [{ email: args.email }, { username: args.username }],
+        ...args.where,
       },
+      ...(args.select && { select: args.select }),
     });
   }
 

@@ -57,10 +57,10 @@ export class AuthService {
   async signup(
     signupReqDto: SignupReqDto,
   ): Promise<HttpResponse<SignupDataResDto>> {
-    const existingUser = await this.usersRepository.findByEmailOrUsername(
-      signupReqDto.email,
-      signupReqDto.username,
-    );
+    const existingUser = await this.usersRepository.findByEmailOrUsername({
+      email: signupReqDto.email,
+      username: signupReqDto.username,
+    });
     if (existingUser) {
       if (
         existingUser.email === signupReqDto.email &&
@@ -294,10 +294,10 @@ export class AuthService {
     const { emailOrUsername, password } = loginReqDto;
     const isEmail = emailOrUsername.includes('@');
 
-    const user = await this.usersRepository.findByEmailOrUsername(
-      isEmail ? emailOrUsername : '',
-      isEmail ? '' : emailOrUsername,
-    );
+    const user = await this.usersRepository.findByEmailOrUsername({
+      email: isEmail ? emailOrUsername : '',
+      username: isEmail ? '' : emailOrUsername,
+    });
 
     if (!user) {
       winstonLogger.warn(`Invalid login username/email for ${emailOrUsername}`);
