@@ -24,16 +24,18 @@ import { UserSettingsService } from './user-settings.service';
 import { AppearanceSettingsResDto } from './dto/responses/appearance-settings.res.dto';
 import { UpdateDisplayReqDto } from './dto/requests/update-display.req.dto';
 import { DisplaySettingsResDto } from './dto/responses/display-settings.res.dto';
+import { UpdateReadingReqDto } from './dto/requests/update-reading.req.dto';
+import { ReadingSettingsResDto } from './dto/responses/reading-settings.res.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
-@Controller('users/settings')
+@Controller('users/settings/appearance')
 @ApiExtraModels(AppearanceSettingsResDto, DisplaySettingsResDto)
 @ApiUnauthorizedResponse({ description: 'User not logged in.' })
 export class UserSettingsController {
   constructor(readonly userSettingsService: UserSettingsService) {}
 
-  @Get('appearance')
+  @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Retrieve Reading and Appearance Settings',
@@ -82,5 +84,31 @@ export class UserSettingsController {
   updateDisplay(@Req() req: Request, @Body() dto: UpdateDisplayReqDto) {
     const userId = req.user!.id;
     return this.userSettingsService.updateDisplay(userId, dto);
+  }
+
+  @Patch('reading')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update Reading List Visibility and Annotation Color Palette',
+    description: '',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Reading List Visibility and Annotation Color Palette updated successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(ReadingSettingsResDto),
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'At least one field must be provided.',
+  })
+  updateReading(@Req() req: Request, @Body() dto: UpdateReadingReqDto) {
+    const userId = req.user!.id;
+    return this.userSettingsService.updateReading(userId, dto);
   }
 }

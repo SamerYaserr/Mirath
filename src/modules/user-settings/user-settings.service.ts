@@ -5,6 +5,8 @@ import { UpdateDisplayReqDto } from './dto/requests/update-display.req.dto';
 import { UserSettingsRepository } from './repositories/user-settings.repository';
 import { DisplaySettingsResDto } from './dto/responses/display-settings.res.dto';
 import { AppearanceSettingsResDto } from './dto/responses/appearance-settings.res.dto';
+import { UpdateReadingReqDto } from './dto/requests/update-reading.req.dto';
+import { ReadingSettingsResDto } from './dto/responses/reading-settings.res.dto';
 
 @Injectable()
 export class UserSettingsService {
@@ -25,5 +27,16 @@ export class UserSettingsService {
       dto,
     );
     return { data: DisplaySettingsResDto.fromEntity(updatedSettings) };
+  }
+
+  async updateReading(
+    userId: string,
+    dto: UpdateReadingReqDto,
+  ): Promise<HttpResponse<ReadingSettingsResDto>> {
+    const updatedSettings = await this.userSettingsRepository.upsert(
+      userId,
+      dto.toUpsert(),
+    );
+    return { data: ReadingSettingsResDto.fromEntity(updatedSettings) };
   }
 }
