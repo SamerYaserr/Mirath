@@ -184,4 +184,9 @@ export class UserSettingsService {
       ),
     };
   }
+
+  async revokeAllSessions(userId: string, sessionId: string) {
+    await this.refreshTokenRepository.deleteAllExcept(userId, sessionId);
+    return { message: 'Successfully logged out from all other devices' };
+  }
 }

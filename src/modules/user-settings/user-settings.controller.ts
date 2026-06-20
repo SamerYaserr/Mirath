@@ -243,4 +243,21 @@ export class UserSettingsController {
   async getSessions(@Req() { user, sessionId }: Request) {
     return this.userSettingsService.getSessions(user!.id, sessionId!);
   }
+
+  @Delete('account/sessions')
+  @ApiOperation({
+    summary: 'Revoke all sessions except the current one',
+    description:
+      'Revokes all active sessions for the current user except the current session, effectively logging out all other devices.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully logged out from all other devices',
+    schema: {
+      example: { message: 'Successfully logged out from all other devices' },
+    },
+  })
+  async revokeAllSessions(@Req() { user, sessionId }: Request) {
+    return this.userSettingsService.revokeAllSessions(user!.id, sessionId!);
+  }
 }
