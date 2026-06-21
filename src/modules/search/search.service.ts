@@ -8,12 +8,14 @@ import { GlobalSearchResDto } from './dto/responses/search-global.res.dto';
 import { DiscussionSearchResDto } from './dto/responses/search-discussions.res.dto';
 import { ReadingListSearchResDto } from './dto/responses/search-reading-lists.res.dto';
 import { ResearcherSearchResDto } from './dto/responses/search-researchers.res.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SearchService {
   constructor(
     private searchHistoryRepo: SearchHistoryRepository,
     private searchRepository: SearchRepository,
+    private prisma: PrismaService,
   ) {}
 
   async deleteSearchQuery(
@@ -63,7 +65,14 @@ export class SearchService {
       this.searchRepository.searchResearchers(userId, query, skip, limit),
     ]);
 
-    await this.searchHistoryRepo.create(userId, query);
+    const userSettings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+    const saveSearchHistory = userSettings?.saveSearchHistory ?? true;
+
+    if (saveSearchHistory) {
+      await this.searchHistoryRepo.create(userId, query);
+    }
 
     return {
       message: 'Global search results retrieved successfully',
