@@ -76,7 +76,7 @@ export class FeedService {
       };
     }
 
-    const tags = userSettings?.recommendationInterests.map((ri: any) => ri.interest.name) || [];
+    const tags = userSettings?.recommendationInterests.map((ri) => ri.interest.name) || [];
 
     if (tags.length === 0) {
       return {
@@ -99,8 +99,15 @@ export class FeedService {
       ...(excludeIds && { excludeIds }),
     });
 
+    const paperIds = papers.map((p) => p.id);
+    const savedIds = await this.repo.findSavedPaperIdsForUser({
+      userId,
+      paperIds,
+    });
+    const savedSet = new Set(savedIds);
+
     const data = papers.map((p) =>
-      FeedPaperResDto.fromEntity({ ...p, isSaved: false }),
+      FeedPaperResDto.fromEntity({ ...p, isSaved: savedSet.has(p.id) }),
     );
 
     return {

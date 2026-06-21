@@ -17,12 +17,15 @@ export class UserSettingsRepository {
 
   async upsert(
     userId: string,
-    data: Prisma.UserSettingsUpdateInput,
+    data: Omit<
+      Prisma.UserSettingsUncheckedCreateInput,
+      'id' | 'userId' | 'createdAt' | 'updatedAt'
+    >,
   ): Promise<UserSettings> {
     return this.prisma.userSettings.upsert({
       where: { userId },
       update: data,
-      create: { userId },
+      create: { userId, ...data },
     });
   }
 
@@ -41,6 +44,8 @@ export class UserSettingsRepository {
     userId: string,
     newInterestsNames: string[],
   ): Promise<UserSettingsWithInterests | null> {
+    const uniqueNames = [...new Set(newInterestsNames)];
+
     const settings = await this.findByUserId(userId);
     let settingsId = settings?.id;
 
@@ -51,12 +56,12 @@ export class UserSettingsRepository {
 
     await this.prisma.$transaction(async (tx) => {
       const existingInterests = await tx.interest.findMany({
-        where: { name: { in: newInterestsNames } },
+        where: { name: { in: uniqueNames } },
         select: { id: true, name: true },
       });
       const existingNames = new Set(existingInterests.map((i) => i.name));
 
-      const customNames = newInterestsNames.filter((n) => !existingNames.has(n));
+      const customNames = uniqueNames.filter((n) => !existingNames.has(n));
 
       if (customNames.length > 0) {
         await tx.interest.createMany({
@@ -65,7 +70,7 @@ export class UserSettingsRepository {
       }
 
       const allInterests = await tx.interest.findMany({
-        where: { name: { in: newInterestsNames } },
+        where: { name: { in: uniqueNames } },
         select: { id: true, name: true },
       });
 
@@ -75,7 +80,10 @@ export class UserSettingsRepository {
 
       if (allInterests.length > 0) {
         await tx.recommendationInterest.createMany({
-          data: allInterests.map((i) => ({ settingsId: settingsId!, interestId: i.id })),
+          data: allInterests.map((i) => ({
+            settingsId: settingsId!,
+            interestId: i.id,
+          })),
         });
       }
     });

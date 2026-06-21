@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsNotEmpty, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ReplaceInterestsReqDto {
@@ -9,6 +9,7 @@ export class ReplaceInterestsReqDto {
   })
   @IsArray()
   @IsString({ each: true })
+  @IsNotEmpty({ each: true })
   @ArrayMaxSize(10)
   interests: string[];
 }

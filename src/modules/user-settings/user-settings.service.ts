@@ -249,7 +249,7 @@ export class UserSettingsService {
     userId: string,
   ): Promise<HttpResponse<{ id: string; name: string }[]>> {
     const userSettings = await this.userSettingsRepository.findSettingsWithInterests(userId);
-    const interests = userSettings?.recommendationInterests.map((ri: any) => ri.interest) || [];
+    const interests = userSettings?.recommendationInterests.map((ri) => ri.interest) || [];
 
     return {
       message: 'Research interests retrieved successfully',
@@ -268,7 +268,7 @@ export class UserSettingsService {
 
     return {
       message: 'Research interests updated successfully',
-      data: updatedSettings?.recommendationInterests.map((ri: any) => ri.interest) || [],
+      data: updatedSettings?.recommendationInterests.map((ri) => ri.interest) || [],
     };
   }
 }

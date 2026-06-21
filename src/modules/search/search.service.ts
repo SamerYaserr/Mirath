@@ -59,15 +59,14 @@ export class SearchService {
   ): Promise<HttpResponse<GlobalSearchResDto>> {
     const skip = (page - 1) * limit;
 
-    const [discussions, readingLists, researchers] = await Promise.all([
-      this.searchRepository.searchDiscussions(userId, query, skip, limit),
-      this.searchRepository.searchReadingLists(userId, query, skip, limit),
-      this.searchRepository.searchResearchers(userId, query, skip, limit),
-    ]);
+    const [discussions, readingLists, researchers, userSettings] =
+      await Promise.all([
+        this.searchRepository.searchDiscussions(userId, query, skip, limit),
+        this.searchRepository.searchReadingLists(userId, query, skip, limit),
+        this.searchRepository.searchResearchers(userId, query, skip, limit),
+        this.prisma.userSettings.findUnique({ where: { userId } }),
+      ]);
 
-    const userSettings = await this.prisma.userSettings.findUnique({
-      where: { userId },
-    });
     const saveSearchHistory = userSettings?.saveSearchHistory ?? true;
 
     if (saveSearchHistory) {
