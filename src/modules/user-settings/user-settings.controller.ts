@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Controller,
   Delete,
+  Put,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -36,6 +37,9 @@ import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
 import { clearRefreshTokenCookie } from 'src/common/utils/clear-cookie.utils';
 import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
 import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
+import { FeedSettingsResDto } from './dto/responses/feed-settings.res.dto';
+import { UpdateFeedPreferencesReqDto } from './dto/requests/update-feed.req.dto';
+import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
@@ -45,6 +49,7 @@ import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
   DisplaySettingsResDto,
   AppearanceSettingsResDto,
   ReadingSettingsResDto,
+  FeedSettingsResDto,
 )
 @ApiUnauthorizedResponse({ description: 'User not logged in.' })
 export class UserSettingsController {
@@ -351,5 +356,109 @@ export class UserSettingsController {
   })
   async revokeAllSessions(@Req() { user, sessionId }: Request) {
     return this.userSettingsService.revokeAllSessions(user!.id, sessionId!);
+  }
+
+  @Get('feed')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retrieve Feed and AI Preferences',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Feed and AI preferences retrieved successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(FeedSettingsResDto),
+        },
+      },
+    },
+  })
+  async getFeedSettings(@Req() req: Request) {
+    const userId = req.user!.id;
+    return this.userSettingsService.getFeedSettings(userId);
+  }
+
+  @Patch('feed')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update Feed and AI Preferences',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Feed and AI preferences updated successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(FeedSettingsResDto),
+        },
+      },
+    },
+  })
+  updateFeedSettings(
+    @Req() req: Request,
+    @Body() dto: UpdateFeedPreferencesReqDto,
+  ) {
+    const userId = req.user!.id;
+    return this.userSettingsService.updateFeedSettings(userId, dto);
+  }
+
+  @Get('feed/interests')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retrieve Research Interests',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Research interests retrieved successfully',
+    schema: {
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  getResearchInterests(@Req() req: Request) {
+    const userId = req.user!.id;
+    return this.userSettingsService.getResearchInterests(userId);
+  }
+
+  @Put('feed/interests')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Replace Research Interests',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Research interests replaced successfully',
+    schema: {
+      properties: {
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  replaceResearchInterests(
+    @Req() req: Request,
+    @Body() dto: ReplaceInterestsReqDto,
+  ) {
+    const userId = req.user!.id;
+    return this.userSettingsService.replaceResearchInterests(userId, dto);
   }
 }

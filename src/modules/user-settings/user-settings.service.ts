@@ -17,6 +17,9 @@ import { UpdatePasswordReqDto } from './dto/requests/update-password.req.dto';
 import { ChangeUsernameReqDto } from './dto/requests/change-username.req.dto';
 import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.req.dto';
+import { FeedSettingsResDto } from './dto/responses/feed-settings.res.dto';
+import { UpdateFeedPreferencesReqDto } from './dto/requests/update-feed.req.dto';
+import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -222,5 +225,50 @@ export class UserSettingsService {
   async revokeAllSessions(userId: string, sessionId: string) {
     await this.refreshTokenRepository.deleteAllExcept(userId, sessionId);
     return { message: 'Successfully logged out from all other devices' };
+  }
+
+  async getFeedSettings(
+    userId: string,
+  ): Promise<HttpResponse<FeedSettingsResDto>> {
+    const userSettings = await this.userSettingsRepository.findByUserId(userId);
+    return { data: FeedSettingsResDto.fromEntity(userSettings) };
+  }
+
+  async updateFeedSettings(
+    userId: string,
+    dto: UpdateFeedPreferencesReqDto,
+  ): Promise<HttpResponse<FeedSettingsResDto>> {
+    const updatedSettings = await this.userSettingsRepository.upsert(
+      userId,
+      dto,
+    );
+    return { data: FeedSettingsResDto.fromEntity(updatedSettings) };
+  }
+
+  async getResearchInterests(
+    userId: string,
+  ): Promise<HttpResponse<{ id: string; name: string }[]>> {
+    const userSettings = await this.userSettingsRepository.findSettingsWithInterests(userId);
+    const interests = userSettings?.recommendationInterests.map((ri) => ri.interest) || [];
+
+    return {
+      message: 'Research interests retrieved successfully',
+      data: interests,
+    };
+  }
+
+  async replaceResearchInterests(
+    userId: string,
+    dto: ReplaceInterestsReqDto,
+  ): Promise<HttpResponse> {
+    const updatedSettings = await this.userSettingsRepository.replaceInterests(
+      userId,
+      dto.interests,
+    );
+
+    return {
+      message: 'Research interests updated successfully',
+      data: updatedSettings?.recommendationInterests.map((ri) => ri.interest) || [],
+    };
   }
 }

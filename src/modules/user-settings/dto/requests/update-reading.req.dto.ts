@@ -34,7 +34,7 @@ export class UpdateReadingReqDto {
   @IsNotEmpty({ message: 'At least one field must be provided.' })
   _atLeastOne?: never;
 
-  toUpsert(): Prisma.UserSettingsUpdateInput {
+  toUpsert(): Omit<Prisma.UserSettingsUncheckedCreateInput, 'id' | 'userId' | 'createdAt' | 'updatedAt'> {
     return {
       ...this,
       ...(this.defaultReadingListVisibility !== undefined && {

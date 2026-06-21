@@ -26,11 +26,14 @@ export class FeedRepository {
   async findRecentPapers(
     params: FindRecentPapersArgs,
   ): Promise<FindRecentPapersRes> {
-    const { category, limit, offset } = params;
+    const { category, limit, offset, excludeIds } = params;
 
     const where: Prisma.PaperWhereInput = {};
     if (category) {
       where.categories = { has: category };
+    }
+    if (excludeIds && excludeIds.length > 0) {
+      where.id = { notIn: excludeIds };
     }
 
     const [papers, total] = await Promise.all([
@@ -79,12 +82,15 @@ export class FeedRepository {
   async findRecommendationPapers(
     params: FindRecommendationPapersArgs,
   ): Promise<FindRecommendationPapersRes> {
-    const { tags, limit, offset, userId } = params;
+    const { tags, limit, offset, userId, excludeIds } = params;
 
     const where: Prisma.PaperWhereInput = {
       categories: { hasSome: tags },
       savedPapers: { none: { userId } },
     };
+    if (excludeIds && excludeIds.length > 0) {
+      where.id = { notIn: excludeIds };
+    }
 
     const [papers, total] = await Promise.all([
       this.prisma.paper.findMany({
@@ -98,5 +104,13 @@ export class FeedRepository {
     ]);
 
     return { papers, total };
+  }
+
+  async findReadPaperIds(userId: string): Promise<string[]> {
+    const history = await this.prisma.readingHistory.findMany({
+      where: { userId },
+      select: { paperId: true },
+    });
+    return [...new Set(history.map(h => h.paperId))];
   }
 }
