@@ -70,7 +70,7 @@ export class FeedService {
 
     if (!showRecommendedPapers) {
       return {
-        message: 'Recommendations fetched successfully',
+        message: 'Recommendations is disabled',
         data: [],
         size: 0,
       };
