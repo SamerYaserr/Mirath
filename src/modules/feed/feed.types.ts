@@ -12,6 +12,7 @@ export type FindRecommendationPapersArgs = {
   limit: number;
   offset: number;
   userId: string;
+  excludeIds?: string[];
 };
 
 export type FindRecommendationPapersRes = {
@@ -31,4 +32,5 @@ export type FindRecentPapersArgs = {
   category: string | undefined;
   limit: number;
   offset: number;
+  excludeIds?: string[];
 };
