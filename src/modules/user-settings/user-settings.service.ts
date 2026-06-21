@@ -248,12 +248,7 @@ export class UserSettingsService {
   async getResearchInterests(
     userId: string,
   ): Promise<HttpResponse<{ id: string; name: string }[]>> {
-    const userSettings = await this.prisma.userSettings.findUnique({
-      where: { userId },
-      include: {
-        recommendationInterests: { include: { interest: true } },
-      },
-    });
+    const userSettings = await this.userSettingsRepository.findSettingsWithInterests(userId);
     const interests = userSettings?.recommendationInterests.map((ri: any) => ri.interest) || [];
 
     return {
@@ -266,51 +261,10 @@ export class UserSettingsService {
     userId: string,
     dto: ReplaceInterestsReqDto,
   ): Promise<HttpResponse> {
-    const settings = await this.userSettingsRepository.findByUserId(userId);
-    let settingsId = settings?.id;
-
-    if (!settingsId) {
-      const newSettings = await this.userSettingsRepository.upsert(userId, {});
-      settingsId = newSettings.id;
-    }
-
-    const newInterestsNames = dto.interests;
-
-    await this.prisma.$transaction(async (tx) => {
-      const existingInterests = await tx.interest.findMany({
-        where: { name: { in: newInterestsNames } },
-        select: { id: true, name: true },
-      });
-      const existingNames = new Set(existingInterests.map((i) => i.name));
-
-      const customNames = newInterestsNames.filter((n) => !existingNames.has(n));
-
-      if (customNames.length > 0) {
-        await tx.interest.createMany({
-          data: customNames.map((n) => ({ name: n, custom: true })),
-        });
-      }
-
-      const allInterests = await tx.interest.findMany({
-        where: { name: { in: newInterestsNames } },
-        select: { id: true, name: true },
-      });
-
-      await tx.recommendationInterest.deleteMany({
-        where: { settingsId },
-      });
-
-      if (allInterests.length > 0) {
-        await tx.recommendationInterest.createMany({
-          data: allInterests.map((i) => ({ settingsId: settingsId!, interestId: i.id })),
-        });
-      }
-    });
-
-    const updatedSettings = await this.prisma.userSettings.findUnique({
-      where: { id: settingsId },
-      include: { recommendationInterests: { include: { interest: true } } },
-    });
+    const updatedSettings = await this.userSettingsRepository.replaceInterests(
+      userId,
+      dto.interests,
+    );
 
     return {
       message: 'Research interests updated successfully',
