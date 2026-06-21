@@ -160,6 +160,7 @@ model Interest {
   custom Boolean @default(false)
 
   users            UserInterest[]
+  recommendationInterests  RecommendationInterest[]
   discussionTopics DiscussionTopic[]
 
   @@index([name])
@@ -175,6 +176,21 @@ model UserInterest {
   @@id([userId, interestId])
   @@index([userId])
   @@index([interestId])
+}
+
+model RecommendationInterest {
+  settingsId String @db.Uuid
+  interestId String @db.Uuid
+
+  settings UserSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  interest Interest     @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([settingsId, interestId])
+  @@index([settingsId])
+  @@index([interestId])
+  @@map("recommendation_interests")
 }
 
 model FieldOfStudy {
@@ -566,4 +582,5 @@ model UserSettings {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendationInterests RecommendationInterest[]
 }
