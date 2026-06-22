@@ -40,6 +40,8 @@ import { AccountSessionResDto } from './dto/responses/account-session.res.dto';
 import { FeedSettingsResDto } from './dto/responses/feed-settings.res.dto';
 import { UpdateFeedPreferencesReqDto } from './dto/requests/update-feed.req.dto';
 import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto';
+import { NotificationPreferencesResDto } from './dto/responses/notification-preferences.res.dto';
+import { UpdateNotificationsReqDto } from './dto/requests/update-notifications.req.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
@@ -50,6 +52,7 @@ import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto
   AppearanceSettingsResDto,
   ReadingSettingsResDto,
   FeedSettingsResDto,
+  NotificationPreferencesResDto,
 )
 @ApiUnauthorizedResponse({ description: 'User not logged in.' })
 export class UserSettingsController {
@@ -460,5 +463,52 @@ export class UserSettingsController {
   ) {
     const userId = req.user!.id;
     return this.userSettingsService.replaceResearchInterests(userId, dto);
+  }
+
+  @Get('notifications')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retrieve Notification Preferences',
+    description:
+      'Returns all notification preference toggles for the authenticated user, grouped into research, social, and system sections. Security alerts are always enabled and hardcoded to true.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Notification preferences retrieved successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(NotificationPreferencesResDto),
+        },
+      },
+    },
+  })
+  getNotificationPreferences(@Req() { user }: Request) {
+    return this.userSettingsService.getNotificationPreferences(user!.id);
+  }
+
+  @Patch('notifications')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update Notification Preferences',
+    description:
+      'Updates one or more notification preference toggles. Only the fields present in the request body are updated; omitted fields remain unchanged. The securityAlerts field is always true and cannot be modified.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Notification preferences updated successfully',
+    schema: {
+      properties: {
+        data: {
+          $ref: getSchemaPath(NotificationPreferencesResDto),
+        },
+      },
+    },
+  })
+  updateNotificationPreferences(
+    @Req() { user }: Request,
+    @Body() dto: UpdateNotificationsReqDto,
+  ) {
+    return this.userSettingsService.updateNotificationPreferences(user!.id, dto);
   }
 }

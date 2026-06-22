@@ -20,6 +20,8 @@ import { RequestEmailChangeReqDto } from './dto/requests/request-email-change.re
 import { FeedSettingsResDto } from './dto/responses/feed-settings.res.dto';
 import { UpdateFeedPreferencesReqDto } from './dto/requests/update-feed.req.dto';
 import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto';
+import { NotificationPreferencesResDto } from './dto/responses/notification-preferences.res.dto';
+import { UpdateNotificationsReqDto } from './dto/requests/update-notifications.req.dto';
 import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from 'src/common/types/api.types';
@@ -248,8 +250,10 @@ export class UserSettingsService {
   async getResearchInterests(
     userId: string,
   ): Promise<HttpResponse<{ id: string; name: string }[]>> {
-    const userSettings = await this.userSettingsRepository.findSettingsWithInterests(userId);
-    const interests = userSettings?.recommendationInterests.map((ri) => ri.interest) || [];
+    const userSettings =
+      await this.userSettingsRepository.findSettingsWithInterests(userId);
+    const interests =
+      userSettings?.recommendationInterests.map((ri) => ri.interest) || [];
 
     return {
       message: 'Research interests retrieved successfully',
@@ -268,7 +272,32 @@ export class UserSettingsService {
 
     return {
       message: 'Research interests updated successfully',
-      data: updatedSettings?.recommendationInterests.map((ri) => ri.interest) || [],
+      data:
+        updatedSettings?.recommendationInterests.map((ri) => ri.interest) || [],
+    };
+  }
+
+  async getNotificationPreferences(
+    userId: string,
+  ): Promise<HttpResponse<NotificationPreferencesResDto>> {
+    const userSettings = await this.userSettingsRepository.findByUserId(userId);
+    return {
+      message: 'Notification preferences retrieved successfully',
+      data: NotificationPreferencesResDto.fromEntity(userSettings),
+    };
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    dto: UpdateNotificationsReqDto,
+  ): Promise<HttpResponse<NotificationPreferencesResDto>> {
+    const updatedSettings = await this.userSettingsRepository.upsert(
+      userId,
+      dto.toUpsert(),
+    );
+    return {
+      message: 'Notification preferences updated successfully',
+      data: NotificationPreferencesResDto.fromEntity(updatedSettings),
     };
   }
 }
