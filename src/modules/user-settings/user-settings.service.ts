@@ -281,7 +281,10 @@ export class UserSettingsService {
     userId: string,
   ): Promise<HttpResponse<NotificationPreferencesResDto>> {
     const userSettings = await this.userSettingsRepository.findByUserId(userId);
-    return { data: NotificationPreferencesResDto.fromEntity(userSettings) };
+    return {
+      message: 'Notification preferences retrieved successfully',
+      data: NotificationPreferencesResDto.fromEntity(userSettings),
+    };
   }
 
   async updateNotificationPreferences(
@@ -292,6 +295,9 @@ export class UserSettingsService {
       userId,
       dto.toUpsert(),
     );
-    return { data: NotificationPreferencesResDto.fromEntity(updatedSettings) };
+    return {
+      message: 'Notification preferences updated successfully',
+      data: NotificationPreferencesResDto.fromEntity(updatedSettings),
+    };
   }
 }
