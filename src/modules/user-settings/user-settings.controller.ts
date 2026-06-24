@@ -11,6 +11,7 @@ import {
   Controller,
   Delete,
   Put,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -42,6 +43,9 @@ import { UpdateFeedPreferencesReqDto } from './dto/requests/update-feed.req.dto'
 import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto';
 import { NotificationPreferencesResDto } from './dto/responses/notification-preferences.res.dto';
 import { UpdateNotificationsReqDto } from './dto/requests/update-notifications.req.dto';
+import { UpdatePrivacyReqDto } from './dto/requests/update-privacy.req.dto';
+import { PrivacySettingsResDto } from './dto/responses/privacy-settings.res.dto';
+import { ExportAnnotationsQueryDto, ExportReadingListsQueryDto } from './dto/requests/export-query.req.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
@@ -53,6 +57,7 @@ import { UpdateNotificationsReqDto } from './dto/requests/update-notifications.r
   ReadingSettingsResDto,
   FeedSettingsResDto,
   NotificationPreferencesResDto,
+  PrivacySettingsResDto,
 )
 @ApiUnauthorizedResponse({ description: 'User not logged in.' })
 export class UserSettingsController {
@@ -510,5 +515,118 @@ export class UserSettingsController {
     @Body() dto: UpdateNotificationsReqDto,
   ) {
     return this.userSettingsService.updateNotificationPreferences(user!.id, dto);
+  }
+
+  @Get('privacy')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retrieve Privacy Settings',
+    description:
+      'Returns the current privacy and visibility' +
+      ' settings for the authenticated user.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Privacy settings retrieved successfully',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Privacy settings retrieved successfully',
+        },
+        data: {
+          $ref: getSchemaPath(PrivacySettingsResDto),
+        },
+      },
+    },
+  })
+  getPrivacySettings(
+    @Req() { user }: Request,
+  ): Promise<HttpResponse<PrivacySettingsResDto>> {
+    return this.userSettingsService.getPrivacySettings(user!.id);
+  }
+
+  @Patch('privacy')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update Privacy and Visibility Settings' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Privacy settings updated successfully',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Privacy settings updated successfully',
+        },
+        data: {
+          $ref: getSchemaPath(PrivacySettingsResDto),
+        },
+      },
+    },
+  })
+  updatePrivacySettings(
+    @Req() { user }: Request,
+    @Body() dto: UpdatePrivacyReqDto,
+  ): Promise<HttpResponse<PrivacySettingsResDto>> {
+    return this.userSettingsService.updatePrivacySettings(user!.id, dto);
+  }
+
+  @Post('privacy/export/data')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Initiate Full Account Data Export' })
+  @ApiResponse({
+    status: HttpStatus.ACCEPTED,
+    description: 'Data export requested successfully',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Data export requested successfully',
+        },
+      },
+    },
+  })
+  requestDataExport(
+    @Req() { user }: Request,
+  ): Promise<HttpResponse<null>> {
+    return this.userSettingsService.requestDataExport(user!.id);
+  }
+
+  @Get('privacy/export/reading-lists')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Export Reading Lists as a File' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Reading lists exported successfully',
+  })
+  exportReadingLists(
+    @Req() { user }: Request,
+    @Query() query: ExportReadingListsQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<HttpResponse<null>> {
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="reading-lists.json"',
+    );
+    return this.userSettingsService.exportReadingLists(user!.id, query.format);
+  }
+
+  @Get('privacy/export/annotations')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Export Annotations and Notes' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Annotations exported successfully',
+  })
+  exportAnnotations(
+    @Req() { user }: Request,
+    @Query() query: ExportAnnotationsQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<HttpResponse<null>> {
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="annotations.json"',
+    );
+    return this.userSettingsService.exportAnnotations(user!.id, query.format);
   }
 }
