@@ -44,6 +44,7 @@ import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto
 import { NotificationPreferencesResDto } from './dto/responses/notification-preferences.res.dto';
 import { UpdateNotificationsReqDto } from './dto/requests/update-notifications.req.dto';
 import { DeactivateReqDto } from './dto/requests/deactivate.req.dto';
+import { DeleteReqDto } from './dto/requests/delete.req.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
@@ -388,6 +389,36 @@ export class UserSettingsController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.userSettingsService.deactivate(user!.id, dto);
+    clearRefreshTokenCookie(res);
+
+    return result;
+  }
+
+  @Post('account/delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Delete user's account",
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Account deleted successfully.',
+    schema: {
+      example: {
+        message:
+          'Account will be deleted permanently in 30 days. You can log in anytime before to reactivate.',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Google-authenticated accounts cannot use this flow.',
+  })
+  @ApiForbiddenResponse({ description: 'Incorrect password.' })
+  async delete(
+    @Req() { user }: Request,
+    @Body() dto: DeleteReqDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.userSettingsService.delete(user!.id, dto);
     clearRefreshTokenCookie(res);
 
     return result;
