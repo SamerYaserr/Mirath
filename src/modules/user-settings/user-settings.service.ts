@@ -319,7 +319,7 @@ export class UserSettingsService {
   }
 
   async updatePrivacySettings(userId: string, dto: UpdatePrivacyReqDto): Promise<HttpResponse<PrivacySettingsResDto>> {
-    let updateData: any = { ...dto };
+    const updateData: Partial<UpdatePrivacyReqDto> = { ...dto };
     
     if (updateData.isPrivateAccount === true) {
       updateData.allowProfileSearch = false;
@@ -367,6 +367,5 @@ export class UserSettingsService {
       data: annotations,
       size: annotations.length,
     };  
-    
   }
 }
