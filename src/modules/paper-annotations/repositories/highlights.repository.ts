@@ -32,6 +32,13 @@ export class HighlightsRepository {
     return { data, count };
   }
 
+  async findAllByUser(userId: string) {
+    return this.prisma.highlight.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   async findById(id: string) {
     return this.prisma.highlight.findUnique({ where: { id } });
   }
