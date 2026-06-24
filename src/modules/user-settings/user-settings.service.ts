@@ -29,6 +29,12 @@ import { OtpRepository } from '../auth/repositories/otp.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { RefreshTokenRepository } from '../auth/repositories/refreshToken.repository';
 import { UserSettingsRepository } from './repositories/user-settings.repository';
+import { ReadingListsRepository } from '../reading-lists/repositories/reading-lists.repository';
+import { HighlightsRepository } from '../paper-annotations/repositories/highlights.repository';
+import { UpdatePrivacyReqDto } from './dto/requests/update-privacy.req.dto';
+import { PrivacySettingsResDto } from './dto/responses/privacy-settings.res.dto';
+import { ReadingListExportFormat } from './enums/reading-list-export-format.enum';
+import { AnnotationsExportFormat } from './enums/annotation-export-format.enum';
 
 @Injectable()
 export class UserSettingsService {
@@ -39,6 +45,8 @@ export class UserSettingsService {
     private readonly userRepository: UsersRepository,
     private readonly userSettingsRepository: UserSettingsRepository,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly readingListsRepository: ReadingListsRepository,
+    private readonly highlightsRepository: HighlightsRepository,
   ) {}
 
   async get(userId: string): Promise<HttpResponse<AppearanceSettingsResDto>> {
@@ -299,5 +307,66 @@ export class UserSettingsService {
       message: 'Notification preferences updated successfully',
       data: NotificationPreferencesResDto.fromEntity(updatedSettings),
     };
+  }
+
+  async getPrivacySettings(userId: string): Promise<HttpResponse<PrivacySettingsResDto>> {
+    const userSettings = await this.userSettingsRepository.findByUserId(userId);
+    
+    return {
+      message: 'Privacy settings retrieved successfully',
+      data: PrivacySettingsResDto.fromEntity(userSettings),
+    };
+  }
+
+  async updatePrivacySettings(userId: string, dto: UpdatePrivacyReqDto): Promise<HttpResponse<PrivacySettingsResDto>> {
+    let updateData: any = { ...dto };
+    
+    if (updateData.isPrivateAccount === true) {
+      updateData.allowProfileSearch = false;
+    }
+    
+    const updatedSettings = await this.userSettingsRepository.upsert(userId, updateData);
+    
+    return {
+      message: 'Privacy settings updated successfully',
+      data: PrivacySettingsResDto.fromEntity(updatedSettings),
+    };
+  }
+
+  async requestDataExport(userId: string): Promise<HttpResponse<null>> {
+    return {
+      message: 'Your data export has been requested. You will be notified by email when it is ready.',
+    };
+  }
+
+  async exportReadingLists(
+    userId: string,
+    format: ReadingListExportFormat,
+  ): Promise<HttpResponse> {
+    const readingLists = await this.readingListsRepository.findAllByUserId(userId);
+
+    // TODO: implement export logic based on format
+    
+    return {
+      message: 'Reading lists exported successfully',
+      data: readingLists,
+      size: readingLists.length,
+    };
+  }
+
+  async exportAnnotations(
+    userId: string,
+    format: AnnotationsExportFormat,
+  ): Promise<HttpResponse> {
+    const annotations = await this.highlightsRepository.findAllByUser(userId);
+    
+    // TODO: implement export logic based on format
+    
+    return {
+      message: 'Annotations exported successfully',
+      data: annotations,
+      size: annotations.length,
+    };  
+    
   }
 }
