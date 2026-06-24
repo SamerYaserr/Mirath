@@ -29,6 +29,7 @@ import { OtpRepository } from '../auth/repositories/otp.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { RefreshTokenRepository } from '../auth/repositories/refreshToken.repository';
 import { UserSettingsRepository } from './repositories/user-settings.repository';
+import { DeactivateReqDto } from './dto/requests/deactivate.req.dto';
 
 @Injectable()
 export class UserSettingsService {
@@ -227,6 +228,29 @@ export class UserSettingsService {
   async revokeAllSessions(userId: string, sessionId: string) {
     await this.refreshTokenRepository.deleteAllExcept(userId, sessionId);
     return { message: 'Successfully logged out from all other devices' };
+  }
+
+  async deactivate(userId: string, dto: DeactivateReqDto) {
+    const user = await this.userRepository.findById(userId);
+    if (!user?.password)
+      throw new BadRequestException(
+        'Google-authenticated accounts cannot use this flow.',
+      );
+
+    const isMatch = await bcrypt.compare(dto.password, user.password);
+    if (!isMatch) {
+      throw new ForbiddenException('Incorrect password.');
+    }
+
+    await Promise.all([
+      this.userRepository.updateStatus(userId, 'DEACTIVATED'),
+      this.refreshTokenRepository.deleteByUserId(userId),
+    ]);
+
+    return {
+      message:
+        'Account successfully deactivated. You can log in anytime to reactivate.',
+    };
   }
 
   async getFeedSettings(
