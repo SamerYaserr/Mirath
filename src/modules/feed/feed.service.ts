@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
+import { PrismaService } from '../prisma/prisma.service';
 import { HttpResponse } from '../../common/types/api.types';
 import { FeedRepository } from './repositories/feed.repository';
 import { FeedQueryDto } from './dto/requests/FeedQuery.req.dto';
@@ -8,16 +9,30 @@ import { RecommendationQueryDto } from './dto/requests/RecommendationQuery.req.d
 
 @Injectable()
 export class FeedService {
-  constructor(private readonly repo: FeedRepository) {}
+  constructor(
+    private readonly repo: FeedRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async getRecent(userId: string, dto: FeedQueryDto): Promise<HttpResponse> {
     const { category, page = 1, limit = 10 } = dto;
     const offset = (page - 1) * limit;
 
+    const userSettings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+    });
+    const hideAlreadyReadPapers = userSettings?.hideAlreadyReadPapers ?? false;
+
+    let excludeIds: string[] | undefined;
+    if (hideAlreadyReadPapers) {
+      excludeIds = await this.repo.findReadPaperIds(userId);
+    }
+
     const { papers } = await this.repo.findRecentPapers({
       category: category ?? undefined,
       limit,
       offset,
+      ...(excludeIds && { excludeIds }),
     });
 
     const paperIds = papers.map((p) => p.id);
@@ -46,12 +61,22 @@ export class FeedService {
     const { page = 1, limit = 5 } = dto;
     const offset = (page - 1) * limit;
 
-    const user = await this.repo.findUserForRecommendations(userId);
-    if (!user) throw new NotFoundException('User not found');
+    const userSettings = await this.prisma.userSettings.findUnique({
+      where: { userId },
+      include: { recommendationInterests: { include: { interest: true } } },
+    });
+    const showRecommendedPapers = userSettings?.showRecommendedPapers ?? true;
+    const hideAlreadyReadPapers = userSettings?.hideAlreadyReadPapers ?? false;
 
-    const interestNames = user.userInterests.map((ui) => ui.interest.name);
-    const fieldNames = user.userFields.map((uf) => uf.field.name);
-    const tags = [...new Set([...interestNames, ...fieldNames])];
+    if (!showRecommendedPapers) {
+      return {
+        message: 'Recommendations is disabled',
+        data: [],
+        size: 0,
+      };
+    }
+
+    const tags = userSettings?.recommendationInterests.map((ri) => ri.interest.name) || [];
 
     if (tags.length === 0) {
       return {
@@ -61,15 +86,28 @@ export class FeedService {
       };
     }
 
+    let excludeIds: string[] | undefined;
+    if (hideAlreadyReadPapers) {
+      excludeIds = await this.repo.findReadPaperIds(userId);
+    }
+
     const { papers } = await this.repo.findRecommendationPapers({
       tags,
       limit,
       offset,
       userId,
+      ...(excludeIds && { excludeIds }),
     });
 
+    const paperIds = papers.map((p) => p.id);
+    const savedIds = await this.repo.findSavedPaperIdsForUser({
+      userId,
+      paperIds,
+    });
+    const savedSet = new Set(savedIds);
+
     const data = papers.map((p) =>
-      FeedPaperResDto.fromEntity({ ...p, isSaved: false }),
+      FeedPaperResDto.fromEntity({ ...p, isSaved: savedSet.has(p.id) }),
     );
 
     return {

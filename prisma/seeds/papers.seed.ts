@@ -8,6 +8,11 @@ import { winstonLogger as logger } from '../../src/config/logger.config';
 function getPaperFiles(): string[] {
   const papersDir = path.join(__dirname, 'data', 'papers');
 
+  if (!fs.existsSync(papersDir)) {
+    logger.warn(`Papers data directory not found: ${papersDir}. Skipping paper seeding.`);
+    return [];
+  }
+
   return fs
     .readdirSync(papersDir)
     .filter((file) => file.endsWith('.json'))

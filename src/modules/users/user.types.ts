@@ -1,4 +1,4 @@
-import { FieldOfStudy, Interest, User } from '@prisma/client';
+import { FieldOfStudy, Interest, Prisma, User } from '@prisma/client';
 
 export type FormattedProfile = Partial<User> & {
   interests: Partial<Interest>[];
@@ -10,4 +10,23 @@ export type FormattedProfile = Partial<User> & {
 export type FormattedProfileWithMeta = FormattedProfile & {
   isMe: boolean;
   isFollowing: boolean;
+};
+
+export type FindByEmailOrUsernameArgs = {
+  email: string;
+  username: string;
+  select?: Prisma.UserSelect;
+  where?: Prisma.UserWhereInput;
+};
+
+export type FindByEmailArgs = {
+  email: string;
+  select?: Prisma.UserSelect;
+  where?: Prisma.UserWhereInput;
+};
+
+export type UpdatePasswordArgs = {
+  id: string;
+  password: string;
+  tx?: Prisma.TransactionClient;
 };

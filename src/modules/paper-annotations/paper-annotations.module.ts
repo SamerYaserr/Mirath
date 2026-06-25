@@ -11,5 +11,6 @@ import { AiServicesProxy } from './proxies/ai-services.proxy';
   imports: [PapersModule, HttpModule],
   controllers: [PaperAnnotationsController],
   providers: [PaperAnnotationsService, HighlightsRepository, AiServicesProxy],
+  exports: [HighlightsRepository],
 })
 export class PaperAnnotationsModule {}

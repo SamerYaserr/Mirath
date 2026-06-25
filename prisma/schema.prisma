@@ -60,25 +60,39 @@ enum FeedbackType {
   THUMBS_DOWN
 }
 
+enum ColorMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum FontSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
 model User {
-  id               String            @id @default(uuid()) @db.Uuid
-  username         String            @unique
-  email            String            @unique
-  password         String?
-  providerId       String?
-  fullName         String?
-  photoUrl         String?
-  bio              String?
-  birthDate        DateTime?         @db.Date
-  country          String?
-  levelOfEducation LevelOfEducation?
-  university       String?
-  role             Role              @default(USER)
-  status           UserStatus        @default(PENDING_VERIFICATION)
-  isEmailVisible   Boolean           @default(false)
-  isPremium        Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                  String            @id @default(uuid()) @db.Uuid
+  username            String            @unique
+  email               String            @unique
+  password            String?
+  providerId          String?
+  fullName            String?
+  photoUrl            String?
+  bio                 String?
+  birthDate           DateTime?         @db.Date
+  country             String?
+  levelOfEducation    LevelOfEducation?
+  university          String?
+  role                Role              @default(USER)
+  status              UserStatus        @default(PENDING_VERIFICATION)
+  isEmailVisible      Boolean           @default(false)
+  isPremium           Boolean           @default(false)
+  scheduledDeletionAt DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   otpVerifications  OtpVerification[]
   refreshTokens     RefreshToken[]
@@ -99,6 +113,7 @@ model User {
   chatSessions      ChatSession[]
   messageFeedbacks  MessageFeedback[]
   chatFiles         ChatFile[]
+  settings          UserSettings?
 
   @@unique([providerId])
   @@index([email])
@@ -110,6 +125,7 @@ model OtpVerification {
   userId    String     @db.Uuid
   otpCode   String
   purpose   OtpPurpose
+  newEmail  String? // has value only for EMAIL_CHANGE purpose
   expiresAt DateTime
   isUsed    Boolean    @default(false)
 
@@ -119,7 +135,6 @@ model OtpVerification {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
-  @@index([otpCode])
   @@index([expiresAt])
 }
 
@@ -145,6 +160,7 @@ model Interest {
   custom Boolean @default(false)
 
   users            UserInterest[]
+  recommendationInterests  RecommendationInterest[]
   discussionTopics DiscussionTopic[]
 
   @@index([name])
@@ -160,6 +176,21 @@ model UserInterest {
   @@id([userId, interestId])
   @@index([userId])
   @@index([interestId])
+}
+
+model RecommendationInterest {
+  settingsId String @db.Uuid
+  interestId String @db.Uuid
+
+  settings UserSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  interest Interest     @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([settingsId, interestId])
+  @@index([settingsId])
+  @@index([interestId])
+  @@map("recommendation_interests")
 }
 
 model FieldOfStudy {
@@ -517,4 +548,39 @@ model ChatFile {
   @@index([userId])
   @@index([sessionId])
   @@map("chat_files")
+}
+
+model UserSettings {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  showRecommendedPapers Boolean @default(true)
+  hideAlreadyReadPapers Boolean @default(false)
+
+  saveSearchHistory Boolean @default(true)
+
+  colorMode       ColorMode @default(SYSTEM)
+  defaultFontSize FontSize  @default(MEDIUM)
+
+  defaultReadingListVisibility Boolean @default(true)
+
+  annotationHighlightColors String[]
+
+  notifyNewPapersInField    Boolean @default(true)
+  notifyReadingListActivity Boolean @default(true)
+  notifyNewFollowers        Boolean @default(true)
+  notifyDiscussionReplies   Boolean @default(true)
+  notifyCommentMentions     Boolean @default(true)
+  notifyVotesOnContent      Boolean @default(true)
+
+  isPrivateAccount                     Boolean @default(false)
+  allowProfileSearch                   Boolean @default(true)
+  allowPublicComments                  Boolean @default(true)
+  useReadingBehaviorForRecommendations Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendationInterests RecommendationInterest[]
 }

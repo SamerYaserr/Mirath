@@ -1,6 +1,7 @@
 import { Prisma, User, UserStatus } from '@prisma/client';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -244,19 +245,37 @@ export class UsersService {
     currentUserId: string,
     targetUserId: string,
   ): Promise<HttpResponse<{ profile: ProfileResDto }>> {
-    const profile = await this._getFormattedProfile(targetUserId);
+
+    await this.checkUserExistance(targetUserId);
 
     const isMe = currentUserId === targetUserId;
+    let isFollowing = false;
+
+    // TODO: check if the user has blocked the current user
+    // TODO: check if the current user has blocked the target user
+
+    if (!isMe) {
+
+      const [followingResult, userSettings] = await Promise.all([
+        this.followsRepository.find(currentUserId, targetUserId),
+        this.prisma.userSettings.findUnique({
+          where: { userId: targetUserId },
+          select: { isPrivateAccount: true },
+        }),
+      ]);
+
+      isFollowing = !!followingResult;
+
+      if (userSettings?.isPrivateAccount && !isFollowing) {
+        throw new ForbiddenException('This account is private');
+      }
+    }
+
+    const profile = await this._getFormattedProfile(targetUserId);
+
     if (!isMe && !profile.isEmailVisible) {
       profile.email = '';
     }
-
-    let isFollowing = false;
-    if (!isMe)
-      isFollowing = !!(await this.followsRepository.find(
-        currentUserId,
-        targetUserId,
-      ));
 
     const data = {
       ...profile,
