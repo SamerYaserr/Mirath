@@ -22,6 +22,7 @@ import {
   ApiBearerAuth,
   getSchemaPath,
   ApiExtraModels,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 
 import { HttpResponse } from 'src/common/types/api.types';
@@ -42,6 +43,8 @@ import { UpdateFeedPreferencesReqDto } from './dto/requests/update-feed.req.dto'
 import { ReplaceInterestsReqDto } from './dto/requests/replace-interests.req.dto';
 import { NotificationPreferencesResDto } from './dto/responses/notification-preferences.res.dto';
 import { UpdateNotificationsReqDto } from './dto/requests/update-notifications.req.dto';
+import { DeactivateReqDto } from './dto/requests/deactivate.req.dto';
+import { DeleteReqDto } from './dto/requests/delete.req.dto';
 
 @ApiTags('User Settings')
 @ApiBearerAuth()
@@ -361,6 +364,66 @@ export class UserSettingsController {
     return this.userSettingsService.revokeAllSessions(user!.id, sessionId!);
   }
 
+  @Post('account/deactivate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Deactivate user's account",
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Account deactivated successfully.',
+    schema: {
+      example: {
+        message:
+          'Account successfully deactivated. You can log in anytime to reactivate.',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Google-authenticated accounts cannot use this flow.',
+  })
+  @ApiForbiddenResponse({ description: 'Incorrect password.' })
+  async deactivate(
+    @Req() { user }: Request,
+    @Body() dto: DeactivateReqDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.userSettingsService.deactivate(user!.id, dto);
+    clearRefreshTokenCookie(res);
+
+    return result;
+  }
+
+  @Post('account/delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Delete user's account",
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Account deleted successfully.',
+    schema: {
+      example: {
+        message:
+          'Account will be deleted permanently in 30 days. You can log in anytime before to reactivate.',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Google-authenticated accounts cannot use this flow.',
+  })
+  @ApiForbiddenResponse({ description: 'Incorrect password.' })
+  async delete(
+    @Req() { user }: Request,
+    @Body() dto: DeleteReqDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.userSettingsService.delete(user!.id, dto);
+    clearRefreshTokenCookie(res);
+
+    return result;
+  }
+
   @Get('feed')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -509,6 +572,9 @@ export class UserSettingsController {
     @Req() { user }: Request,
     @Body() dto: UpdateNotificationsReqDto,
   ) {
-    return this.userSettingsService.updateNotificationPreferences(user!.id, dto);
+    return this.userSettingsService.updateNotificationPreferences(
+      user!.id,
+      dto,
+    );
   }
 }

@@ -1,5 +1,5 @@
 import * as bcrypt from 'bcrypt';
-import { OtpPurpose, User } from '@prisma/client';
+import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import {
   Injectable,
   ConflictException,
@@ -29,6 +29,10 @@ import { OtpRepository } from '../auth/repositories/otp.repository';
 import { UsersRepository } from '../users/repositories/users.repository';
 import { RefreshTokenRepository } from '../auth/repositories/refreshToken.repository';
 import { UserSettingsRepository } from './repositories/user-settings.repository';
+import { DeactivateReqDto } from './dto/requests/deactivate.req.dto';
+import { DeleteReqDto } from './dto/requests/delete.req.dto';
+import { MailService } from '../mail/mail.service';
+import { winstonLogger } from 'src/config/logger.config';
 
 @Injectable()
 export class UserSettingsService {
@@ -39,6 +43,7 @@ export class UserSettingsService {
     private readonly userRepository: UsersRepository,
     private readonly userSettingsRepository: UserSettingsRepository,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private mailService: MailService,
   ) {}
 
   async get(userId: string): Promise<HttpResponse<AppearanceSettingsResDto>> {
@@ -227,6 +232,72 @@ export class UserSettingsService {
   async revokeAllSessions(userId: string, sessionId: string) {
     await this.refreshTokenRepository.deleteAllExcept(userId, sessionId);
     return { message: 'Successfully logged out from all other devices' };
+  }
+
+  async deactivate(userId: string, dto: DeactivateReqDto) {
+    const user = await this.userRepository.findById(userId);
+    if (!user?.password)
+      throw new BadRequestException(
+        'Google-authenticated accounts cannot use this flow.',
+      );
+
+    const isMatch = await bcrypt.compare(dto.password, user.password);
+    if (!isMatch) {
+      throw new ForbiddenException('Incorrect password.');
+    }
+
+    await Promise.all([
+      this.userRepository.update({
+        where: { id: userId },
+        data: {
+          status: UserStatus.DEACTIVATED,
+          scheduledDeletionAt: null,
+        },
+      }),
+      this.refreshTokenRepository.deleteByUserId(userId),
+    ]);
+
+    return {
+      message:
+        'Account successfully deactivated. You can log in anytime to reactivate.',
+    };
+  }
+
+  async delete(userId: string, dto: DeleteReqDto) {
+    const user = await this.userRepository.findById(userId);
+    if (!user?.password)
+      throw new BadRequestException(
+        'Google-authenticated accounts cannot use this flow.',
+      );
+
+    const isMatch = await bcrypt.compare(dto.password, user.password);
+    if (!isMatch) {
+      throw new ForbiddenException('Incorrect password.');
+    }
+
+    const scheduledDeletionAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // add 30 days in MS
+
+    await Promise.all([
+      this.userRepository.update({
+        where: { id: userId },
+        data: {
+          status: UserStatus.DEACTIVATED,
+          scheduledDeletionAt,
+        },
+      }),
+      this.refreshTokenRepository.deleteByUserId(userId),
+    ]);
+
+    this.mailService
+      .sendDeletionWarning(user, scheduledDeletionAt)
+      .catch((err) => {
+        winstonLogger.error('Failed to send deletion warning email', err);
+      });
+
+    return {
+      message:
+        'Account will be deleted permanently in 30 days. You can log in anytime before to reactivate.',
+    };
   }
 
   async getFeedSettings(
