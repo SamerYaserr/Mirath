@@ -613,15 +613,12 @@ export class AuthService {
   }
 
   private async reactivateUser(userId: string) {
-    await this.usersRepository.update({
+    return await this.usersRepository.update({
       where: { id: userId },
       data: {
         status: UserStatus.ACTIVE,
         scheduledDeletionAt: null,
       },
     });
-
-    const updatedUser = await this.usersRepository.findById(userId);
-    return updatedUser;
   }
 }

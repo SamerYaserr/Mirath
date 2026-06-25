@@ -1,5 +1,5 @@
 import * as bcrypt from 'bcrypt';
-import { OtpPurpose, User } from '@prisma/client';
+import { OtpPurpose, User, UserStatus } from '@prisma/client';
 import {
   Injectable,
   ConflictException,
@@ -247,7 +247,13 @@ export class UserSettingsService {
     }
 
     await Promise.all([
-      this.userRepository.updateStatus(userId, 'DEACTIVATED'),
+      this.userRepository.update({
+        where: { id: userId },
+        data: {
+          status: UserStatus.DEACTIVATED,
+          scheduledDeletionAt: null,
+        },
+      }),
       this.refreshTokenRepository.deleteByUserId(userId),
     ]);
 
@@ -275,7 +281,7 @@ export class UserSettingsService {
       this.userRepository.update({
         where: { id: userId },
         data: {
-          status: 'DEACTIVATED',
+          status: UserStatus.DEACTIVATED,
           scheduledDeletionAt,
         },
       }),
