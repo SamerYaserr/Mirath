@@ -57,10 +57,10 @@ export class AuthService {
   async signup(
     signupReqDto: SignupReqDto,
   ): Promise<HttpResponse<SignupDataResDto>> {
-    const existingUser = await this.usersRepository.findByEmailOrUsername(
-      signupReqDto.email,
-      signupReqDto.username,
-    );
+    const existingUser = await this.usersRepository.findByEmailOrUsername({
+      email: signupReqDto.email,
+      username: signupReqDto.username,
+    });
     if (existingUser) {
       if (
         existingUser.email === signupReqDto.email &&
@@ -126,9 +126,9 @@ export class AuthService {
   async verifyEmail(
     verifyEmailReqDto: VerifyEmailReqDto,
   ): Promise<AuthSessionResult> {
-    const user = await this.usersRepository.findByEmail(
-      verifyEmailReqDto.email,
-    );
+    const user = await this.usersRepository.findByEmail({
+      email: verifyEmailReqDto.email,
+    });
     if (!user) throw new BadRequestException('Invalid request');
 
     const otpRecord = await this.otpRepository.findPendingOtp(
@@ -160,9 +160,9 @@ export class AuthService {
   async resendVerification(
     resendVerificationReqDto: ResendVerificationReqDto,
   ): Promise<HttpResponse<null>> {
-    const user = await this.usersRepository.findByEmail(
-      resendVerificationReqDto.email,
-    );
+    const user = await this.usersRepository.findByEmail({
+      email: resendVerificationReqDto.email,
+    });
     if (!user) throw new NotFoundException('User not found');
     if (user.status === UserStatus.ACTIVE)
       throw new ConflictException('Account already verified');
@@ -222,7 +222,7 @@ export class AuthService {
       throw new UnauthorizedException('Google email not verified');
 
     const email = payload.email.toLowerCase();
-    let user = await this.usersRepository.findByEmail(email);
+    let user = await this.usersRepository.findByEmail({ email });
 
     // Existing user
     if (user) {
@@ -235,11 +235,8 @@ export class AuthService {
           'This account has been suspended. Please contact support.',
         );
       }
-      if (user.status === UserStatus.DEACTIVATED) {
-        throw new ForbiddenException(
-          'Your account is deactivated. Please request reactivation.',
-        );
-      }
+      if (user.status === UserStatus.DEACTIVATED)
+        user = (await this.reactivateUser(user.id))!;
 
       // Auto-activate pending users
       if (user.status === UserStatus.PENDING_VERIFICATION) {
@@ -294,10 +291,10 @@ export class AuthService {
     const { emailOrUsername, password } = loginReqDto;
     const isEmail = emailOrUsername.includes('@');
 
-    const user = await this.usersRepository.findByEmailOrUsername(
-      isEmail ? emailOrUsername : '',
-      isEmail ? '' : emailOrUsername,
-    );
+    let user = await this.usersRepository.findByEmailOrUsername({
+      email: isEmail ? emailOrUsername : '',
+      username: isEmail ? '' : emailOrUsername,
+    });
 
     if (!user) {
       winstonLogger.warn(`Invalid login username/email for ${emailOrUsername}`);
@@ -330,10 +327,9 @@ export class AuthService {
         'Your account has been suspended or banned. Please contact support.',
       );
 
-    if (status === UserStatus.DEACTIVATED)
-      throw new ForbiddenException(
-        'Your account is deactivated. Please contact support to reactivate it.',
-      );
+    if (status === UserStatus.DEACTIVATED) {
+      user = (await this.reactivateUser(user.id))!;
+    }
 
     await this.refreshTokenRepository.countActiveAndDeleteOldestToken(user.id);
     winstonLogger.info(`User ${emailOrUsername} logged in successfully`);
@@ -357,7 +353,7 @@ export class AuthService {
     forgetPasswordReqDto: ForgetPasswordReqDto,
   ): Promise<HttpResponse<null>> {
     const { email } = forgetPasswordReqDto;
-    const user = await this.usersRepository.findByEmail(email);
+    const user = await this.usersRepository.findByEmail({ email });
     if (user) {
       await this.otpRepository.invalidatePendingOtps(
         user.id,
@@ -383,7 +379,7 @@ export class AuthService {
     verifyResetCodeReqDto: VerifyResetCodeReqDto,
   ): Promise<HttpResponse<ResetTokenResDto>> {
     const { email, otp } = verifyResetCodeReqDto;
-    const user = await this.usersRepository.findByEmail(email);
+    const user = await this.usersRepository.findByEmail({ email });
     if (!user) throw new BadRequestException('Invalid or expired OTP');
 
     const status = user.status;
@@ -446,7 +442,10 @@ export class AuthService {
       );
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.usersRepository.updatePassword(user.id, hashedPassword);
+    await this.usersRepository.updatePassword({
+      id: user.id,
+      password: hashedPassword,
+    });
 
     await this.refreshTokenRepository.deleteByUserId(user.id);
 
@@ -457,9 +456,9 @@ export class AuthService {
   async checkVerificationStatus(
     checkVerificationReqDto: CheckVerificationReqDto,
   ): Promise<HttpResponse<CheckVerificationResDto>> {
-    const user = await this.usersRepository.findByEmail(
-      checkVerificationReqDto.email,
-    );
+    const user = await this.usersRepository.findByEmail({
+      email: checkVerificationReqDto.email,
+    });
 
     if (!user) {
       throw new NotFoundException('User with this email does not exist');
@@ -551,7 +550,7 @@ export class AuthService {
 
   // --- Helpers ---
 
-  private async generateAndSendOtp(
+  async generateAndSendOtp(
     userId: string,
     email: string,
     purpose: OtpPurpose,
@@ -571,9 +570,10 @@ export class AuthService {
       otpCode: hashedOtp,
       purpose,
       expiresAt,
+      newEmail: purpose === OtpPurpose.EMAIL_CHANGE ? email : null,
     });
 
-    await this.mailService.sendOtpEmail(email, otp);
+    await this.mailService.sendOtpEmail(email, otp, purpose);
   }
 
   private async createSession(
@@ -610,5 +610,15 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  private async reactivateUser(userId: string) {
+    return await this.usersRepository.update({
+      where: { id: userId },
+      data: {
+        status: UserStatus.ACTIVE,
+        scheduledDeletionAt: null,
+      },
+    });
   }
 }

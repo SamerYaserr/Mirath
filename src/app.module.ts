@@ -8,6 +8,7 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
 import { UsersModule } from './modules/users/users.module';
+import { UserSettingsModule } from './modules/user-settings/user-settings.module';
 import { InterestsModule } from './modules/interests/interests.module';
 import { AuthGuard } from './modules/auth/guards/auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
@@ -35,6 +36,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AuthModule,
     MailModule,
     UsersModule,
+    UserSettingsModule,
     InterestsModule,
     PapersModule,
     LibraryModule,
