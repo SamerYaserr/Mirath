@@ -135,4 +135,15 @@ export class UsersRepository {
       select: { id: true },
     });
   }
+
+  async deleteExpiredAccounts(): Promise<string[]> {
+    const now = new Date();
+    const deleted = await this.prisma.$queryRaw<{ id: string }[]>`
+    DELETE FROM "User"
+    WHERE "scheduledDeletionAt" IS NOT NULL
+      AND "scheduledDeletionAt" <= ${now}
+    RETURNING id
+  `;
+    return deleted.map((row) => row.id);
+  }
 }
