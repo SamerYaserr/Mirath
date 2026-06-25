@@ -27,6 +27,7 @@ import { DiscussionVotesRepository } from './repositories/discussion-votes.repos
 import { DiscussionResDto } from './dto/responses/discussion.res.dto';
 import { CommentResDto } from './dto/responses/created-comment.res.dto';
 import { DetailedCommentResDto } from './dto/responses/comment.res.dto';
+import { FollowsRepository } from '../users/repositories/follows.repository';
 
 @Injectable()
 export class DiscussionsService {
@@ -38,6 +39,7 @@ export class DiscussionsService {
     private interestsRepository: InterestsRepository,
     private discussionsRepository: DiscussionsRepository,
     private discussionVotesRepository: DiscussionVotesRepository,
+    private followsRepository: FollowsRepository,
   ) {}
 
   async create(
@@ -227,6 +229,22 @@ export class DiscussionsService {
     );
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
+
+    if (discussion.authorId !== userId) {
+      const authorSettings = await this.prisma.userSettings.findUnique({
+        where: { userId: discussion.authorId },
+        select: { allowPublicComments: true },
+      });
+
+      const allowPublicComments = authorSettings?.allowPublicComments ?? true;
+
+      if (!allowPublicComments) {
+        const isFollowing = await this.followsRepository.find(userId, discussion.authorId);
+        if (!isFollowing) {
+          throw new ForbiddenException('Only followers can comment on this discussion');
+        }
+      }
+    }
 
     if (parentId) {
       const parentComment = await this.commentsRepository.findById(parentId);

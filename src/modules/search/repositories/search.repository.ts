@@ -96,6 +96,9 @@ export class SearchRepository {
     return this.prisma.user.findMany({
       where: {
         status: UserStatus.ACTIVE,
+        settings: {
+          allowProfileSearch: true,
+        },
         OR: [
           { username: { contains: query, mode: 'insensitive' } },
           { fullName: { contains: query, mode: 'insensitive' } },
