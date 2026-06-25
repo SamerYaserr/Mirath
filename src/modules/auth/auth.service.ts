@@ -235,11 +235,8 @@ export class AuthService {
           'This account has been suspended. Please contact support.',
         );
       }
-      if (user.status === UserStatus.DEACTIVATED) {
-        throw new ForbiddenException(
-          'Your account is deactivated. Please request reactivation.',
-        );
-      }
+      if (user.status === UserStatus.DEACTIVATED)
+        user = (await this.reactivateUser(user.id))!;
 
       // Auto-activate pending users
       if (user.status === UserStatus.PENDING_VERIFICATION) {
@@ -294,7 +291,7 @@ export class AuthService {
     const { emailOrUsername, password } = loginReqDto;
     const isEmail = emailOrUsername.includes('@');
 
-    const user = await this.usersRepository.findByEmailOrUsername({
+    let user = await this.usersRepository.findByEmailOrUsername({
       email: isEmail ? emailOrUsername : '',
       username: isEmail ? '' : emailOrUsername,
     });
@@ -330,10 +327,9 @@ export class AuthService {
         'Your account has been suspended or banned. Please contact support.',
       );
 
-    if (status === UserStatus.DEACTIVATED)
-      throw new ForbiddenException(
-        'Your account is deactivated. Please contact support to reactivate it.',
-      );
+    if (status === UserStatus.DEACTIVATED) {
+      user = (await this.reactivateUser(user.id))!;
+    }
 
     await this.refreshTokenRepository.countActiveAndDeleteOldestToken(user.id);
     winstonLogger.info(`User ${emailOrUsername} logged in successfully`);
@@ -614,5 +610,15 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  private async reactivateUser(userId: string) {
+    return await this.usersRepository.update({
+      where: { id: userId },
+      data: {
+        status: UserStatus.ACTIVE,
+        scheduledDeletionAt: null,
+      },
+    });
   }
 }

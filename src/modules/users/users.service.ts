@@ -256,7 +256,7 @@ export class UsersService {
 
     if (!isMe) {
 
-      const [FollowingResult, userSettings] = await Promise.all([
+      const [followingResult, userSettings] = await Promise.all([
         this.followsRepository.find(currentUserId, targetUserId),
         this.prisma.userSettings.findUnique({
           where: { userId: targetUserId },
@@ -264,7 +264,7 @@ export class UsersService {
         }),
       ]);
 
-      isFollowing = !!FollowingResult;
+      isFollowing = !!followingResult;
 
       if (userSettings?.isPrivateAccount && !isFollowing) {
         throw new ForbiddenException('This account is private');

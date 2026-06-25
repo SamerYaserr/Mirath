@@ -52,4 +52,26 @@ export class MailService {
       },
     });
   }
+
+  async sendDeletionWarning(
+    user: { email: string; username?: string },
+    scheduledDeletionAt: Date,
+  ) {
+    const deletionDate = scheduledDeletionAt.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: 'Your account is scheduled for deletion',
+      template: 'deletion-warning',
+      context: {
+        username: user.username || null,
+        deletionDate,
+        year: new Date().getFullYear(),
+      },
+    });
+  }
 }
