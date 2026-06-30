@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import { configuration } from './config/configuration';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -22,6 +23,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { PaperAnnotationsModule } from './modules/paper-annotations/paper-annotations.module';
 import ChatbotModule from './modules/chatbot/chatbot.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -32,6 +34,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       load: [configuration],
     }),
     ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot(),
     HealthModule,
     AuthModule,
     MailModule,
@@ -47,6 +50,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CommentsModule,
     PaperAnnotationsModule,
     ChatbotModule,
+    NotificationsModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
@@ -55,3 +59,4 @@ import { ScheduleModule } from '@nestjs/schedule';
   ],
 })
 export class AppModule {}
+
