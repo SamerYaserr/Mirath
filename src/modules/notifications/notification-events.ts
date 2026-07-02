@@ -35,7 +35,11 @@ export interface ReplyCreatedPayload extends BaseNotificationPayload {
   contentPreview: string;
 }
 
-export interface MentionCreatedPayload extends BaseNotificationPayload {
+export interface MentionCreatedPayload {
+  actorUserId: string;
+  actorName: string;
+  actorPhotoUrl: string | null;
+  mentionedUsername: string;
   discussionId: string;
   commentId: string;
   contentPreview: string;
