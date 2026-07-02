@@ -148,9 +148,14 @@ export class NotificationProcessor extends WorkerHost {
 
     await this.sendPush(
       targetUserId,
-      `${actorName} commented on your discussion`,
-      contentPreview,
-      { type: NotificationType.COMMENT, discussionId, commentId },
+      'New Comment',
+      `${actorName} commented on your discussion.`,
+      {
+        type: NotificationType.COMMENT,
+        discussionId,
+        commentId,
+        contentPreview,
+      },
     );
   }
 
@@ -189,31 +194,55 @@ export class NotificationProcessor extends WorkerHost {
 
     await this.sendPush(
       targetUserId,
-      `${actorName} replied to your comment`,
-      contentPreview,
-      { type: NotificationType.REPLY, discussionId, commentId },
+      'New Reply',
+      `${actorName} replied to your comment.`,
+      {
+        type: NotificationType.REPLY,
+        discussionId,
+        commentId,
+        parentCommentId,
+        contentPreview,
+      },
     );
   }
 
   private async handleMention(job: Job<MentionCreatedPayload>): Promise<void> {
     const {
-      targetUserId,
       actorUserId,
       actorName,
       actorPhotoUrl,
       discussionId,
       commentId,
       contentPreview,
+      mentionedUsername,
     } = job.data;
 
+    const resolvedUser = await this.prisma.user.findUnique({
+      where: { username: mentionedUsername },
+      select: { id: true },
+    });
+
+    if (!resolvedUser) {
+      this.logger.debug(
+        `Mentioned username "${mentionedUsername}" not found, skipping`,
+      );
+      return;
+    }
+
+    const resolvedUserId = resolvedUser.id;
+
+    if (resolvedUserId === actorUserId) {
+      return; // self-mention
+    }
+
     if (
-      !(await this.isPreferenceEnabled(targetUserId, 'notifyCommentMentions'))
+      !(await this.isPreferenceEnabled(resolvedUserId, 'notifyCommentMentions'))
     ) {
       return;
     }
 
     await this.notificationsRepo.create({
-      recipientId: targetUserId,
+      recipientId: resolvedUserId,
       actorId: actorUserId,
       type: NotificationType.MENTION,
       metadata: {
@@ -227,10 +256,15 @@ export class NotificationProcessor extends WorkerHost {
     });
 
     await this.sendPush(
-      targetUserId,
-      `${actorName} mentioned you in a comment`,
-      contentPreview,
-      { type: NotificationType.MENTION, discussionId, commentId },
+      resolvedUserId,
+      'You Were Mentioned',
+      `${actorName} mentioned you in a comment.`,
+      {
+        type: NotificationType.MENTION,
+        discussionId,
+        commentId,
+        contentPreview,
+      },
     );
   }
 
