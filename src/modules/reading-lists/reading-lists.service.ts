@@ -4,8 +4,9 @@ import {
   ForbiddenException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
 
 import { HttpResponse } from 'src/common/types/api.types';
 import { ReadingListsRepository } from './repositories/reading-lists.repository';
@@ -20,12 +21,16 @@ import { AddedPaperResDto } from './dtos/responses/add-paper.res.dto';
 import { UpdateReadingListServiceParams } from './reading-list.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NOTIFICATION_EVENTS } from '../notifications/notification-events';
 
 @Injectable()
 export class ReadingListsService {
+  private readonly logger = new Logger(ReadingListsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly readingListsRepository: ReadingListsRepository,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -210,17 +215,30 @@ export class ReadingListsService {
     }
   }
 
-  async save(id: string, userId: string): Promise<HttpResponse> {
+  async save(id: string, actor: User): Promise<HttpResponse> {
     const list = await this.readingListsRepository.findById(id);
     if (!list) throw new NotFoundException('Reading list not found.');
 
-    if (list.ownerId === userId)
+    if (list.ownerId === actor.id)
       throw new BadRequestException('You cannot save your own list.');
 
     if (!list.isPublic)
       throw new ForbiddenException('You cannot save a private list.');
 
-    await this.readingListsRepository.save(id, userId);
+    await this.readingListsRepository.save(id, actor.id);
+
+    try {
+      this.eventEmitter.emit(NOTIFICATION_EVENTS.READING_LIST_SAVED, {
+        targetUserId: list.ownerId,
+        actorUserId: actor.id,
+        actorName: actor.username ?? actor.fullName ?? 'Someone',
+        actorPhotoUrl: actor.photoUrl ?? null,
+        listId: list.id,
+        listTitle: list.title,
+      });
+    } catch (error) {
+      this.logger.error('Error sending notifications, ', error);
+    }
 
     return { message: 'List saved successfully.' };
   }

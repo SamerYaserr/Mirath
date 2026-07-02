@@ -109,8 +109,8 @@ export class NotificationProcessor extends WorkerHost {
 
     await this.sendPush(
       targetUserId,
-      `${actorName} saved your reading list`,
-      listTitle,
+      'Reading List Saved',
+      `${actorName} saved your reading list "${listTitle}".`,
       { type: NotificationType.READING_LIST_SAVED, listId },
     );
   }
