@@ -69,8 +69,8 @@ export class NotificationProcessor extends WorkerHost {
 
     await this.sendPush(
       targetUserId,
+      `New Follower`,
       `${actorName} started following you`,
-      '',
       {
         type: NotificationType.FOLLOW,
         actorUserId,
