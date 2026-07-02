@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProfileSetupReqDto } from './dto/requests/profile-setup.req.dto';
@@ -27,9 +28,12 @@ import {
   USER_FIELD_WHITELIST,
 } from './dto/requests/get-me-query.req.dto';
 import { UpdateProfileReqDto } from './dto/requests/update-profile.req.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NOTIFICATION_EVENTS } from '../notifications/notification-events';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   constructor(
     private prisma: PrismaService,
     private usersRepository: UsersRepository,
@@ -37,6 +41,7 @@ export class UsersService {
     private followsRepository: FollowsRepository,
     private interestsRepository: InterestsRepository,
     private userInterestsRepository: UserInterestsRepository,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async setupProfile(
@@ -154,15 +159,26 @@ export class UsersService {
     return { data: MyProfileResDto.fromDomain(profile) };
   }
 
-  async follow(followerId: string, followingId: string): Promise<HttpResponse> {
-    if (followerId === followingId)
+  async follow(follower: User, followingId: string): Promise<HttpResponse> {
+    if (follower.id === followingId)
       throw new BadRequestException('You cannot follow yourself');
 
     await this.checkUserExistance(followingId);
 
     // Only create the relationship if there was no one
-    if (!(await this.checkFollowRelationship(followerId, followingId)))
-      await this.followsRepository.create(followerId, followingId);
+    if (!(await this.checkFollowRelationship(follower.id, followingId)))
+      await this.followsRepository.create(follower.id, followingId);
+
+    try {
+      this.eventEmitter.emit(NOTIFICATION_EVENTS.FOLLOW_CREATED, {
+        targetUserId: followingId,
+        actorUserId: follower.id,
+        actorName: follower.username ?? follower.fullName ?? 'Someone',
+        actorPhotoUrl: follower.photoUrl ?? null,
+      });
+    } catch (error) {
+      this.logger.error('Error sending the notifications, ', error);
+    }
 
     return {
       message: 'User followed successfully',
@@ -245,7 +261,6 @@ export class UsersService {
     currentUserId: string,
     targetUserId: string,
   ): Promise<HttpResponse<{ profile: ProfileResDto }>> {
-
     await this.checkUserExistance(targetUserId);
 
     const isMe = currentUserId === targetUserId;
@@ -255,7 +270,6 @@ export class UsersService {
     // TODO: check if the current user has blocked the target user
 
     if (!isMe) {
-
       const [followingResult, userSettings] = await Promise.all([
         this.followsRepository.find(currentUserId, targetUserId),
         this.prisma.userSettings.findUnique({
@@ -391,6 +405,8 @@ export class UsersService {
   async checkUserExistance(id: string) {
     const user = await this.usersRepository.findById(id);
     if (!user) throw new NotFoundException('User not found');
+
+    return user;
   }
 
   async checkFollowRelationship(

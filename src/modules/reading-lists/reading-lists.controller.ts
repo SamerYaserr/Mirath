@@ -336,8 +336,7 @@ export class ReadingListsController {
     @Param() { id }: IdDto,
     @Req() req: Request,
   ): Promise<HttpResponse> {
-    const userId = req.user!.id;
-    return this.readingListsService.save(id, userId);
+    return this.readingListsService.save(id, req.user!);
   }
 
   @Delete(':id/save')
