@@ -58,6 +58,13 @@ export class NotificationHandler {
       await this.notificationsQueue.add(
         NOTIFICATION_EVENTS.COMMENT_CREATED,
         payload,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        },
       );
     } catch (error) {
       this.logger.error(
@@ -72,6 +79,13 @@ export class NotificationHandler {
       await this.notificationsQueue.add(
         NOTIFICATION_EVENTS.REPLY_CREATED,
         payload,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        },
       );
     } catch (error) {
       this.logger.error(
@@ -86,6 +100,13 @@ export class NotificationHandler {
       await this.notificationsQueue.add(
         NOTIFICATION_EVENTS.MENTION_CREATED,
         payload,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        },
       );
     } catch (error) {
       this.logger.error(
