@@ -22,124 +22,51 @@ export class NotificationHandler {
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
+  private async enqueue<T>(event: string, payload: T, withRetry = false): Promise<void> {
+    try {
+      const opts = withRetry
+        ? { attempts: 3, backoff: { type: 'exponential' as const, delay: 1000 } }
+        : undefined;
+      await this.notificationsQueue.add(event, payload, opts);
+    } catch (error) {
+      this.logger.error(`Failed to enqueue ${event}: ${error}`);
+    }
+  }
+
   @OnEvent(NOTIFICATION_EVENTS.FOLLOW_CREATED)
   async handleFollowCreated(payload: FollowCreatedPayload): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.FOLLOW_CREATED,
-        payload,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.FOLLOW_CREATED}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.FOLLOW_CREATED, payload);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.READING_LIST_SAVED)
   async handleReadingListSaved(
     payload: ReadingListSavedPayload,
   ): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.READING_LIST_SAVED,
-        payload,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.READING_LIST_SAVED}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.READING_LIST_SAVED, payload);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.COMMENT_CREATED)
   async handleCommentCreated(payload: CommentCreatedPayload): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.COMMENT_CREATED,
-        payload,
-        {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 1000,
-          },
-        },
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.COMMENT_CREATED}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.COMMENT_CREATED, payload, true);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.REPLY_CREATED)
   async handleReplyCreated(payload: ReplyCreatedPayload): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.REPLY_CREATED,
-        payload,
-        {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 1000,
-          },
-        },
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.REPLY_CREATED}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.REPLY_CREATED, payload, true);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.MENTION_CREATED)
   async handleMentionCreated(payload: MentionCreatedPayload): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.MENTION_CREATED,
-        payload,
-        {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 1000,
-          },
-        },
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.MENTION_CREATED}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.MENTION_CREATED, payload, true);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.VOTE_DISCUSSION)
   async handleVoteDiscussion(payload: VoteDiscussionPayload): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.VOTE_DISCUSSION,
-        payload,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.VOTE_DISCUSSION}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.VOTE_DISCUSSION, payload);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.VOTE_COMMENT)
   async handleVoteComment(payload: VoteCommentPayload): Promise<void> {
-    try {
-      await this.notificationsQueue.add(
-        NOTIFICATION_EVENTS.VOTE_COMMENT,
-        payload,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue ${NOTIFICATION_EVENTS.VOTE_COMMENT}: ${error}`,
-      );
-    }
+    await this.enqueue(NOTIFICATION_EVENTS.VOTE_COMMENT, payload);
   }
 }

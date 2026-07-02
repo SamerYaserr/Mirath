@@ -151,7 +151,7 @@ export class NotificationProcessor extends WorkerHost {
       'New Comment',
       `${actorName} commented on your discussion.`,
       {
-        type: NotificationType.COMMENT,
+        type: 'comment',
         discussionId,
         commentId,
         contentPreview,
@@ -197,7 +197,7 @@ export class NotificationProcessor extends WorkerHost {
       'New Reply',
       `${actorName} replied to your comment.`,
       {
-        type: NotificationType.REPLY,
+        type: 'reply',
         discussionId,
         commentId,
         parentCommentId,
@@ -260,7 +260,7 @@ export class NotificationProcessor extends WorkerHost {
       'You Were Mentioned',
       `${actorName} mentioned you in a comment.`,
       {
-        type: NotificationType.MENTION,
+        type: 'mention',
         discussionId,
         commentId,
         contentPreview,
