@@ -199,6 +199,12 @@ export class UserSettingsService {
       await this.refreshTokenRepository.deleteByUserId(userId, tx);
     });
 
+    this.prisma.deviceFcmToken
+      .deleteMany({ where: { userId } })
+      .catch((err) =>
+        winstonLogger.error('Failed to clear device tokens', err),
+      );
+
     return {
       message:
         'Password updated successfully. You have been logged out of all other devices.',
@@ -254,16 +260,25 @@ export class UserSettingsService {
       throw new ForbiddenException('Incorrect password.');
     }
 
-    await Promise.all([
-      this.userRepository.update({
-        where: { id: userId },
-        data: {
-          status: UserStatus.DEACTIVATED,
-          scheduledDeletionAt: null,
+    await this.prisma.$transaction(async (tx) => {
+      await this.userRepository.update(
+        {
+          where: { id: userId },
+          data: {
+            status: UserStatus.DEACTIVATED,
+            scheduledDeletionAt: null,
+          },
         },
-      }),
-      this.refreshTokenRepository.deleteByUserId(userId),
-    ]);
+        tx,
+      );
+      await this.refreshTokenRepository.deleteByUserId(userId, tx);
+    });
+
+    this.prisma.deviceFcmToken
+      .deleteMany({ where: { userId } })
+      .catch((err) =>
+        winstonLogger.error('Failed to clear device tokens', err),
+      );
 
     return {
       message:
@@ -285,16 +300,25 @@ export class UserSettingsService {
 
     const scheduledDeletionAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // add 30 days in MS
 
-    await Promise.all([
-      this.userRepository.update({
-        where: { id: userId },
-        data: {
-          status: UserStatus.DEACTIVATED,
-          scheduledDeletionAt,
+    await this.prisma.$transaction(async (tx) => {
+      await this.userRepository.update(
+        {
+          where: { id: userId },
+          data: {
+            status: UserStatus.DEACTIVATED,
+            scheduledDeletionAt,
+          },
         },
-      }),
-      this.refreshTokenRepository.deleteByUserId(userId),
-    ]);
+        tx,
+      );
+      await this.refreshTokenRepository.deleteByUserId(userId, tx);
+    });
+
+    this.prisma.deviceFcmToken
+      .deleteMany({ where: { userId } })
+      .catch((err) =>
+        winstonLogger.error('Failed to clear device tokens', err),
+      );
 
     this.mailService
       .sendDeletionWarning(user, scheduledDeletionAt)
