@@ -197,8 +197,13 @@ export class UserSettingsService {
         tx,
       });
       await this.refreshTokenRepository.deleteByUserId(userId, tx);
-      await tx.deviceFcmToken.deleteMany({ where: { userId } });
     });
+
+    this.prisma.deviceFcmToken
+      .deleteMany({ where: { userId } })
+      .catch((err) =>
+        winstonLogger.error('Failed to clear device tokens', err),
+      );
 
     return {
       message:
@@ -267,8 +272,13 @@ export class UserSettingsService {
         tx,
       );
       await this.refreshTokenRepository.deleteByUserId(userId, tx);
-      await tx.deviceFcmToken.deleteMany({ where: { userId } });
     });
+
+    this.prisma.deviceFcmToken
+      .deleteMany({ where: { userId } })
+      .catch((err) =>
+        winstonLogger.error('Failed to clear device tokens', err),
+      );
 
     return {
       message:
@@ -302,8 +312,13 @@ export class UserSettingsService {
         tx,
       );
       await this.refreshTokenRepository.deleteByUserId(userId, tx);
-      await tx.deviceFcmToken.deleteMany({ where: { userId } });
     });
+
+    this.prisma.deviceFcmToken
+      .deleteMany({ where: { userId } })
+      .catch((err) =>
+        winstonLogger.error('Failed to clear device tokens', err),
+      );
 
     this.mailService
       .sendDeletionWarning(user, scheduledDeletionAt)

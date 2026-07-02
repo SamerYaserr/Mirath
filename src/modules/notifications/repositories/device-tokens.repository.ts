@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DeviceFcmToken, Prisma } from '@prisma/client';
+import { DeviceFcmToken } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertDeviceTokenPayload } from '../notification.types';
@@ -8,9 +8,24 @@ import { UpsertDeviceTokenPayload } from '../notification.types';
 export class DeviceTokensRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllByUserId(userId: string): Promise<DeviceFcmToken[]> {
+  async findAllByUserId(
+    userId: string,
+  ): Promise<
+    Pick<
+      DeviceFcmToken,
+      'id' | 'token' | 'deviceId' | 'createdAt' | 'updatedAt'
+    >[]
+  > {
     return this.prisma.deviceFcmToken.findMany({
       where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        token: true,
+        deviceId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -30,9 +45,6 @@ export class DeviceTokensRepository {
     }
   }
 
-  async deleteByUserId(userId: string): Promise<Prisma.BatchPayload> {
-    return this.prisma.deviceFcmToken.deleteMany({ where: { userId } });
-  }
 
   async upsert({
     token,
