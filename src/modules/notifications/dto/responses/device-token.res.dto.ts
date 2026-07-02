@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class RegisterDeviceTokenResDto {
+export class DeviceTokenResDto {
   @ApiProperty({
     description: 'Unique identifier of the device token',
     example: '123e4567-e89b-12d3-a456-426614174000',
@@ -32,8 +32,8 @@ export class RegisterDeviceTokenResDto {
     token: string;
     deviceId?: string | null;
     updatedAt: Date;
-  }): RegisterDeviceTokenResDto {
-    const dto = new RegisterDeviceTokenResDto();
+  }): DeviceTokenResDto {
+    const dto = new DeviceTokenResDto();
 
     dto.id = entity.id;
     dto.token = entity.token;

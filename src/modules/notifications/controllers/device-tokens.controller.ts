@@ -1,6 +1,7 @@
 import {
   Req,
   Body,
+  Get,
   Post,
   HttpCode,
   Controller,
@@ -20,11 +21,11 @@ import { type Request } from 'express';
 import { HttpResponse } from 'src/common/types/api.types';
 import { DeviceTokensService } from '../device-tokens.service';
 import { RegisterDeviceTokenReqDto } from '../dto/requests/register-device-token.req.dto';
-import { RegisterDeviceTokenResDto } from '../dto/responses/device-token.res.dto';
+import { DeviceTokenResDto } from '../dto/responses/device-token.res.dto';
 
 @ApiTags('Device Tokens')
 @ApiBearerAuth()
-@ApiExtraModels(RegisterDeviceTokenResDto)
+@ApiExtraModels(DeviceTokenResDto)
 @Controller('users/notifications/tokens')
 export class DeviceTokensController {
   constructor(private readonly deviceTokensService: DeviceTokensService) {}
@@ -40,17 +41,39 @@ export class DeviceTokensController {
     description: 'Device token registered or refreshed successfully.',
     schema: {
       properties: {
-        data: { $ref: getSchemaPath(RegisterDeviceTokenResDto) },
+        data: { $ref: getSchemaPath(DeviceTokenResDto) },
       },
     },
   })
   async registerOrRefresh(
     @Req() req: Request,
     @Body() dto: RegisterDeviceTokenReqDto,
-  ): Promise<HttpResponse<RegisterDeviceTokenResDto>> {
+  ): Promise<HttpResponse<DeviceTokenResDto>> {
     return this.deviceTokensService.registerOrRefresh({
       userId: req.user!.id,
       dto,
     });
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List all registered device tokens' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Registered device tokens fetched successfully.',
+    schema: {
+      properties: {
+        size: { type: 'number', example: 2 },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(DeviceTokenResDto) },
+        },
+      },
+    },
+  })
+  async findAll(
+    @Req() req: Request,
+  ): Promise<HttpResponse<DeviceTokenResDto[]>> {
+    return this.deviceTokensService.findAll(req.user!.id);
   }
 }
