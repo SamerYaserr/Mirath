@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DeviceFcmToken } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -18,6 +18,16 @@ export class DeviceTokensRepository {
     await this.prisma.deviceFcmToken.delete({
       where: { id },
     });
+  }
+
+  async deleteByToken(userId: string, token: string): Promise<void> {
+    const result = await this.prisma.deviceFcmToken.deleteMany({
+      where: { userId, token },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException('Device token not found');
+    }
   }
 
   async upsert({

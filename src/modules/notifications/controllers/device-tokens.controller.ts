@@ -3,6 +3,7 @@ import {
   Body,
   Get,
   Post,
+  Delete,
   HttpCode,
   Controller,
   HttpStatus,
@@ -20,8 +21,9 @@ import { type Request } from 'express';
 
 import { HttpResponse } from 'src/common/types/api.types';
 import { DeviceTokensService } from '../device-tokens.service';
-import { RegisterDeviceTokenReqDto } from '../dto/requests/register-device-token.req.dto';
 import { DeviceTokenResDto } from '../dto/responses/device-token.res.dto';
+import { DeleteDeviceTokenReqDto } from '../dto/requests/delete-device-token.req.dto';
+import { RegisterDeviceTokenReqDto } from '../dto/requests/register-device-token.req.dto';
 
 @ApiTags('Device Tokens')
 @ApiBearerAuth()
@@ -75,5 +77,31 @@ export class DeviceTokensController {
     @Req() req: Request,
   ): Promise<HttpResponse<DeviceTokenResDto[]>> {
     return this.deviceTokensService.findAll(req.user!.id);
+  }
+
+  @Delete()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a specific device token' })
+  @ApiBody({ type: DeleteDeviceTokenReqDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Device token deleted successfully.',
+    schema: {
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Device token deleted successfully',
+        },
+      },
+    },
+  })
+  async deleteByToken(
+    @Req() req: Request,
+    @Body() dto: DeleteDeviceTokenReqDto,
+  ): Promise<HttpResponse> {
+    return this.deviceTokensService.deleteByToken({
+      userId: req.user!.id,
+      dto,
+    });
   }
 }
