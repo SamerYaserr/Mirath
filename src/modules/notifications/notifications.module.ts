@@ -4,11 +4,13 @@ import { ConfigService } from '@nestjs/config';
 
 import { AppConfig } from '../../config/configuration';
 import { FirebaseModule } from './firebase/firebase.module';
-import { PushNotificationService } from './push-notification.service';
 import { NotificationHandler } from './notification.handler';
+import { DeviceTokensService } from './device-tokens.service';
 import { NotificationProcessor } from './notification.processor';
-import { NotificationsRepository } from './repositories/notifications.repository';
+import { PushNotificationService } from './push-notification.service';
+import { DeviceTokensController } from './controllers/device-tokens.controller';
 import { DeviceTokensRepository } from './repositories/device-tokens.repository';
+import { NotificationsRepository } from './repositories/notifications.repository';
 
 @Module({
   imports: [
@@ -27,9 +29,11 @@ import { DeviceTokensRepository } from './repositories/device-tokens.repository'
   providers: [
     PushNotificationService,
     NotificationHandler,
+    DeviceTokensService,
     NotificationProcessor,
     NotificationsRepository,
     DeviceTokensRepository,
   ],
+  controllers: [DeviceTokensController],
 })
 export class NotificationsModule {}
