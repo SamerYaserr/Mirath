@@ -31,7 +31,7 @@ export class NotificationHandler {
       const opts = withRetry
         ? {
             attempts: 3,
-            backoff: { type: 'exponential' as const, delay: 1000 },
+            backoff: { type: 'exponential' as const, delay: 2000 },
           }
         : undefined;
       await this.notificationsQueue.add(event, payload, opts);

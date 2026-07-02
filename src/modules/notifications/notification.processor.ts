@@ -70,7 +70,7 @@ export class NotificationProcessor extends WorkerHost {
     await this.sendPush(
       targetUserId,
       `New Follower`,
-      `${actorName} started following you`,
+      `${actorName} started following you.`,
       {
         type: NotificationType.FOLLOW,
         actorUserId,
@@ -111,7 +111,7 @@ export class NotificationProcessor extends WorkerHost {
       targetUserId,
       'Reading List Saved',
       `${actorName} saved your reading list "${listTitle}".`,
-      { type: NotificationType.READING_LIST_SAVED, listId },
+      { type: NotificationType.READING_LIST_SAVED, listId, listTitle },
     );
   }
 
@@ -384,7 +384,7 @@ export class NotificationProcessor extends WorkerHost {
       data,
     );
 
-    let cleanedUp = 0;
+    const staleTokenIds: string[] = [];
     for (let i = 0; i < batchResponse.responses.length; i++) {
       const result = batchResponse.responses[i];
       const deviceToken = deviceTokens[i];
@@ -393,10 +393,14 @@ export class NotificationProcessor extends WorkerHost {
         result.error.code === 'messaging/registration-token-not-registered' &&
         deviceToken
       ) {
-        await this.deviceTokensRepo.deleteById(deviceToken.id);
-        cleanedUp++;
+        staleTokenIds.push(deviceToken.id);
       }
     }
+
+    if (staleTokenIds.length > 0) {
+      await this.deviceTokensRepo.deleteMany(staleTokenIds);
+    }
+    const cleanedUp = staleTokenIds.length;
 
     this.logger.debug(
       `Push result for user ${userId}: ${tokens.length} targeted, ` +
