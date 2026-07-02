@@ -169,7 +169,6 @@ export class UsersService {
     if (!(await this.checkFollowRelationship(follower.id, followingId)))
       await this.followsRepository.create(follower.id, followingId);
 
-    // emit
     try {
       this.eventEmitter.emit(NOTIFICATION_EVENTS.FOLLOW_CREATED, {
         targetUserId: followingId,
