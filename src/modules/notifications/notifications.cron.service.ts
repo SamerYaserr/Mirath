@@ -92,10 +92,20 @@ export class NotificationsCronService {
           if (
             result.error?.code === 'messaging/registration-token-not-registered'
           ) {
-            await this.deviceTokensRepository.deleteById(
-              user.deviceFcmTokens[index]!.id,
-            );
+            try {
+              await this.deviceTokensRepository.deleteById(
+                user.deviceFcmTokens[index]!.id,
+              );
+            } catch (cleanupError) {
+              this.logger.warn(
+                `Failed to clean up stale token for user ${user.id}: ${cleanupError}`,
+              );
+            }
           }
+        }
+
+        if (batchResponse.successCount === 0) {
+          throw new Error(`All ${tokens.length} FCM tokens failed to deliver`);
         }
 
         totalSent++;
