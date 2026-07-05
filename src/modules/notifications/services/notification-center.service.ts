@@ -9,8 +9,7 @@ export class NotificationCenterService {
   constructor(private readonly notificationsRepository: NotificationsRepository) {}
 
   async getNotifications(userId: string, query: PaginationDto): Promise<HttpResponse<NotificationListResDto>> {
-    const { page, limit } = query;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = query;
 
     const [notifications, total, unreadCount] = await Promise.all([
       this.notificationsRepository.findAllByRecipient(userId, skip, limit),
