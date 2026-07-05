@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 import { HttpResponse } from 'src/common/types/api.types';
-import { RegisterOrRefreshPayload } from './notification.types';
-import { DeviceTokenResDto } from './dto/responses/device-token.res.dto';
-import { DeviceTokensRepository } from './repositories/device-tokens.repository';
-import { DeleteDeviceTokenReqDto } from './dto/requests/delete-device-token.req.dto';
+import { RegisterOrRefreshPayload } from '../notification.types';
+import { DeviceTokenResDto } from '../dto/responses/device-token.res.dto';
+import { DeviceTokensRepository } from '../repositories/device-tokens.repository';
+import { DeleteDeviceTokenReqDto } from '../dto/requests/delete-device-token.req.dto';
 
 @Injectable()
 export class DeviceTokensService {

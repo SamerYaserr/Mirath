@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { NotificationsRepository } from './repositories/notifications.repository';
+import { NotificationsRepository } from '../repositories/notifications.repository';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { HttpResponse } from 'src/common/types/api.types';
-import { NotificationListResDto } from './dto/responses/notification-list.res.dto';
+import { NotificationListResDto } from '../dto/responses/notification-list.res.dto';
 
 @Injectable()
 export class NotificationCenterService {
