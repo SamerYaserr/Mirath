@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { VoteType } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import {
   CheckExistingType,
@@ -28,9 +30,17 @@ import { DiscussionResDto } from './dto/responses/discussion.res.dto';
 import { CommentResDto } from './dto/responses/created-comment.res.dto';
 import { DetailedCommentResDto } from './dto/responses/comment.res.dto';
 import { FollowsRepository } from '../users/repositories/follows.repository';
+import {
+  NOTIFICATION_EVENTS,
+  CommentCreatedPayload,
+  ReplyCreatedPayload,
+  MentionCreatedPayload,
+} from '../notifications/notification-events';
+import { extractMentions } from 'src/common/utils/mentions.utils';
 
 @Injectable()
 export class DiscussionsService {
+  private readonly logger = new Logger(DiscussionsService.name);
   constructor(
     private prisma: PrismaService,
     private usersRepository: UsersRepository,
@@ -40,6 +50,7 @@ export class DiscussionsService {
     private discussionsRepository: DiscussionsRepository,
     private discussionVotesRepository: DiscussionVotesRepository,
     private followsRepository: FollowsRepository,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -127,19 +138,19 @@ export class DiscussionsService {
 
   async vote({
     discussionId,
-    userId,
+    user,
     type,
   }: VoteServiceArgs): Promise<HttpResponse> {
     const discussion = await this.discussionsRepository.findOne(
       discussionId,
-      userId,
+      user.id,
     );
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
     await this.prisma.$transaction(async (tx) => {
       const existingVote = await this.discussionVotesRepository.findOne(
-        { userId, discussionId },
+        { userId: user.id, discussionId },
         tx,
       );
 
@@ -150,7 +161,7 @@ export class DiscussionsService {
           );
 
         await this.discussionVotesRepository.updateVoteType(
-          { userId, discussionId, type },
+          { userId: user.id, discussionId, type },
           tx,
         );
 
@@ -167,7 +178,7 @@ export class DiscussionsService {
         );
       } else {
         await this.discussionVotesRepository.create(
-          { userId, discussionId, type },
+          { userId: user.id, discussionId, type },
           tx,
         );
 
@@ -183,6 +194,21 @@ export class DiscussionsService {
         );
       }
     });
+
+    if (type === VoteType.UP && discussion.authorId !== user.id) {
+      try {
+        this.eventEmitter.emit(NOTIFICATION_EVENTS.VOTE_DISCUSSION, {
+          targetUserId: discussion.authorId,
+          actorUserId: user.id,
+          actorName: user.fullName,
+          actorPhotoUrl: user.photoUrl,
+          discussionId,
+          discussionTitle: discussion.title,
+        });
+      } catch (e) {
+        this.logger.error('Failed to emit vote discussion notification', e);
+      }
+    }
 
     return { message: 'Vote created successfully.' };
   }
@@ -246,8 +272,10 @@ export class DiscussionsService {
       }
     }
 
+    let parentComment: Awaited<ReturnType<typeof this.commentsRepository.findById>> = null;
+
     if (parentId) {
-      const parentComment = await this.commentsRepository.findById(parentId);
+      parentComment = await this.commentsRepository.findById(parentId);
 
       if (!parentComment)
         throw new NotFoundException('Parent comment not found');
@@ -275,6 +303,72 @@ export class DiscussionsService {
       );
       return newComment;
     });
+
+    try {
+      const mentions = extractMentions(content);
+      const needsNotification =
+        (!parentId && userId !== discussion.authorId) ||
+        (parentId && parentComment && userId !== parentComment.authorId) ||
+        mentions.length > 0;
+
+      if (needsNotification) {
+        const actor = await this.usersRepository.findById(userId, {
+          fullName: true,
+          photoUrl: true,
+          username: true,
+        });
+        const actorName = actor?.fullName || actor?.username || 'Someone';
+        const actorPhotoUrl = actor?.photoUrl ?? null;
+
+        let notifiedUsername: string | null = null;
+
+        if (!parentId) {
+          if (userId !== discussion.authorId) {
+            notifiedUsername = discussion.author.username?.toLowerCase() ?? null;
+            this.eventEmitter.emit(NOTIFICATION_EVENTS.COMMENT_CREATED, {
+              targetUserId: discussion.authorId,
+              actorUserId: userId,
+              actorName,
+              actorPhotoUrl,
+              discussionId,
+              commentId: comment.id,
+              contentPreview: content.substring(0, 100),
+            } as CommentCreatedPayload);
+          }
+        } else if (parentComment && userId !== parentComment.authorId) {
+          const parentAuthor = await this.usersRepository.findById(parentComment.authorId, { username: true });
+          notifiedUsername = parentAuthor?.username?.toLowerCase() ?? null;
+          this.eventEmitter.emit(NOTIFICATION_EVENTS.REPLY_CREATED, {
+            targetUserId: parentComment.authorId,
+            actorUserId: userId,
+            actorName,
+            actorPhotoUrl,
+            discussionId,
+            commentId: comment.id,
+            parentCommentId: parentComment.id,
+            contentPreview: content.substring(0, 100),
+          } as ReplyCreatedPayload);
+        }
+
+        for (const mentionedUsername of mentions) {
+          if (notifiedUsername && mentionedUsername === notifiedUsername) {
+            continue;
+          }
+          this.eventEmitter.emit(NOTIFICATION_EVENTS.MENTION_CREATED, {
+            actorUserId: userId,
+            actorName,
+            actorPhotoUrl,
+            discussionId,
+            commentId: comment.id,
+            contentPreview: content.substring(0, 100),
+            mentionedUsername,
+          } as MentionCreatedPayload);
+        }
+      }
+    } catch (e) {
+      // prevent push notification logic failure from breaking response
+      this.logger.error('Failed to send notification', e);
+    }
 
     return {
       message: 'Comment posted successfully.',

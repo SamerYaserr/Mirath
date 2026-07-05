@@ -60,6 +60,17 @@ enum FeedbackType {
   THUMBS_DOWN
 }
 
+enum NotificationType {
+  FOLLOW
+  READING_LIST_SAVED
+  COMMENT
+  REPLY
+  MENTION
+  VOTE_DISCUSSION
+  VOTE_COMMENT
+  WEEKLY_DIGEST
+}
+
 enum ColorMode {
   LIGHT
   DARK
@@ -94,26 +105,29 @@ model User {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
-  otpVerifications  OtpVerification[]
-  refreshTokens     RefreshToken[]
-  userInterests     UserInterest[]
-  userFields        UserField[]
-  searchHistories   SearchHistory[]
-  savedPapers       SavedPaper[]
-  readingLists      ReadingList[]
-  discussions       Discussion[]
-  comments          Comment[]
-  discussionVotes   DiscussionVote[]
-  commentVotes      CommentVote[]
-  followers         Follows[]          @relation("follower")
-  followings        Follows[]          @relation("following")
-  savedReadingLists SavedReadingList[]
-  readingHistories  ReadingHistory[]
-  highlights        Highlight[]
-  chatSessions      ChatSession[]
-  messageFeedbacks  MessageFeedback[]
-  chatFiles         ChatFile[]
-  settings          UserSettings?
+  otpVerifications   OtpVerification[]
+  refreshTokens      RefreshToken[]
+  userInterests      UserInterest[]
+  userFields         UserField[]
+  searchHistories    SearchHistory[]
+  savedPapers        SavedPaper[]
+  readingLists       ReadingList[]
+  discussions        Discussion[]
+  comments           Comment[]
+  discussionVotes    DiscussionVote[]
+  commentVotes       CommentVote[]
+  followers          Follows[]          @relation("follower")
+  followings         Follows[]          @relation("following")
+  savedReadingLists  SavedReadingList[]
+  readingHistories   ReadingHistory[]
+  highlights         Highlight[]
+  chatSessions       ChatSession[]
+  messageFeedbacks   MessageFeedback[]
+  chatFiles          ChatFile[]
+  settings           UserSettings?
+  deviceFcmTokens    DeviceFcmToken[]
+  notifications      Notification[]     @relation("recipient")
+  actedNotifications Notification[]     @relation("actor")
 
   @@unique([providerId])
   @@index([email])
@@ -159,9 +173,9 @@ model Interest {
   name   String  @unique
   custom Boolean @default(false)
 
-  users            UserInterest[]
-  recommendationInterests  RecommendationInterest[]
-  discussionTopics DiscussionTopic[]
+  users                   UserInterest[]
+  recommendationInterests RecommendationInterest[]
+  discussionTopics        DiscussionTopic[]
 
   @@index([name])
 }
@@ -581,6 +595,39 @@ model UserSettings {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   recommendationInterests RecommendationInterest[]
+}
+
+model DeviceFcmToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  token     String
+  deviceId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  recipientId String           @db.Uuid
+  actorId     String?          @db.Uuid
+  type        NotificationType
+  isRead      Boolean          @default(false)
+  jobId       String?          @unique
+  metadata    Json
+  createdAt   DateTime         @default(now())
+
+  recipient User  @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User? @relation("actor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId])
+  @@index([recipientId, isRead])
+  @@index([recipientId, createdAt])
 }

@@ -225,9 +225,11 @@ export class DiscussionsController {
     @Param() { id }: IdDto,
     @Body() voteTypeDto: VoteTypeDto,
   ) {
-    const userId = req.user!.id;
-    const { type } = voteTypeDto;
-    return this.discussionsService.vote({ discussionId: id, userId, type });
+    return this.discussionsService.vote({
+      discussionId: id,
+      user: req.user!,
+      type: voteTypeDto.type,
+    });
   }
 
   @ApiOperation({
