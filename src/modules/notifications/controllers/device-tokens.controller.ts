@@ -20,7 +20,7 @@ import {
 import { type Request } from 'express';
 
 import { HttpResponse } from 'src/common/types/api.types';
-import { DeviceTokensService } from '../device-tokens.service';
+import { DeviceTokensService } from '../services/device-tokens.service';
 import { DeviceTokenResDto } from '../dto/responses/device-token.res.dto';
 import { DeleteDeviceTokenReqDto } from '../dto/requests/delete-device-token.req.dto';
 import { RegisterDeviceTokenReqDto } from '../dto/requests/register-device-token.req.dto';
