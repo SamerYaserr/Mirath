@@ -98,10 +98,10 @@ export class NotificationCenterController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a single notification' })
   @ApiResponse({ 
-    status: HttpStatus.NO_CONTENT, 
+    status: HttpStatus.OK, 
     description: 'Notification deleted successfully.' 
   })
   async deleteOne(
@@ -112,10 +112,10 @@ export class NotificationCenterController {
   }
 
   @Delete()
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete all notifications' })
   @ApiResponse({ 
-    status: HttpStatus.NO_CONTENT, 
+    status: HttpStatus.OK, 
     description: 'All notifications deleted successfully.' 
   })
   async deleteAll(
