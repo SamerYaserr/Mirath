@@ -5,10 +5,12 @@ import { ConfigService } from '@nestjs/config';
 import { AppConfig } from '../../config/configuration';
 import { FirebaseModule } from './firebase/firebase.module';
 import { NotificationHandler } from './notification.handler';
-import { DeviceTokensService } from './device-tokens.service';
+import { DeviceTokensService } from './services/device-tokens.service';
 import { NotificationProcessor } from './notification.processor';
 import { PushNotificationService } from './push-notification.service';
 import { DeviceTokensController } from './controllers/device-tokens.controller';
+import { NotificationCenterService } from './services/notification-center.service';
+import { NotificationCenterController } from './controllers/notification-center.controller';
 import { DeviceTokensRepository } from './repositories/device-tokens.repository';
 import { NotificationsRepository } from './repositories/notifications.repository';
 
@@ -33,7 +35,8 @@ import { NotificationsRepository } from './repositories/notifications.repository
     NotificationProcessor,
     NotificationsRepository,
     DeviceTokensRepository,
+    NotificationCenterService,
   ],
-  controllers: [DeviceTokensController],
+  controllers: [DeviceTokensController, NotificationCenterController],
 })
 export class NotificationsModule {}
