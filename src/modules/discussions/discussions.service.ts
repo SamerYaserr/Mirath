@@ -138,19 +138,19 @@ export class DiscussionsService {
 
   async vote({
     discussionId,
-    userId,
+    user,
     type,
   }: VoteServiceArgs): Promise<HttpResponse> {
     const discussion = await this.discussionsRepository.findOne(
       discussionId,
-      userId,
+      user.id,
     );
     if (!discussion)
       throw new NotFoundException('No discussion found with this ID');
 
     await this.prisma.$transaction(async (tx) => {
       const existingVote = await this.discussionVotesRepository.findOne(
-        { userId, discussionId },
+        { userId: user.id, discussionId },
         tx,
       );
 
@@ -161,7 +161,7 @@ export class DiscussionsService {
           );
 
         await this.discussionVotesRepository.updateVoteType(
-          { userId, discussionId, type },
+          { userId: user.id, discussionId, type },
           tx,
         );
 
@@ -178,7 +178,7 @@ export class DiscussionsService {
         );
       } else {
         await this.discussionVotesRepository.create(
-          { userId, discussionId, type },
+          { userId: user.id, discussionId, type },
           tx,
         );
 
@@ -194,6 +194,21 @@ export class DiscussionsService {
         );
       }
     });
+
+    if (type === VoteType.UP && discussion.authorId !== user.id) {
+      try {
+        this.eventEmitter.emit(NOTIFICATION_EVENTS.VOTE_DISCUSSION, {
+          targetUserId: discussion.authorId,
+          actorUserId: user.id,
+          actorName: user.fullName,
+          actorPhotoUrl: user.photoUrl,
+          discussionId,
+          discussionTitle: discussion.title,
+        });
+      } catch (e) {
+        this.logger.error('Failed to emit vote discussion notification', e);
+      }
+    }
 
     return { message: 'Vote created successfully.' };
   }
