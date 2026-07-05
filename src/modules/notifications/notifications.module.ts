@@ -8,6 +8,7 @@ import { NotificationHandler } from './notification.handler';
 import { DeviceTokensService } from './services/device-tokens.service';
 import { NotificationProcessor } from './notification.processor';
 import { PushNotificationService } from './push-notification.service';
+import { NotificationsCronService } from './notifications.cron.service';
 import { DeviceTokensController } from './controllers/device-tokens.controller';
 import { NotificationCenterService } from './services/notification-center.service';
 import { NotificationCenterController } from './controllers/notification-center.controller';
@@ -35,6 +36,7 @@ import { NotificationsRepository } from './repositories/notifications.repository
     NotificationProcessor,
     NotificationsRepository,
     DeviceTokensRepository,
+    NotificationsCronService,
     NotificationCenterService,
   ],
   controllers: [DeviceTokensController, NotificationCenterController],
