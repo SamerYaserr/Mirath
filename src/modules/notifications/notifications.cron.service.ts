@@ -37,28 +37,34 @@ export class NotificationsCronService {
     let totalErrors = 0;
     const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
+    const allRecentPapers = await this.prisma.paper.findMany({
+      where: {
+        publishedAt: { gte: weekStart },
+      },
+    });
+
     for (const user of users) {
       try {
         const interestNames = user.userInterests.map((ui) => ui.interest.name);
 
-        const papers = await this.prisma.paper.findMany({
-          where: {
-            publishedAt: { gte: weekStart },
-            categories: { hasSome: interestNames },
-          },
-        });
+        const papers = allRecentPapers.filter((paper) =>
+          paper.categories.some((c) => interestNames.includes(c)),
+        );
 
         if (papers.length === 0) continue;
 
-        const topPaper = papers.reduce((best, paper) => {
+        let topPaper = papers[0]!;
+        let maxOverlap = -1;
+
+        for (const paper of papers) {
           const overlap = paper.categories.filter((c) =>
             interestNames.includes(c),
           ).length;
-          const bestOverlap = best.categories.filter((c) =>
-            interestNames.includes(c),
-          ).length;
-          return overlap > bestOverlap ? paper : best;
-        });
+          if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            topPaper = paper;
+          }
+        }
 
         await this.notificationsRepository.create({
           recipientId: user.id,
@@ -82,15 +88,15 @@ export class NotificationsCronService {
           },
         );
 
-        batchResponse.responses.forEach((result, index) => {
+        for (const [index, result] of batchResponse.responses.entries()) {
           if (
             result.error?.code === 'messaging/registration-token-not-registered'
           ) {
-            this.deviceTokensRepository.deleteById(
+            await this.deviceTokensRepository.deleteById(
               user.deviceFcmTokens[index]!.id,
             );
           }
-        });
+        }
 
         totalSent++;
       } catch (error) {
