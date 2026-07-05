@@ -69,11 +69,11 @@ export class NotificationHandler {
 
   @OnEvent(NOTIFICATION_EVENTS.VOTE_DISCUSSION)
   async handleVoteDiscussion(payload: VoteDiscussionPayload): Promise<void> {
-    await this.enqueue(NOTIFICATION_EVENTS.VOTE_DISCUSSION, payload);
+    await this.enqueue(NOTIFICATION_EVENTS.VOTE_DISCUSSION, payload, true);
   }
 
   @OnEvent(NOTIFICATION_EVENTS.VOTE_COMMENT)
   async handleVoteComment(payload: VoteCommentPayload): Promise<void> {
-    await this.enqueue(NOTIFICATION_EVENTS.VOTE_COMMENT, payload);
+    await this.enqueue(NOTIFICATION_EVENTS.VOTE_COMMENT, payload, true);
   }
 }

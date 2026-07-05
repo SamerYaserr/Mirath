@@ -296,9 +296,13 @@ export class NotificationProcessor extends WorkerHost {
 
     await this.sendPush(
       targetUserId,
-      `${actorName} upvoted your discussion`,
-      discussionTitle,
-      { type: NotificationType.VOTE_DISCUSSION, discussionId },
+      'New Upvote',
+      `${actorName} upvoted your discussion.`,
+      {
+        type: 'vote_discussion',
+        discussionId,
+        discussionTitle,
+      },
     );
   }
 
@@ -335,9 +339,14 @@ export class NotificationProcessor extends WorkerHost {
 
     await this.sendPush(
       targetUserId,
-      `${actorName} upvoted your comment`,
-      contentPreview,
-      { type: NotificationType.VOTE_COMMENT, discussionId, commentId },
+      'New Upvote',
+      `${actorName} upvoted your comment.`,
+      {
+        type: 'vote_comment',
+        discussionId,
+        commentId,
+        contentPreview,
+      },
     );
   }
 
