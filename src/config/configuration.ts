@@ -60,6 +60,13 @@ const envSchema = z.object({
 
   EXTERNAL_API_BASE_URL: z.string().min(1),
 
+  REDIS_HOST: z.string().min(1),
+  REDIS_PORT: z.coerce.number().int(),
+
+  FIREBASE_PROJECT_ID: z.string().min(1),
+  FIREBASE_CLIENT_EMAIL: z.string().email(),
+  FIREBASE_PRIVATE_KEY: z.string().min(1),
+
   SEED_PASSWORD: z
     .string()
     .min(8, 'Password must be at least 8 characters')

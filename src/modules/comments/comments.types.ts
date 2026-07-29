@@ -1,4 +1,4 @@
-import { VoteType } from '@prisma/client';
+import { User, VoteType } from '@prisma/client';
 import { CommentsRepository } from './repositories/comments.repository';
 
 export type UpdateVoteCounts = {
@@ -7,7 +7,7 @@ export type UpdateVoteCounts = {
 };
 
 export type CommentVoteServiceArgs = {
-  userId: string;
+  user: User;
   commentId: string;
   type: VoteType;
 };

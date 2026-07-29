@@ -230,7 +230,7 @@ export class UsersController {
   @ApiBadRequestResponse({ description: 'You cannot follow yourself.' })
   @ApiUnauthorizedResponse({ description: 'User not logged in.' })
   follow(@Req() req: Request, @Param() { id }: IdDto) {
-    return this.usersService.follow(req.user!.id, id);
+    return this.usersService.follow(req.user!, id);
   }
 
   @Delete(':id/follow')

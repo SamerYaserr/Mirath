@@ -1,4 +1,4 @@
-import { VoteType } from '@prisma/client';
+import { User, VoteType } from '@prisma/client';
 import { SortType } from './dto/requests/get-discussions.req.dto';
 import { DiscussionsRepository } from './repositories/discussions.repository';
 import { CreateCommentDto } from './dto/requests/create-comment.req.dto';
@@ -35,7 +35,11 @@ export type UpdateVoteTypeArgs = {
   type: VoteType;
 } & DiscussionVotesPK;
 
-export type VoteServiceArgs = UpdateVoteTypeArgs;
+export type VoteServiceArgs = {
+  discussionId: string;
+  type: VoteType;
+  user: User;
+}
 
 export type CreateCommentServiceArgs = {
   dto: CreateCommentDto;

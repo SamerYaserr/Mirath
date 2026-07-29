@@ -15,6 +15,7 @@
 - [AI Chatbot](#ai-chatbot)
 - [Search System](#search-system)
 - [Background Processes](#background-processes)
+- [Push Notification System](#push-notification-system)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Environment Variables](#environment-variables)
@@ -39,25 +40,29 @@ Mirath serves as a unified hub where researchers can:
 - **Chat with an AI assistant** that supports text, image, and voice messages with real-time SSE-streamed responses
 - **Stay updated** through a personalized activity feed aggregating events from followed researchers
 - **Search globally** across papers, discussions, researchers, and reading lists from a single endpoint
+- **Stay notified** through push (FCM) and in-app notifications for new followers, replies, @mentions, upvotes, and a weekly research digest; fully configurable per-notification-type preferences
+- **Customize** the experience with granular appearance, feed, and privacy settings accessible through a dedicated settings API
 
 ---
 
 ## Tech Stack
 
-| Layer          | Technology                                                     |
-| -------------- | -------------------------------------------------------------- |
-| Runtime        | Node.js, TypeScript 5 (ES2023, strict mode)                    |
-| Framework      | NestJS 11                                                      |
-| Database       | PostgreSQL 15                                                  |
-| ORM            | Prisma 7 with `@prisma/adapter-pg` connection pooling          |
-| Authentication | JWT (access + refresh + reset), Google OAuth 2.0, bcrypt       |
-| Email          | Nodemailer + Handlebars templates via `@nestjs-modules/mailer` |
-| File Storage   | Cloudinary v2                                                  |
-| API Docs       | `@nestjs/swagger` + Scalar UI                                  |
-| Logging        | Winston + `winston-daily-rotate-file` + `nest-winston`         |
-| Scheduling     | `@nestjs/schedule`                                             |
-| Validation     | `class-validator` + `class-transformer` + Zod                  |
-| Dev Tooling    | ESLint, Prettier, Faker.js, `cross-env`, `tsx`                 |
+| Layer              | Technology                                                     |
+| ------------------ | -------------------------------------------------------------- |
+| Runtime            | Node.js, TypeScript 5 (ES2023, strict mode)                    |
+| Framework          | NestJS 11                                                      |
+| Database           | PostgreSQL 15                                                  |
+| ORM                | Prisma 7 with `@prisma/adapter-pg` connection pooling          |
+| Authentication     | JWT (access + refresh + reset), Google OAuth 2.0, bcrypt       |
+| Email              | Nodemailer + Handlebars templates via `@nestjs-modules/mailer` |
+| File Storage       | Cloudinary v2                                                  |
+| Push Notifications | Firebase Admin SDK (`firebase-admin`)                          |
+| Job Queue          | BullMQ + `@nestjs/bullmq`                                      |
+| API Docs           | `@nestjs/swagger` + Scalar UI                                  |
+| Logging            | Winston + `winston-daily-rotate-file` + `nest-winston`         |
+| Scheduling         | `@nestjs/schedule`                                             |
+| Validation         | `class-validator` + `class-transformer` + Zod                  |
+| Dev Tooling        | ESLint, Prettier, Faker.js, `cross-env`, `tsx`                 |
 
 ---
 
@@ -89,6 +94,8 @@ NestJS App (port 3000)
   ├── InterestsModule       <- Interest taxonomy + custom interests
   ├── MailModule            <- Transactional email (OTP, welcome)
   ├── CloudinaryModule      <- File upload/delete abstraction
+  ├── UserSettingsModule    <- Appearance, account, feed, notification prefs, privacy
+  ├── NotificationsModule   <- FCM push, in-app notification center, BullMQ processor
   ├── HealthModule          <- Health checks and service readiness
   └── PrismaModule          <- Global database service (pooled)
         │
@@ -116,18 +123,21 @@ The schema is fully managed by Prisma migrations. Below is a comprehensive summa
 
 ### Enumerations
 
-| Enum               | Values                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `UserStatus`       | `PENDING_VERIFICATION`, `ONBOARDING`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`, `BANNED` |
-| `Role`             | `USER`, `ADMIN`                                                                      |
-| `LevelOfEducation` | `HIGH_SCHOOL`, `UNDERGRADUATE`, `GRADUATE`                                           |
-| `OtpPurpose`       | `REGISTER`, `RESET_PASSWORD`, `EMAIL_CHANGE`                                         |
-| `VoteType`         | `UP`, `DOWN`                                                                         |
-| `HighlightColor`   | `YELLOW`, `GREEN`, `BLUE`, `PURPLE`, `PINK`, `RED`                                   |
-| `MessageRole`      | `USER`, `ASSISTANT`                                                                  |
-| `MessageType`      | `TEXT`, `IMAGE`, `AUDIO`                                                             |
-| `AttachmentType`   | `IMAGE`, `AUDIO`                                                                     |
-| `FeedbackType`     | `THUMBS_UP`, `THUMBS_DOWN`                                                           |
+| Enum               | Values                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `UserStatus`       | `PENDING_VERIFICATION`, `ONBOARDING`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`, `BANNED`                              |
+| `Role`             | `USER`, `ADMIN`                                                                                                   |
+| `LevelOfEducation` | `HIGH_SCHOOL`, `UNDERGRADUATE`, `GRADUATE`                                                                        |
+| `OtpPurpose`       | `REGISTER`, `RESET_PASSWORD`, `EMAIL_CHANGE`                                                                      |
+| `VoteType`         | `UP`, `DOWN`                                                                                                      |
+| `HighlightColor`   | `YELLOW`, `GREEN`, `BLUE`, `PURPLE`, `PINK`, `RED`                                                                |
+| `MessageRole`      | `USER`, `ASSISTANT`                                                                                               |
+| `MessageType`      | `TEXT`, `IMAGE`, `AUDIO`                                                                                          |
+| `AttachmentType`   | `IMAGE`, `AUDIO`                                                                                                  |
+| `FeedbackType`     | `THUMBS_UP`, `THUMBS_DOWN`                                                                                        |
+| `NotificationType` | `FOLLOW`, `READING_LIST_SAVED`, `COMMENT`, `REPLY`, `MENTION`, `VOTE_DISCUSSION`, `VOTE_COMMENT`, `WEEKLY_DIGEST` |
+| `ColorMode`        | `LIGHT`, `DARK`, `SYSTEM`                                                                                         |
+| `FontSize`         | `SMALL`, `MEDIUM`, `LARGE`, `EXTRA_LARGE`                                                                         |
 
 ### Models
 
@@ -192,6 +202,20 @@ The schema is fully managed by Prisma migrations. Below is a comprehensive summa
 | `MessageAttachment` | `messageId`, `type`, `url`, `mimeType`, `sizeBytes`, `durationSeconds?` |                                                                 |
 | `MessageFeedback`   | `messageId`, `userId`, `type`                                           | Thumbs up/down; toggleable and updatable                        |
 | `ChatFile`          | `userId`, `sessionId?`, `url`, `mimeType`                               | Staging table for uploads before they are attached to a message |
+
+**User Settings**
+
+| Model                    | Key Fields                                                                                                                                                            | Notes                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `UserSettings`           | `userId`, `colorMode`, `defaultFontSize`, `defaultReadingListVisibility`, `annotationHighlightColors[]`, 6 notification booleans, 4 privacy booleans, 2 feed booleans | 1:1 with `User`; auto-upserted on first access; defaults match schema      |
+| `RecommendationInterest` | `(settingsId, interestId)` composite PK                                                                                                                               | Separate from `UserInterest`; used exclusively for AI/feed recommendations |
+
+**Notifications**
+
+| Model            | Key Fields                                                                         | Notes                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `DeviceFcmToken` | `userId`, `token`, `deviceId?`                                                     | Unique on `(userId, token)`; indexed on `updatedAt` for stale-token pruning after FCM failure |
+| `Notification`   | `recipientId`, `actorId?`, `type`, `isRead`, `jobId?` (unique), `metadata (JSONB)` | `jobId` maps to BullMQ job ID for idempotent delivery; actor nullable for system events       |
 
 ---
 
@@ -333,6 +357,79 @@ The schema is fully managed by Prisma migrations. Below is a comprehensive summa
 | `POST`   | `/files`                                     | Pre-upload a file to the staging table before attaching it to a message. |
 | `POST`   | `/sessions/:id/messages/:messageId/feedback` | Submit or toggle thumbs-up/down feedback on an AI response.              |
 
+### User Settings: `/users/settings`
+
+All endpoints require Bearer authentication. Settings are auto-created with schema defaults on the first upsert.
+
+**Appearance**
+
+| Method  | Endpoint              | Description                                                                          |
+| ------- | --------------------- | ------------------------------------------------------------------------------------ |
+| `GET`   | `/appearance`         | Get current appearance and reading preferences (color mode, font, highlight colors). |
+| `PATCH` | `/appearance/display` | Update color mode (`LIGHT`/`DARK`/`SYSTEM`) and font size.                           |
+| `PATCH` | `/appearance/reading` | Update default reading list visibility and annotation highlight color palette.       |
+
+**Account**
+
+| Method   | Endpoint                        | Description                                                                              |
+| -------- | ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `PATCH`  | `/account/username`             | Change username (uniqueness-checked; current session preserved).                         |
+| `POST`   | `/account/email/request-change` | Initiate email change; sends OTP to the new address.                                     |
+| `POST`   | `/account/email/confirm-change` | Confirm email change with OTP (atomic DB write).                                         |
+| `PATCH`  | `/account/password`             | Update password; all other sessions revoked on success; FCM tokens cleared.              |
+| `DELETE` | `/account/linked/google`        | Unlink Google OAuth (requires a password to be set first to prevent lockout).            |
+| `GET`    | `/account/sessions`             | List all active sessions with a `isCurrent` marker.                                      |
+| `DELETE` | `/account/sessions`             | Revoke all sessions except the current one (logout all other devices).                   |
+| `POST`   | `/account/deactivate`           | Deactivate account (password required); clears FCM tokens and all sessions.              |
+| `POST`   | `/account/delete`               | Schedule permanent deletion in 30 days; sends a deletion-warning email; clears sessions. |
+
+**Feed and AI**
+
+| Method  | Endpoint          | Description                                                                           |
+| ------- | ----------------- | ------------------------------------------------------------------------------------- |
+| `GET`   | `/feed`           | Get feed and AI preferences (`showRecommendedPapers`, `hideAlreadyReadPapers`, etc.). |
+| `PATCH` | `/feed`           | Update feed and AI preferences.                                                       |
+| `GET`   | `/feed/interests` | Get research interests used for AI-powered paper recommendations.                     |
+| `PUT`   | `/feed/interests` | Replace research interests (full replace, not partial update).                        |
+
+**Notification Preferences**
+
+| Method  | Endpoint         | Description                                                                                            |
+| ------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET`   | `/notifications` | Get all notification preference toggles grouped into research, social, and system sections.            |
+| `PATCH` | `/notifications` | Update one or more toggles (partial update); `securityAlerts` is always `true` and cannot be disabled. |
+
+**Privacy and Data Export**
+
+| Method  | Endpoint                        | Description                                                                               |
+| ------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET`   | `/privacy`                      | Get privacy and visibility settings.                                                      |
+| `PATCH` | `/privacy`                      | Update privacy settings (enabling `isPrivateAccount` auto-disables `allowProfileSearch`). |
+| `POST`  | `/privacy/export/data`          | Initiate full account data export; user notified by email when ready (HTTP 202 accepted). |
+| `GET`   | `/privacy/export/reading-lists` | Download all reading lists as a JSON file attachment.                                     |
+| `GET`   | `/privacy/export/annotations`   | Download all highlights and notes as a JSON file attachment.                              |
+
+### Notifications: `/notifications` and `/users/notifications/tokens`
+
+**Notification Center**
+
+| Method   | Endpoint                      | Description                                               |
+| -------- | ----------------------------- | --------------------------------------------------------- |
+| `GET`    | `/notifications`              | Paginated list of the authenticated user's notifications. |
+| `GET`    | `/notifications/unread-count` | Count of unread notifications.                            |
+| `PATCH`  | `/notifications/read`         | Mark all notifications as read.                           |
+| `PATCH`  | `/notifications/:id/read`     | Mark a single notification as read.                       |
+| `DELETE` | `/notifications/:id`          | Delete a single notification.                             |
+| `DELETE` | `/notifications`              | Delete all notifications.                                 |
+
+**Device Token Management**
+
+| Method   | Endpoint                      | Description                                                           |
+| -------- | ----------------------------- | --------------------------------------------------------------------- |
+| `POST`   | `/users/notifications/tokens` | Register or refresh a device FCM token (upsert on `(userId, token)`). |
+| `GET`    | `/users/notifications/tokens` | List all registered FCM device tokens for the authenticated user.     |
+| `DELETE` | `/users/notifications/tokens` | Remove a specific device token by value.                              |
+
 ---
 
 ## Authentication and Security
@@ -407,14 +504,48 @@ Mirath implements two distinct and complementary search mechanisms.
 
 Mirath uses `@nestjs/schedule` for cron-based maintenance tasks:
 
-| Job                             | Description                                                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `cleanExpiredOtps`              | Deletes `OtpVerification` records past their `expiresAt` timestamp                                                  |
-| `cleanExpiredRefreshTokens`     | Prunes expired `RefreshToken` rows                                                                                  |
-| `cleanExpiredTemporarySessions` | Removes `ChatSession` records with `isTemporary = true` past `expiresAt`, cascading to all messages and attachments |
-| `cleanAbandonedChatFiles`       | Removes `ChatFile` staging records that were never attached to a message                                            |
+| Job                             | Description                                                                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cleanExpiredOtps`              | Deletes `OtpVerification` records past their `expiresAt` timestamp.                                                                                                                               |
+| `cleanExpiredRefreshTokens`     | Prunes expired `RefreshToken` rows.                                                                                                                                                               |
+| `cleanExpiredTemporarySessions` | Removes `ChatSession` records with `isTemporary = true` past `expiresAt`, cascading to all messages and attachments; also calls the external AI service to clean up its in-memory thread state.   |
+| `cleanAbandonedChatFiles`       | Removes `ChatFile` staging records that were never attached to a message.                                                                                                                         |
+| `handleWeeklyDigest`            | Runs every Monday at 08:00. Finds papers published in the last 7 days, matches them to each user's interests, persists a `WEEKLY_DIGEST` notification record, and sends an FCM push notification. |
+| `handleExpiredAccountDeletion`  | Runs every day at midnight. Permanently hard-deletes `User` records whose `scheduledDeletionAt` has passed (created when a user requests account deletion with a 30-day grace period).            |
 
 A standalone **paper export script** (`prisma/scripts/export-papers.ts`) cursor-paginates all `Paper` rows and writes batched JSON files to disk (40 papers per file), useful for backups or seeding fresh environments.
+
+---
+
+## Push Notification System
+
+Mirath delivers push notifications via **Firebase Cloud Messaging (FCM)** using the `firebase-admin` SDK, backed by a **BullMQ** async job queue for reliable, decoupled delivery.
+
+**Architecture**
+
+When a notifiable event occurs (a follow, a comment, a vote, etc.), the responsible service enqueues a job to the `notifications` BullMQ queue via `@nestjs/event-emitter`. The `NotificationProcessor` (`@Processor('notifications')`) picks up the job and:
+
+1. Checks the recipient's notification preferences from `UserSettings`; if the relevant toggle is disabled, delivery is skipped.
+2. Persists an in-app `Notification` record to the database using the BullMQ `jobId` as an idempotency key to prevent duplicates on retry.
+3. Fetches the recipient's registered `DeviceFcmToken` records and calls `firebase-admin`'s `sendEachForMulticast` to deliver the push.
+4. Automatically prunes any tokens that respond with `messaging/registration-token-not-registered`.
+
+**Supported notification event types**
+
+| Event                | Trigger                                           | Preference Flag             |
+| -------------------- | ------------------------------------------------- | --------------------------- |
+| `FOLLOW`             | A user starts following another                   | `notifyNewFollowers`        |
+| `READING_LIST_SAVED` | A user saves another's public reading list        | `notifyReadingListActivity` |
+| `COMMENT`            | A comment is posted on the user's discussion      | `notifyDiscussionReplies`   |
+| `REPLY`              | A reply is posted on the user's comment           | `notifyDiscussionReplies`   |
+| `MENTION`            | A user is `@mentioned` in a comment               | `notifyCommentMentions`     |
+| `VOTE_DISCUSSION`    | An upvote is cast on the user's discussion        | `notifyVotesOnContent`      |
+| `VOTE_COMMENT`       | An upvote is cast on the user's comment           | `notifyVotesOnContent`      |
+| `WEEKLY_DIGEST`      | Scheduled cron job; new papers matching interests | `notifyNewPapersInField`    |
+
+**Device token management**
+
+Clients register their FCM token via `POST /users/notifications/tokens`. Tokens are stored in `DeviceFcmToken` with a unique constraint on `(userId, token)` preventing duplicates. On each failed FCM delivery, stale tokens are cleaned up inline without a separate cron job.
 
 ---
 
@@ -572,11 +703,13 @@ mirath/
 │   │   ├── interests/         # Interest taxonomy + user interests
 │   │   ├── library/           # Saved papers, reading history, stats
 │   │   ├── mail/              # Email service + Handlebars templates
+│   │   ├── notifications/     # FCM push, BullMQ processor, in-app notification center
 │   │   ├── paper-annotations/ # XPath highlights, AI agent endpoints
 │   │   ├── papers/            # Catalog, search, save/unsave, in-paper search
 │   │   ├── prisma/            # Global PrismaService (pooled, event-logged)
 │   │   ├── reading-lists/     # List CRUD, paper management, save/unsave
 │   │   ├── search/            # Global + scoped search, history management
+│   │   ├── user-settings/     # Appearance, account, feed, notifications, privacy settings
 │   │   └── users/             # Profiles, follow graph, onboarding, sparse select
 │   ├── app.module.ts          # Root module composition
 │   └── main.ts                # Bootstrap, global middleware, Swagger setup
